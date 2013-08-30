@@ -1,0 +1,227 @@
+<H1>
+PCPGM RNA-Seq Differential Expression Report 
+</H1>
+
+<<id,echo=FALSE>>=
+HTML(paste("Batch: ",curr.batch,"<br> Author: Blanca Himes (blanca.himes@channing.harvard.edu)", sep=""))
+@
+
+Differential expression of genes and transcripts was obtained using cuffdiff (http://cufflinks.cbcb.umd.edu/):<br>
+<blockquote>
+cuffdiff -p 12 -b [ref_genome fa] -L [List of all sample conditions] -u [ref_gtf] [List of /tophat_out/accepted_hits.bam for each sample sorted by condition]
+</blockquote>
+
+Subsequently, the cummeRbund R package (http://compbio.mit.edu/cummeRbund/) was used to create plots and obtain the differentially expressed genes for all comparison groups as detailed below.
+<br>
+
+
+<H2>
+Overall Expression Characteristics
+</H2>
+
+<<expression.dist.plot,echo=FALSE,results=hide,fig=FALSE>>=
+#Plot distribution of expression levels for each sample:
+for (i in c(1:length(features))){
+   f = features[i]
+   png(paste("Expression_Distribution_",f,".png",sep=""), width=6, height=4, units="in", res=200)
+   print(csDensity(get(f)(cuff_data)))
+   dev.off()
+   png(paste("Expression_BoxPlot_Distribution_",f,".png",sep=""), width=6, height=4, units="in", res=200)
+   print(csBoxplot(get(f)(cuff_data), replicates=TRUE))
+   dev.off()
+   png(paste("Expression_Sample_Dendrogram_",f,".png",sep=""), width=7, height=6, units="in", res=200)
+   par(mai=c(2,0.5,0.5,0.5))
+   print(csDendro(get(f)(cuff_data), replicates=TRUE))
+   dev.off()
+   png(paste("SCVPlot_",f,".png",sep=""), width=7, height=6, units="in", res=200)
+   par(mai=c(2,0.5,0.5,0.5))
+   print(fpkmSCVPlot(get(f)(cuff_data)))
+   dev.off()
+   png(paste("MDS_Plot_",f,".png",sep=""), width=7, height=6, units="in", res=150)
+   par(mai=c(2,0.5,0.5,0.5))
+   print(MDSplot(genes(cuff_data), replicates=T))
+   dev.off()
+   HTML(paste("<OBJECT data=\"Expression_Distribution_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+   HTML(paste("<OBJECT data=\"Expression_BoxPlot_Distribution_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+   HTML(paste("<OBJECT data=\"Expression_Sample_Dendrogram_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+   HTML(paste("<OBJECT data=\"SCVPlot_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+   HTML(paste("<OBJECT data=\"MDS_Plot_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+   }
+@
+
+
+<<expression.corr.plots,echo=FALSE,results=hide,fig=FALSE>>=
+#Get all pairwise comparisons possible
+comparisons=NULL
+N=length(conditions)
+for (i in c(1:(N-1))){
+	for (j in c((i+1):N)){
+		comparisons = c(comparisons, list(c(conditions[i], conditions[j])))
+	}
+}
+
+
+#Expression correlation and volcano plots per condition and per feature type
+for (j in c(1:length(comparisons))){
+   comp = comparisons[[j]]
+   for (i in c(1:length(features))){
+      f = features[i]
+      HTML(paste("<H2>\n ",comp[1]," vs. ",comp[2]," Differential Expression Results </H2>\n", sep=""))
+      png(paste(comp[1],"_vs_",comp[2],"_",f,"_Expression_Scatterplot.png",sep=""), width=3, height=3, units="in", res=200)
+      print(csScatter(get(f)(cuff_data), comp[1], comp[2], smooth=TRUE))
+      dev.off()
+      png(paste(comp[1],"_vs_",comp[2],"_",f,"_Expression_Volcanoplot.png",sep=""), width=5, height=4, units="in", res=200)
+      print(csVolcano(get(f)(cuff_data), comp[1], comp[2], alpha=0.05, showSignificant=TRUE))
+      dev.off()
+      HTML(paste("<OBJECT data=\"",comp[1],"_vs_",comp[2],"_",f,"_Expression_Scatterplot.png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+      HTML(paste("<OBJECT data=\"",comp[1],"_vs_",comp[2],"_",f,"_Expression_Volcanoplot.png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+   }
+}
+@
+
+
+<H2>
+Housekeeping Gene Expression
+</H2>
+
+<<house.results.plots,echo=FALSE,results=hide,fig=FALSE>>=
+if (ref.genome == "hg19") {
+	house <- c("ACTB", "RPL19", "GAPDH", "GABARAP", "B2M")
+} else if (ref.genome == "mm10") {
+	house <- c("Actb", "Gapdh",  "B2m", "Rpl19", "Gabarap")
+} else if (ref.genome == "Zv9") {
+	house <- c("actb1", "rpl19", "gapdh", "gabarapa", "b2m")
+} else {
+	house <- NULL
+}
+for (j in c(1:length(house))){
+	gene = house[j]
+	cuff_gene = try(getGene(cuff_data, gene))
+	if (class(cuff_gene) != "try-error") {
+		if (length(cuff_gene) > 0){
+			if ("HIDATA" %in% fpkm(cuff_gene)$quant_status) {
+				HTML(paste(gene, " was excluded by cuffdiff because over 1,000,000 fragments mapped to it.\n", sep=""))
+			} else {
+				#HTML(paste("<H3>\n Differential Expression Results for ",gene," </H3>\n", sep=""))
+				for (i in c(1:length(all.features))){
+					f = all.features[i]
+					if (f == "genes"){
+						print(c(gene, f))
+						png(paste("Expression_Barplot_",gene,".png",sep=""), width=4, height=4, units="in", res=200)
+						print(expressionBarplot(cuff_gene, replicates=TRUE))
+						dev.off()
+						HTML(paste("<OBJECT data=\"Expression_Barplot_",gene,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+					} else {
+						if (length(get(f)(cuff_gene)) > 0){
+							png(paste("Expression_Barplot_",gene,"_",f,".png",sep=""), width=4, height=4, units="in", res=200)
+							print(expressionBarplot(get(f)(cuff_gene), replicates=TRUE))
+							dev.off()
+							HTML(paste("<OBJECT data=\"Expression_Barplot_",gene,"_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+						}
+					}
+				}
+			}
+		}
+	}
+}
+@
+
+
+<H2>
+Differentially Expressed Genes
+</H2>
+
+Differentially expressed genes were selected with the diffData() function in cummeRbund for comparison groups of interest. The alpha threshold to establish significance was 0.05, and multiple comparisons correction was performed using the Benjamini-Hochberg approach for the entire dataset at once as implemented in Cufflinks.
+
+<<significant.results,echo=FALSE,results=hide>>=
+#Get differentially expressed genes per condition:
+gene_features <- annotation(genes(cuff_data))
+all_sig_genes <- data.frame()
+for (j in c(1:length(comparisons))){
+	comp = comparisons[[j]]
+	HTML(paste("<H3><br> Significantly Differentially Expressed Genes for ", comp[1], " vs. ", comp[2], "<br></H3>", sep=""))
+	sig_gene_data <-subset(diffData(genes(cuff_data), comp[1], comp[2]), significant=="yes")
+	all_sig_genes = c(all_sig_genes, sig_gene_data$gene_id)
+	sig_gene_data_anno <- merge(sig_gene_data, gene_features[,c(1,4,5)], by="gene_id")
+	gene.fpkm <- fpkm(genes(cuff_data))
+	sig_gene_data_fpkm <- merge(sig_gene_data, gene.fpkm, by="gene_id")
+	write.table(sig_gene_data_anno, file=paste(path.start,"/",curr.batch,"_DE_Report/",curr.batch,"_Significant_DE_genes_", comp[1], "_vs_", comp[2], ".txt", sep=""), row.names=FALSE, quote=FALSE)
+	write.table(sig_gene_data_fpkm, file=paste(path.start,"/",curr.batch,"_DE_Report/",curr.batch,"_Significant_DE_gene_fpkm_", comp[1], "_vs_", comp[2], ".txt", sep=""), row.names=FALSE, quote=FALSE)
+	HTML(paste("Saved results in file ", curr.batch,"_Significant_DE_genes_", comp[1], "_vs_", comp[2], ".txt", sep=""))
+	HTML(paste("Full fpkm details in file ", curr.batch,"_Significant_DE_gene_fpkm_", comp[1], "_vs_", comp[2], ".txt", sep=""))
+	}
+@
+
+<H3>
+Heatmap of All Differentially Expressed Genes
+</H3>
+<<significant.results.heatmap,echo=FALSE,results=hide,fig=FALSE>>=
+#Make heatmap plot with *all* significant DE genes for any comparison groups
+top_cuff_genes <- unique(all_sig_genes)
+top_genes_with_loc <- subset(gene_features[,c(1,4,5)], gene_id %in% top_cuff_genes)
+write.table(top_genes_with_loc, file=paste(path.start,"/",curr.batch,"_DE_Report/",curr.batch,"_Significant_DE_gene_list.txt", sep=""), col.names=FALSE, row.names=FALSE, quote=FALSE)
+cuff_top_gene_set <- getGenes(cuff_data, top_cuff_genes)
+png("HeatMap_TopGenes.png", width=5, height=5, units="in", res=180)
+par(mai=c(2,0.5,0.5,0.5))
+print(csHeatmap(cuff_top_gene_set, cluster = "row", replicates=TRUE, labRow=F))
+dev.off()
+HTML(paste("<OBJECT data=\"HeatMap_TopGenes.png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+@
+
+<H3>
+Number of Differentially Expressed Genes For All Groups Compared
+</H3>
+<<significant.gene.overview,echo=FALSE,results=hide,fig=FALSE>>=
+png("Number_of_Significant_Genes.png", width=5, height=5, units="in", res=180)
+print(sigMatrix(cuff_data, level='genes', alpha=0.05))
+dev.off()
+HTML(paste("<OBJECT data=\"Number_of_Significant_Genes.png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+@
+
+<H2>
+Individual Gene Expression Plots for Top Differentially Expressed Genes
+</H2>
+Plots include all sample groups from the dataset and differentially expressed genes were selected across all comparisons made. If there are 50 or less significant genes, then all were plotted. Otherwise, the top 50 were selected. Results for remaining genes can be found in individual spreadsheets.
+
+<<significant.results.plots,echo=FALSE,results=hide,fig=FALSE>>=
+#Get CuffGeneSet for all DE genes in all groups
+if (length(top_cuff_genes) > 50) {
+	all_gene_DE_data <- diffData(genes(cuff_data))
+	sig_gene_data <- subset(all_gene_DE_data, gene_id %in% top_cuff_genes)
+	sig_gene_data.ordered <- sig_gene_data[order(sig_gene_data$q_value), ]
+	top_cuff_genes_for_plot <- unique(sig_gene_data.ordered$gene_id)[1:50]
+	} else {
+	top_cuff_genes_for_plot <- top_cuff_genes
+}
+
+for (j in c(1:length(top_cuff_genes_for_plot))){
+   gene = top_cuff_genes_for_plot[j]
+   cuff_gene = try(getGene(cuff_data, gene))
+   if (class(cuff_gene) != "try-error") {
+	   if (length(cuff_gene) > 0){
+		  #HTML(paste("<H3>\n Differential Expression Results for ",gene," </H3>\n", sep=""))
+		  for (i in c(1:length(all.features))){
+			 f = all.features[i]
+		 if (f == "genes"){
+				print(c(gene, f))
+				png(paste("Expression_Barplot_",sub(",", "_", gene),".png",sep=""), width=4, height=4, units="in", res=200)
+				print(expressionBarplot(cuff_gene, replicates=TRUE))
+				dev.off()
+				HTML(paste("<OBJECT data=\"Expression_Barplot_",sub(",", "_", gene),".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+			 } else {
+				if (length(get(f)(cuff_gene)) > 0){
+				   png(paste("Expression_Barplot_",sub(",", "_", gene),"_",f,".png",sep=""), width=4, height=4, units="in", res=200)
+				   print(expressionBarplot(get(f)(cuff_gene), replicates=TRUE))
+				   dev.off()
+				   HTML(paste("<OBJECT data=\"Expression_Barplot_",sub(",", "_", gene),"_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+				}
+			 }
+		  }
+	   }
+	}
+}
+@
+
+
+</Body>
+</HTML>

@@ -370,7 +370,7 @@ def make_rnw_html(rnw_template, project_name, path_start, sample_names, ercc_mix
 	Creates Rnw report. The top of report is below and the rest concatenated from a separate text document (rnw_template).
 	Runs Sweave to create html document with R output (R2HTML library necessary for this)
 	"""
-	outp = open(path_start+project_name+"_HtmlRnaSeqReport.Rnw", "w")
+	outp = open(path_start+project_name+"_QC_RnaSeqReport.Rnw", "w")
 	outp.write("<HTML>\n")
 	outp.write("<Head>\n")
 	outp.write("<Title>\n")
@@ -391,7 +391,7 @@ def make_rnw_html(rnw_template, project_name, path_start, sample_names, ercc_mix
 	outp.write("library.type=\""+library_type+"\"\n")
 	outp.write(rnw_template)
 	outp.close()
-	subprocess.call("cd "+path_start+"; echo \"library(R2HTML); Sweave('"+project_name+"_HtmlRnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore", shell=True)
+	subprocess.call("cd "+path_start+"; echo \"library(R2HTML); Sweave('"+project_name+"_QC_RnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore", shell=True)
 
 
 def main(project_name, sample_info_file, path_start):
@@ -407,17 +407,17 @@ def main(project_name, sample_info_file, path_start):
 	Current ref_genome choices: hg19, mm10
 	Current library_type choices: PE, SE, DGE, SPE
 	"""
-	new_dir = path_start+project_name+"_Alignment_QC_Report/"
+	new_dir = path_start+project_name+"/"+project_name+"_Alignment_QC_Report/"
 	if not os.path.exists(new_dir):
 		os.makedirs(new_dir)
 
-	#Get dictionary of sample info. Fields: {customer_id: [gigpad_id, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type]}
+	#Get list of sample info. Fields: [customer_id, gigpad_id, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type]
 	runs = get_sample_info(sample_info_file)
-	sample_names = map(lambda x: x[0], runs.values())
-	sample_paths = map(lambda x: path_start+x[5]+"/"+x[0]+"/", runs.values())
-	ercc_mixes = map(lambda x: x[3], runs.values())
-	ref_genome_list = map(lambda x: x[7], runs.values())
-	library_type_list = map(lambda x: x[8], runs.values())
+	sample_names = map(lambda x: x[0], runs)
+	sample_paths = map(lambda x: path_start+x[6]+"/"+x[0]+"/", runs)
+	ercc_mixes = map(lambda x: x[4], runs)
+	ref_genome_list = map(lambda x: x[8], runs)
+	library_type_list = map(lambda x: x[8], runs)
 	#Check whether all samples are of same reference genome
 	if False in map(lambda y: y==ref_genome_list[0], ref_genome_list):
 		print "Make sure all samples in project are of the same reference genome"
@@ -447,7 +447,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Create HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project.")
 	parser.add_argument("--path_start", default="./", type=str, help="Directory path where PCPGM batch-level directories are located and report directory will be written (default=./)")
 	parser.add_argument("project_name", type=str, help="Name of project that all samples correspond to. Often a PCPGM batch, but it could correspond to a mixture of batches.")
-	parser.add_argument("samples_in", help="Path to a tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
+	parser.add_argument("samples_in", help="A tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
 	args = parser.parse_args()
 	main(args.project_name, args.samples_in, args.path_start)
 	

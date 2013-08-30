@@ -7,7 +7,7 @@ import argparse
 def get_sample_info(fin):
 	"""
 	Open tab-delimited txt file containing the following columns:
-	k:  customer_ID		| ID given to sample by customer
+	v0: customer_ID		| ID given to sample by customer
 	v1: gigpad_ID		| A sample ID that may differ from "Customer_ID" and that is associated with library prior to pooling
 	v2: lane			| Lane of sequencer where this sample's pool was run, needed to locate file output by HiSeq
 	v3: index			| Six digit sequence of the index for this library
@@ -23,10 +23,10 @@ def get_sample_info(fin):
 	c = f.read().split('\n')[1:]
 	if '' in c:
 		c.remove('')
-	d = {}
+	d = []
 	for x in c:
-		k = x.split('\t')[0]
-		gigpad = x.split('\t')[1]
+		customer_id = x.split('\t')[0]
+		gigpad_id = x.split('\t')[1]
 		lane = x.split('\t')[2]
 		index = x.split('\t')[3]
 		ercc_mix = x.split('\t')[4]
@@ -37,7 +37,7 @@ def get_sample_info(fin):
 		label = x.split('\t')[7]
 		ref_genome = x.split('\t')[8]
 		library_type = x.split('\t')[9]
-		d[k] = (gigpad, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type)
+		d.append([customer_id, gigpad_id, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type])
 	return d
 
 
@@ -162,7 +162,7 @@ def make_adapter_fa(index, index_dictionary, out_name, library_type):
 	outp.close()
 
 
-def main(sample_info_file, discovery, standard_trim):
+def main(sample_info_file, discovery, standard_trim, path_start):
 	"""
 	Dispatches an lsf job to locate fastq files that were output by Casava (GIGPAD A1 routine) and then:
 	1) Perform adapter trimming
@@ -176,14 +176,15 @@ def main(sample_info_file, discovery, standard_trim):
 	The directory structure below is specific to the Partners HPC cluster
 	"""
 	runs = get_sample_info(sample_info_file)
-	for curr_sample, k in runs.iteritems():
+	#for curr_sample, k in runs.iteritems():
+	for k in runs:
 		#Get sample information
-		gigpad, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type = k
+		curr_sample, gigpad, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type = k
 		
-		#Get reference files
+		#Get genome reference files
 		ref_index, fa, gtf, ref, ERCC_gtf = get_genome_ref_files(ref_genome)
 		
-		batch_dir = "/data/pcpgm/rnaseq/"+batch+"/"
+		batch_dir = path_start+batch+"/"
 		if not os.path.exists(batch_dir):
 			os.makedirs(batch_dir)
 
@@ -336,7 +337,8 @@ if __name__ == "__main__":
 	parser.add_argument("--discovery", default="yes", type=str, help="Should TopHat be run with options to discover novel transcripts (i.e. disable --no-novel-juncs --transcriptome-only)? "
 		"(options: yes, no; default=yes) "
 		"Note: the 'no' option only works with hg19 at the moment")
+	parser.add_argument("--path_start", default="./", type=str, help="Directory path where PCPGM batch-level directories are located and report directory will be written (default=./)")
 	parser.add_argument("samples_in", help="Path to a tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
 	args = parser.parse_args()
-	main(args.samples_in, args.discovery, args.standard_trim)
+	main(args.samples_in, args.discovery, args.standard_trim, args.path_start)
 

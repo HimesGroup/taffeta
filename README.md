@@ -58,14 +58,31 @@ The "--discovery no" option refers to using --no-novel-juncs and --transcriptome
 
 2) Create an HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project using rnaseq_align_and_qc_report.py:
 
-	python rnaseq_align_and_qc_report.py  project_name sample_info_file.txt
+	python rnaseq_align_and_qc_report.py project_name sample_info_file.txt
 	
 This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rnw document (main template is rnaseq_align_and_qc_report_Rnw_template.txt) that is converted into an html report using R/Sweave. The report and accompanying files are contained in
 
 	project_name_Alignment_QC_Report/
 
-3) Differential expression portion will be added shortly.
+3) Write and execute an lsf job to perform differential expression analysis for RNA-seq samples associated with a project using rnaseq_de.py
 
+	python rnaseq_de.py project_name sample_info_file.txt
 
+Differential expression analysis will be conducted with cuffdiff using cufflinks output files created after running rnaseq_align_and_qc.py. A merged transcriptome can be created using these files (option --merge_transcriptme yes), but the default is it to use the reference genome gtf file. If a particular order of conditions among samples is desired, it can be provided as a comma-separated list. Otherwise, all condition types according to the reference sample info file sorted in alphabetical order will be used.
+
+4) Create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all possible pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
+
+	python rnaseq_de_report.py project_name sample_info_file.txt
+
+This script creates an Rnw document (main template is rnaseq_de_report_Rnw_template.txt) that uses the cummeRbund R package to load and process the cuffdiff output files created in step 3). The report and accompanying files are contained in
+
+	project_name_DE_Report/
+	
+5) Create an IGV (http://www.broadinstitute.org/igv/) batch script that can be used to create PDF snapshots of raw reads for differentially expressed genes (or any list of genes read from a txt file) using:
+
+	python make_igv_script_file.py project_name sample_info_file.txt
+	
+The resulting file can be loaded from within IGV using File->Run Batch Script. 
+	
 ### acknowledgements
 Barbara Klanderman is the molecular biologist who led the establishment of PCPGM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PCPGM wet lab staff. Thank you to Ken Auerbach and Jonathan Jackson of the Enterprise Research Infrastructure & Services (ERIS) group at Partners Healthcare for their in-depth support with installing and testing the programs whose output taffeta requires. Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.

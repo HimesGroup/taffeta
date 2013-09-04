@@ -37,7 +37,9 @@ def main(project_name, sample_info_file, merge_transcriptome, bias_correction, c
 	2) Run cuffdiff for all samples from a project
 	"""
 	if path_start == "./":
-		path_start = os.getcwd()+"/"
+		path_start = os.getcwd()
+	if path_start[-1] != "/":
+		path_start = path_start+"/"
 	out_dir = path_start+project_name+"/"
 	if not os.path.exists(out_dir):
 		os.makedirs(out_dir)
@@ -62,9 +64,10 @@ def main(project_name, sample_info_file, merge_transcriptome, bias_correction, c
 	else:
 		library_type = library_type_list[0]
 	#Get condition list if none is supplied
-	if conditions == []:
+	if conditions == "":
 		conditions = sorted(set(condition_list))
 	else:
+		conditions = conditions.split(',')
 		for c in conditions:
 			if c not in condition_list:
 				print "A condition supplied does not match those in sample file: ", c
@@ -112,11 +115,11 @@ def main(project_name, sample_info_file, merge_transcriptome, bias_correction, c
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Write and execute an lsf job to run cuffdiff for RNA-seq samples associated with a PCPGM project.")
+	parser = argparse.ArgumentParser(description="Write and execute an lsf job to run cuffdiff for RNA-seq samples associated with a project.")
 	parser.add_argument("--path_start", default="./", type=str, help="Directory path where PCPGM batch-level directories are located and report directory will be written (default=./)")
 	parser.add_argument("--bias_correction", default="yes", type=str, help="Should cuffdiff be run with bias correction? (options: yes, no; default=yes)")
 	parser.add_argument("--merge_transcriptome", default="no", type=str, help="Should a merged transcriptome for samples be created for use with cuffdiff? (options: yes, no; default=no)")
-	parser.add_argument("--conditions", default=[], type=list, help="You can supply an ordered list of conditions. If none given, conditions will be determined from sample file.")
+	parser.add_argument("--conditions", type=str, default="", help="You can supply an ordered list of comma-separated conditions (e.g. cond1,cond2). If none given, conditions will be determined from sample file.")
 	parser.add_argument("project_name", type=str, help="Name of project that all samples correspond to. Often a PCPGM batch, but it could correspond to a mixture of batches.")
 	parser.add_argument("samples_in", help="A tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
 	args = parser.parse_args()

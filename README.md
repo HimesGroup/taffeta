@@ -68,4 +68,4 @@ This script uses the many output files created in step 1), converts these sample
 
 
 ### acknowledgements
-Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.
+Barbara Klanderman is the molecular biologist who led the establishment of PCPGM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PCPGM wet lab staff. Thank you to Ken Auerbach and Jonathan Jackson of the Enterprise Research Infrastructure & Services (ERIS) group at Partners Healthcare for their in-depth support with installing and testing the programs whose output taffeta requires. Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.

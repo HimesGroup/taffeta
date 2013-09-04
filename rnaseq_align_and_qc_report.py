@@ -79,6 +79,14 @@ def read_samtools_stats(fin, ref_genome):
 					curr_line[0] = curr_line[0]
 					rna_out.append( curr_line )
 				rrna = "NA"
+			if ref_genome == "Zv9":
+				if len(x.split('\t')[0].split('_')) > 1:
+					other += int(x.split('\t')[2])
+				elif "*" not in x:
+					curr_line = x.split('\t')[:-1]
+					curr_line[0] = curr_line[0]
+					rna_out.append( curr_line )
+				rrna = "NA"
 	rna_out.append(['Other','',str(other)])
 	rna_out.append(['rRNA','', str(rrna)])
 	return ercc_out, rna_out
@@ -145,7 +153,7 @@ def get_unique_reads(fin, library_type):
 		c.remove('')
 	#First row is R1. Second row is R2. 
 	read_numbers = map(lambda x: x.split(' '), c)
-	if library_type == "PE":
+	if library_type in ["PE", "SPE"]:
 		read_numbers = read_numbers[0]+read_numbers[1]
 	else:
 		read_numbers = read_numbers[0]
@@ -407,6 +415,10 @@ def main(project_name, sample_info_file, path_start):
 	Current ref_genome choices: hg19, mm10
 	Current library_type choices: PE, SE, DGE, SPE
 	"""
+	if path_start == "./":
+		path_start = os.getcwd()
+	if path_start[-1] != "/":
+		path_start = path_start+"/"
 	new_dir = path_start+project_name+"/"+project_name+"_Alignment_QC_Report/"
 	if not os.path.exists(new_dir):
 		os.makedirs(new_dir)
@@ -417,7 +429,7 @@ def main(project_name, sample_info_file, path_start):
 	sample_paths = map(lambda x: path_start+x[6]+"/"+x[0]+"/", runs)
 	ercc_mixes = map(lambda x: x[4], runs)
 	ref_genome_list = map(lambda x: x[8], runs)
-	library_type_list = map(lambda x: x[8], runs)
+	library_type_list = map(lambda x: x[9], runs)
 	#Check whether all samples are of same reference genome
 	if False in map(lambda y: y==ref_genome_list[0], ref_genome_list):
 		print "Make sure all samples in project are of the same reference genome"

@@ -42,6 +42,11 @@ def make_de_rnw_html(rnw_template, project_name, path_start, gtf, ref_genome):
 	
 
 def main(project_name, sample_info_file, path_start):
+	if path_start == "./":
+		path_start = os.getcwd()
+	if path_start[-1] != "/":
+		path_start = path_start+"/"
+
 	#Get list of sample info. Fields: [customer_id, gigpad_id, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type]
 	runs = get_sample_info(sample_info_file)
 	ref_genome_list = map(lambda x: x[8], runs)
@@ -59,8 +64,6 @@ def main(project_name, sample_info_file, path_start):
 		sys.exit()
 	rnw_in = open("rnaseq_de_report_Rnw_template.txt", "r")
 	rnw_template = rnw_in.read()
-	if path_start == "./":
-		path_start = os.getcwd()+"/"
 	make_de_rnw_html(rnw_template, project_name, path_start, gtf, ref_genome)	
 
 

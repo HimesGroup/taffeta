@@ -183,11 +183,15 @@ def main(sample_info_file, discovery, standard_trim, path_start):
 		
 		#Get genome reference files
 		ref_index, fa, gtf, ref, ERCC_gtf = get_genome_ref_files(ref_genome)
-		
+
+		#Set up batch and sample output directories
+		if path_start == "./":
+			path_start = os.getcwd()
+		if path_start[-1] != "/":
+			path_start = path_start+"/"		
 		batch_dir = path_start+batch+"/"
 		if not os.path.exists(batch_dir):
 			os.makedirs(batch_dir)
-
 		out_dir = batch_dir+curr_sample+"/"
 		if not os.path.exists(out_dir):
 			os.makedirs(out_dir)

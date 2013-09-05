@@ -15,7 +15,7 @@ def get_sorted_bam_files(runs, path_start):
 	sample_bam_list = []
 	for k in runs:
 		curr_sample, gigpad, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type = k
-		sample_bam_list.append(path_start+batch+"/"+curr_sample+"/tophat_out/"+curr_sample+"accepted_hits.sorted.bam")
+		sample_bam_list.append(path_start+batch+"/"+curr_sample+"/tophat_out/"+curr_sample+"_accepted_hits.sorted.bam")
 	return ",".join(sample_bam_list)
 
 
@@ -23,7 +23,7 @@ def get_snapshot_by_coordinates(runs, path_start, out_dir, transcript_name, tran
 	"""
 	For a given transcript identified by name and coordinates, load in a set of sorted bams files (from list of runs of loaded sample_info_file) and take PDF snapshots of raw reads
 	Tried several iterations of this as a loop, and the only one that didn't make IGV crash was to go to position first and then reload the bam files each time
-	Max number of samples tried in one window is ~25. Many more samples than this would likely not render properly.
+	Max number of samples tried in one window is ~95. Many more samples than this would likely not render properly.
 	"""
 	curr_chr = transcript_position.split(":")[0]
 	pos_range = map(lambda x: float(x), transcript_position.split(":")[1].split("-"))

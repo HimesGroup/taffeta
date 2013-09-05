@@ -11,7 +11,7 @@ This set of scripts was developed by Blanca Himes to analyze RNA-Seq and DGE dat
   * Perform differential expression of reads aligned to transcripts according to a given reference genome
   * Create a report that summarizes the differential expression results
 
-Several freely available software packages are used to perform most of these steps (see below). The pipeline is currently implemented in the Partners HealthCare, Inc. [High Performance Computing (HPC) environment](http://rc.partners.org/hpc), where jobs are dispatched using LSF. 
+Several freely available software packages are used to perform most of these steps (see below). The pipeline is currently implemented in the Partners HealthCare, Inc. [High Performance Computing (HPC)](http://rc.partners.org/hpc) environment, where jobs are dispatched using LSF. 
 
 ### dependencies
 * The Tuxedo suite of tools and various other programs should be installed: bowtie or bowtie2, tophat, cufflinks, cummerbund, fastqc, trimmomatic, samtools, bamtools, picardtools. 
@@ -44,16 +44,16 @@ PCPGM uses a rigid naming structure as is apparent in rnaseq_align_and_qc.py. Th
 > python rnaseq_align_and_qc.py --discovery no <i>sample_info_file.txt</i>
 
 The "--discovery no" option refers to using --no-novel-juncs and --transcriptome-only options with tophat. Following execution of this script, various output files will be written for each sample in directories structured as:
->
-	<i>batch_num</i>/<i>sample_name</i>/tophat_out
-	<i>batch_num</i>/<i>sample_name</i>/cufflinks_out
-	<i>batch_num</i>/<i>sample_name</i>/cufflinks_out_ERCC
-	<i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastqc
-	<i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastqc
-	<i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R1_fastqc
-	<i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc
-	<i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount
-	...
+> 
+ <i>batch_num</i>/<i>sample_name</i>/tophat_out <br>
+ <i>batch_num</i>/<i>sample_name</i>/cufflinks_out <br>
+ <i>batch_num</i>/<i>sample_name</i>/cufflinks_out_ERCC <br>
+ <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastqc <br>
+ <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastqc <br>
+ <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R1_fastqc <br>
+ <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc <br>
+ <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount <br>
+ ...
 
 2) Create an HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project using rnaseq_align_and_qc_report.py:
 

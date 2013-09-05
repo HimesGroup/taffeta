@@ -3,7 +3,7 @@ taffeta
 
 RNAseq/DGE analysis pipeline based primarily on Tuxedo Tools. 
 
-This set of scripts was developed by Blanca Himes to analyze RNA-Seq and DGE data at the Partners HealthCare, Inc. Center for Personalized Genetic Medicine (PCPGM). The goal is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
+This set of scripts was developed by Blanca Himes to analyze RNA-Seq and DGE data at the Partners HealthCare, Inc. Center for Personalized Genetic Medicine ([PCPGM](http://pcpgm.partners.org/)). The goal is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
   * Perform preliminary QC 
   * Align reads to a reference genome
   * Perform QC on aligned files

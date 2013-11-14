@@ -158,7 +158,8 @@ def make_adapter_fa(index, index_dictionary, out_name, library_type):
 		outp.write(">PrefixMultiplexingReadSequencingPrimer/2\nGTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT\n")
 	else:
 		outp.write(">PrefixMultiplexingReadSequencingPrimer\nACACTCTTTCCCTACACGACGCTCTTCCGATCT\n")
-	outp.write(">"+index_dictionary[index][0]+"\n"+index_dictionary[index][1]+"\n")
+	if index in index_dictionary:
+		outp.write(">"+index_dictionary[index][0]+"\n"+index_dictionary[index][1]+"\n")
 	outp.close()
 
 

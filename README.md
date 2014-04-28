@@ -36,7 +36,7 @@ Before running the pipeline, characteristics of a set of fastq files for samples
 							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end")
 ```
 
-PCPGM uses a rigid naming structure as is apparent in rnaseq_align_and_qc.py. The file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 
+PCPGM uses a rigid naming structure as is apparent in rnaseq_align_and_qc.py. The file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). Steps 5-7 are optional.
 
 ### workflow
 1) Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project using rnaseq_align_and_qc.py:

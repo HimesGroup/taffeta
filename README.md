@@ -107,7 +107,7 @@ Requires the existence of a chromosome size file, which can be made using fetchC
 
 > python rnaseq_gene_subset_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> <i>gene_list_file.txt</i>
 
-where the gene list file contains "gene_id" names matching those of the cuffdiff output file, one per line.
+where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of the cuffdiff output file, one per line.
 
 
 ### acknowledgements

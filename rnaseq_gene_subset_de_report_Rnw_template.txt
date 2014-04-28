@@ -1,0 +1,80 @@
+<H1>
+RNA-Seq Differential Expression Report For A Gene Set
+</H1>
+
+<<id,echo=FALSE>>=
+HTML(paste("Batch: ",curr.batch,"<br> Author: Blanca Himes (blanca.himes@channing.harvard.edu)", sep=""))
+@
+
+The cummeRbund R package (http://compbio.mit.edu/cummeRbund/) was used to create plots and obtain the differentially expressed genes based on a previously created database.
+<br>
+
+
+<<fpkm.subset,echo=FALSE,fig=FALSE>>=
+#Create subset of genes.fpkm_tracking file
+fpkm <- read.table(paste(path.start,"/genes.fpkm_tracking", sep=""), header=TRUE, as.is=TRUE)
+fpkm.subset <- subset(fpkm, gene_id %in% gene.set)
+write.table(fpkm.subset, file=paste(path.start,"/",curr.batch,"_",gene.set.name,"_DE_Report/",gene.set.name,".fpkm_tracking", sep=""), col.names=TRUE, row.names=FALSE, quote=FALSE)
+HTML(paste("Subset of fpkm details in file ", gene.set.name, ".fpkm_tracking", sep=""))
+@
+
+<H2>
+Heatmaps for Gene Set
+</H2>
+<<results.heatmap,echo=FALSE,results=hide,fig=FALSE>>=
+cuff_genes <- unique(gene.set)
+cuff_gene_set <- getGenes(cuff_data, cuff_genes)
+png(paste("HeatMap_", gene.set.name, ".png", sep=""), width=5, height=5, units="in", res=180)
+par(mai=c(2,0.5,0.5,0.5))
+print(csHeatmap(cuff_gene_set, cluster = "row", labRow=TRUE))
+dev.off()
+HTML(paste("<OBJECT data=\"HeatMap_", gene.set.name, ".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+png(paste("HeatMap_", gene.set.name, "_Replicates.png", sep=""), width=5, height=5, units="in", res=180)
+par(mai=c(2,0.5,0.5,0.5))
+print(csHeatmap(cuff_gene_set, cluster = "row", replicates=TRUE, labRow=TRUE))
+dev.off()
+HTML(paste("<OBJECT data=\"HeatMap_", gene.set.name, "_Replicates.png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+@
+
+<<DE.results.subset,echo=FALSE,fig=FALSE>>=
+#Create subset of genes.fpkm_tracking file
+gene.diff <- diffData(cuff_gene_set)
+write.table(gene.diff, file=paste(path.start,"/",curr.batch,"_",gene.set.name,"_DE_Report/",gene.set.name,"_Significant_DE_gene_info.txt", sep=""), col.names=TRUE, row.names=FALSE, quote=FALSE)
+HTML(paste("Differential expression test details in file ", gene.set.name, "_Significant_DE_gene_info.txt", sep=""))
+@
+
+<H2>
+Individual Gene Expression Plots for Genes in Set
+</H2>
+<<significant.results.plots,echo=FALSE,results=hide,fig=FALSE>>=
+for (j in c(1:length(cuff_genes))){
+   gene = cuff_genes[j]
+   cuff_gene = try(getGene(cuff_data, gene))
+   if (class(cuff_gene) != "try-error") {
+	   if (length(cuff_gene) > 0){
+		  #HTML(paste("<H3>\n Differential Expression Results for ",gene," </H3>\n", sep=""))
+		  for (i in c(1:length(all.features))){
+			 f = all.features[i]
+		 if (f == "genes"){
+				print(c(gene, f))
+				png(paste("Expression_Barplot_",sub(",", "_", gene),".png",sep=""), width=4, height=4, units="in", res=200)
+				print(expressionBarplot(cuff_gene, replicates=TRUE))
+				dev.off()
+				HTML(paste("<OBJECT data=\"Expression_Barplot_",sub(",", "_", gene),".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+			 } else {
+				if (length(get(f)(cuff_gene)) > 0){
+				   png(paste("Expression_Barplot_",sub(",", "_", gene),"_",f,".png",sep=""), width=4, height=4, units="in", res=200)
+				   print(expressionBarplot(get(f)(cuff_gene), replicates=TRUE))
+				   dev.off()
+				   HTML(paste("<OBJECT data=\"Expression_Barplot_",sub(",", "_", gene),"_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+				}
+			 }
+		  }
+	   }
+	}
+}
+@
+
+
+</Body>
+</HTML>

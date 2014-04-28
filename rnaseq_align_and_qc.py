@@ -50,8 +50,8 @@ def get_genome_ref_files(genome):
 	"""
 	if genome == "hg19":
 		ref_index = "/data/pcpgm/rnaseq/Indexes/hg19/hg19_ERCC"
-		fa = "/pub/genome_references/UCSC/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa"
-		gtf = "/pub/genome_references/UCSC/Homo_sapiens/UCSC/hg19/Annotation/Genes/genes.gtf"
+		fa = "/pub/genome_references/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa"
+		gtf = "/pub/genome_references/iGenomes/Homo_sapiens/UCSC/hg19/Annotation/Genes/genes.gtf"
 		ref = "/data/pcpgm/rnaseq/Indexes/hg19/refFlat.txt"
 		ERCC_gtf = "/data/pcpgm/rnaseq/Indexes/hg19/hg19_ERCC_tuxedo.gtf"
 	elif genome == "Zv9":
@@ -214,6 +214,7 @@ def main(sample_info_file, discovery, standard_trim, path_start):
 		outp.write("#BSUB -o "+job_name+"_%J.out\n")
 		outp.write("#BSUB -e "+job_name+"_%J.screen\n")
 		outp.write("#BSUB -R 'rusage[mem=24000]'\n")
+		outp.write("#BSUB -n 12\n")
 		
 		#Check whether unaligned fastq files that were processed by Casava are zipped and make local unzipped copies
 		if not os.path.isfile(local_R1):

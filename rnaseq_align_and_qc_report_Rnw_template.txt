@@ -212,7 +212,7 @@ print(xtable(sum.data, caption="Reference Genome Mapped Reads Summary", digits=t
 <<metrics.plot,echo=FALSE,results=hide,fig=FALSE>>=
 png(paste("Base_Type_",curr.batch,".png", sep=""), width=4, height=3, units="in", pointsize=6, res=300)
 par(mai=c(0.5,0.5,0.5,0.5))
-barplot(as.matrix(sum.data[c(14,12,13), , drop=FALSE])*100, beside=TRUE, ylim=c(0,100), col=c("red", "darkblue", "darkgreen"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Total Mapped Bases", names.arg=c(1:length(names(sum.data))))
+barplot(sapply(sum.data[c(14,12,13), ], as.numeric)*100, beside=TRUE, ylim=c(0,100), col=c("red", "darkblue", "darkgreen"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Total Mapped Bases", names.arg=c(1:length(names(sum.data))))
 legend("right", c("mRNA", "Intronic", "Intergenic"), fill=c("red", "darkblue", "darkgreen"), border=NA, bty="n", xpd=TRUE, inset=-0.17, cex=0.8)
 dev.off()
 HTML(paste("<OBJECT data=\"Base_Type_",curr.batch,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))

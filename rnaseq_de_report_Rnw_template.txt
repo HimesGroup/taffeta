@@ -33,10 +33,6 @@ for (i in c(1:length(features))){
    par(mai=c(2,0.5,0.5,0.5))
    print(csDendro(get(f)(cuff_data), replicates=TRUE))
    dev.off()
-   png(paste("SCVPlot_",f,".png",sep=""), width=7, height=6, units="in", res=200)
-   par(mai=c(2,0.5,0.5,0.5))
-   print(fpkmSCVPlot(get(f)(cuff_data)))
-   dev.off()
    png(paste("MDS_Plot_",f,".png",sep=""), width=7, height=6, units="in", res=150)
    par(mai=c(2,0.5,0.5,0.5))
    print(MDSplot(genes(cuff_data), replicates=T))
@@ -44,7 +40,6 @@ for (i in c(1:length(features))){
    HTML(paste("<OBJECT data=\"Expression_Distribution_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
    HTML(paste("<OBJECT data=\"Expression_BoxPlot_Distribution_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
    HTML(paste("<OBJECT data=\"Expression_Sample_Dendrogram_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
-   HTML(paste("<OBJECT data=\"SCVPlot_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
    HTML(paste("<OBJECT data=\"MDS_Plot_",f,".png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
    }
 @
@@ -163,9 +158,14 @@ write.table(top_genes_with_loc, file=paste(path.start,"/",curr.batch,"_DE_Report
 cuff_top_gene_set <- getGenes(cuff_data, top_cuff_genes)
 png("HeatMap_TopGenes.png", width=5, height=5, units="in", res=180)
 par(mai=c(2,0.5,0.5,0.5))
-print(csHeatmap(cuff_top_gene_set, cluster = "row", replicates=TRUE, labRow=F))
+print(csHeatmap(cuff_top_gene_set, cluster = "row", labRow=F))
 dev.off()
 HTML(paste("<OBJECT data=\"HeatMap_TopGenes.png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
+png("HeatMap_TopGenes_Replicates.png", width=5, height=5, units="in", res=180)
+par(mai=c(2,0.5,0.5,0.5))
+print(csHeatmap(cuff_top_gene_set, cluster = "row", replicates=TRUE, labRow=F))
+dev.off()
+HTML(paste("<OBJECT data=\"HeatMap_TopGenes_Replicates.png\" type=\"image/png\">\n</OBJECT>\n", sep=""))
 @
 
 <H3>

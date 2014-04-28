@@ -84,6 +84,7 @@ def main(project_name, sample_info_file, merge_transcriptome, bias_correction, c
 	outp.write("#BSUB -o "+job_name+"_%J.out\n")
 	outp.write("#BSUB -e "+job_name+"_%J.screen\n")
 	outp.write("#BSUB -R 'rusage[mem=24000]'\n")
+	outp.write("#BSUB -n 12'\n")
 
 	if merge_transcriptome == "yes":
 		#Create merged transcriptome with cuffmerge

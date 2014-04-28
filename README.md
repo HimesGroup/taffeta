@@ -96,6 +96,19 @@ The resulting output file:
 can be loaded from within IGV using File->Run Batch Script. Snapshots are saved to:
 
 > <i>project_name</i>/<i>project_name</i>_DE_Report/IGV_Plots/
+
+6) Create bigwig files of raw reads to be visualized on, e.g., the UCSC genome browser using:
+
+> python make_bigwig_files.py <i>project_name</i> <i>sample_info_file.txt</i>
 	
+Requires the existence of a chromosome size file, which can be made using fetchChromSizes.
+
+7) Create a report of differentially expressed results for a given set of genes of interest. 
+
+> python rnaseq_gene_subset_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> <i>gene_list_file.txt</i>
+
+where the gene list file contains "gene_id" names matching those of the cuffdiff output file, one per line.
+
+
 ### acknowledgements
 Barbara Klanderman is the molecular biologist who led the establishment of PCPGM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PCPGM wet lab staff. Thank you to Ken Auerbach and Jonathan Jackson of the Enterprise Research Infrastructure & Services (ERIS) group at Partners Healthcare for their in-depth support with installing and testing the programs whose output taffeta requires. Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.

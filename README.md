@@ -1,5 +1,5 @@
-taffeta
-=======
+taffeta - old version created for PPM
+=====================================
 
 RNAseq/DGE analysis protocol based primarily on Tuxedo Tools. 
 

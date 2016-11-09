@@ -49,9 +49,6 @@ def main(project_name, pheno_file, comp_file, path_start):
 		outp.write("s2c <- dplyr::select(s2c, sample = Sample, condition = Label)\n")
 		outp.write("s2c <- dplyr::mutate(s2c, path = kal_dirs)\n")
 		outp.write("s2c$sample <- paste(s2c$condition, '_', s2c$sample, sep='')\n")
-		outp.write("so <- sleuth_prep(s2c, ~ condition)\n")
-		outp.write("so <- sleuth_fit(so)\n")
-		outp.write("so <- sleuth_wt(so, cond)\n")
 
 		#append official gene symbols
 		outp.write("mart <- biomaRt::useMart(biomart = 'ENSEMBL_MART_ENSEMBL', dataset = 'hsapiens_gene_ensembl', host='www.ensembl.org')\n")

@@ -64,12 +64,12 @@ def main(project_name, pheno_file, comp_file, path_start):
 		outp.write("so <- sleuth_fit(so)\n")
 		outp.write("so <- sleuth_wt(so, which_beta = cond)\n")
 
-		#save down kallisto table - otherwise each sample's kallisto output is saved in a separate folder
+		#save all kallisto output as one table - kallisto itself had saved each sample's output in a separate folder
 		outp.write("kallisto_summary <- kallisto_table(so)\n")
 		outp.write("kallisto_summary <- merge(kallisto_summary, t2g, by.x='target_id', by.y='target_id')\n")		
 		outp.write("write.table(kallisto_summary, file=paste0(base_dir, '/sleuth_out/', project, '_', cond1, '_vs_', cond2, '_kallisto_output.txt'), row.names=FALSE, quote=FALSE)\n")
 		
-		#save RDS file for report made in separate python script
+		#save RDS file for sleuth report which can be made using rnaseq_de_report.py
 		outp.write("saveRDS(so, file = paste(base_dir, '/sleuth_out/so_', cond1, '_vs_', cond2, '.rds', sep=''))\n")
 		
 		#save down full sleuth results table

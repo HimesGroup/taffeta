@@ -52,7 +52,6 @@ def main(project_name, pheno_file, comp_file, path_start):
 
 		#append official gene symbols
 		outp.write("mart <- biomaRt::useMart(biomart = 'ENSEMBL_MART_ENSEMBL', dataset = 'hsapiens_gene_ensembl', host='www.ensembl.org')\n")
-		#outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='grch37.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')\n")
 		outp.write("t2g <- biomaRt::getBM(attributes = c('ensembl_transcript_id', 'ensembl_gene_id','external_gene_name'), mart = mart)\n")
 		outp.write("t2g <- dplyr::rename(t2g, target_id = ensembl_transcript_id,ens_gene = ensembl_gene_id, ext_gene = external_gene_name)\n")
 

@@ -1,0 +1,135 @@
+Total number of significant transcripts (qval <= 0.05) is:
+
+```{r, echo=FALSE}
+results_table <- sleuth_results(so, cond2)
+print(nrow(results_table[which(results_table$qval <= 0.05),]), row.names=FALSE)
+```
+
+Total number of transcripts that were tested is:
+
+```{r, echo=FALSE}
+print(nrow(results_table), row.names=FALSE)
+```
+
+Sleuth output for top 25 transcripts by pval
+
+```{r, echo=FALSE}
+results_table <- sleuth_results(so, cond2)
+results_table <- results_table[order(results_table$pval, decreasing=FALSE),]
+print(results_table[1:25, c("target_id", "pval", "qval", "b", "se_b", "mean_obs", "var_obs", "ens_gene", "ext_gene")], row.names=FALSE)
+```
+
+Heatmap for top 25 differentially expressed transcripts.  Expression scale represents log(TPM).
+
+```{r, echo=FALSE, fig.width=6, fig.height=8}
+transcripts <- intersect(k_curr$target_id, head(results_table$target_id, 25))
+plot_transcript_heatmap(so, transcripts, units = "tpm", trans = "log",
+  offset = 1)
+```
+
+Volcano plot
+
+```{r, echo=FALSE, warning=FALSE}
+plot_volcano(so, cond2)
+```
+
+PCA
+
+```{r, echo=FALSE}
+plot_pca(so, pc_x = 1L, pc_y = 2L, use_filtered = TRUE,
+  units = "est_counts", text_labels = TRUE, color_by = 'condition',
+  point_size = 3, point_alpha = 0.8)
+
+plot_pca(so, pc_x = 2L, pc_y = 3L, use_filtered = TRUE,
+  units = "est_counts", text_labels = TRUE, color_by = 'condition',
+  point_size = 3, point_alpha = 0.8)
+
+plot_pca(so, pc_x = 1L, pc_y = 3L, use_filtered = TRUE,
+  units = "est_counts", text_labels = TRUE, color_by = 'condition',
+  point_size = 3, point_alpha = 0.8)
+
+```
+
+Mean-variance relationship
+
+```{r, echo=FALSE, warning=FALSE}
+plot_mean_var(so, which_model = "full", point_alpha = 0.4,
+  point_size = 2, point_colors = c("gray32", "olivedrab"),
+  smooth_alpha = 1, smooth_size = 0.75, smooth_color = "hotpink4")
+```
+
+Q-Q plot
+
+```{r, echo=FALSE}
+plot_qq(so, cond2, test_type = "wt", which_model = "full",
+  sig_level = 0.1, point_alpha = 0.2, sig_color = "red",
+  highlight = NULL, highlight_color = "green", line_color = "olivedrab")
+```
+
+Sample Heatmap
+
+```{r, echo=FALSE, fig.width=10, fig.height=10}
+plot_sample_heatmap(so, use_filtered = TRUE, color_high = "white",
+  color_low = "green4", x_axis_angle = 50)
+```
+
+Boxplots for top 25 transcripts, as ranked by qval.  Note that y-axis scale may differ between plots; some transcripts have very low TPM.  
+
+There are two plots for each of these top 25 transcripts.  The first plot shows counts for all transcripts of the gene corresponding to the transcript in question; this plot is broken out into panels, one for each transcript of this gene.  The second plot shows counts for just the differentially expressed transcript in question. 
+
+```{r, echo=FALSE}
+genes1 <- head(na.omit(subset(results_table, !duplicated(ens_gene))), 25)$ens_gene
+genes2 <- head(na.omit(subset(results_table, !duplicated(ens_gene))), 25)$target_id
+
+for (i in 1:length(genes1)) {
+  curr_gene1 <- genes1[i]
+  curr_data1 <- kallisto_output[which(kallisto_output$ensembl_gene_id==curr_gene1),]
+  curr_data1 <- subset(curr_data1, select=c(target_id, tpm, condition, gene_symbol))
+  curr_data1$condition <- factor(curr_data1$condition) #, levels=c("Control_Baseline", "Asthma_Baseline"))
+  gene_symbol1 <- unique(curr_data1$gene_symbol)
+  
+  curr_gene2 <- genes2[i]
+  curr_data2 <- kallisto_output[which(kallisto_output$target_id==curr_gene2),]
+  curr_data2 <- subset(curr_data2, select=c(target_id, tpm, condition, gene_symbol))
+  curr_data2$condition <- factor(curr_data2$condition) #, levels=c("Control_Baseline", "Asthma_Baseline"))
+  gene_symbol2 <- unique(curr_data2$gene_symbol)
+  
+  plot1 <- ggplot(curr_data1, aes(x = condition, y = tpm, fill=condition)) + 
+    geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 
+    stat_boxplot(geom ='errorbar', color="grey18") + 
+    geom_jitter(size=0.8, width=0.2) + 
+    facet_wrap(~target_id) + 
+    guides(fill=FALSE) + 
+    theme_bw() +  
+    labs(title=gene_symbol1) + 
+    labs(x="condition") + labs(y="TPM") + 
+    theme(text = element_text(size=9), 
+          strip.text.x = element_text(size = 10), 
+          axis.text.x = element_text(angle = 90, hjust = 1, size=12),
+          axis.text.y = element_text(size=9),
+          title = element_text(size=12),
+          axis.title.x = element_text(size=12),
+          axis.title.y = element_text(size=12))
+  
+  plot2 <- ggplot(curr_data2, aes(x = condition, y = tpm, fill=condition)) + 
+    geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 
+    stat_boxplot(geom ='errorbar', color="grey18") + 
+    geom_jitter(size=0.8, width=0.2) + 
+    facet_wrap(~target_id) + 
+    guides(fill=FALSE) + 
+    theme_bw() +  
+    labs(title=gene_symbol1) + 
+    labs(x="condition") + labs(y="TPM") + 
+    theme(text = element_text(size=9), 
+          strip.text.x = element_text(size = 10), 
+          axis.text.x = element_text(angle = 90, hjust = 1, size=12),
+          axis.text.y = element_text(size=9),
+          title = element_text(size=12),
+          axis.title.x = element_text(size=12),
+          axis.title.y = element_text(size=12))
+  
+print(plot1)
+print(plot2)
+}
+
+```

@@ -1,9 +1,11 @@
 taffeta
 =======
 
-RNAseq/DGE analysis protocol based primarily on Tuxedo Tools. 
+RNAseq/DGE analysis protocols.
 
-This set of scripts was developed by Blanca Himes to analyze RNA-Seq and DGE data at the [Partners Personalized Medicine PPM](http://pcpgm.partners.org/). The goal is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
+Authors: Maya Shumyatcher, Blanca Himes.
+
+This set of scripts was initially developed to analyze RNA-Seq and DGE data at the [Partners Personalized Medicine PPM](http://pcpgm.partners.org/). The goal is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
   * Perform preliminary QC 
   * Align reads to a reference genome
   * Perform QC on aligned files

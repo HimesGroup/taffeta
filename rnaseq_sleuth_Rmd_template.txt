@@ -1,7 +1,7 @@
 Total number of significant transcripts (qval <= 0.05) is:
 
 ```{r, echo=FALSE}
-results_table <- sleuth_results(so, cond2)
+results_table <- sleuth_results(so, case)
 print(nrow(results_table[which(results_table$qval <= 0.05),]), row.names=FALSE)
 ```
 
@@ -11,10 +11,21 @@ Total number of transcripts that were tested is:
 print(nrow(results_table), row.names=FALSE)
 ```
 
+Model that was fit:
+Note that 'Intercept' is the control condition; Betas were computed for the test condition
+
+```{r, echo=FALSE}
+models(so)
+```
+
 Sleuth output for top 25 transcripts by pval
 
 ```{r, echo=FALSE}
-results_table <- sleuth_results(so, cond2)
+results_table <- sleuth_results(so, case)
+s_transc <- results_table$target_id #save down before string split b/c sleuth object has transcripts in original form
+results_table$target_id <- sapply(strsplit(as.character(results_table$target_id), '\\.'), '[[', 1) #if transcripts look like ENSMUST00000082421.1 - which would create problems
+results_table <- results_table[,which(!colnames(results_table) %in% c('ens_gene', 'ext_gene'))] #remove old gene names in case 'NA'
+results_table <- merge(results_table, genes, by.x='target_id', by.y='target_id') 
 results_table <- results_table[order(results_table$pval, decreasing=FALSE),]
 print(results_table[1:25, c("target_id", "pval", "qval", "b", "se_b", "mean_obs", "var_obs", "ens_gene", "ext_gene")], row.names=FALSE)
 ```
@@ -22,7 +33,7 @@ print(results_table[1:25, c("target_id", "pval", "qval", "b", "se_b", "mean_obs"
 Heatmap for top 25 differentially expressed transcripts.  Expression scale represents log(TPM).
 
 ```{r, echo=FALSE, fig.width=6, fig.height=8}
-transcripts <- intersect(k_curr$target_id, head(results_table$target_id, 25))
+transcripts <- intersect(k_transc, head(s_transc, 25))
 plot_transcript_heatmap(so, transcripts, units = "tpm", trans = "log",
   offset = 1)
 ```
@@ -30,7 +41,7 @@ plot_transcript_heatmap(so, transcripts, units = "tpm", trans = "log",
 Volcano plot
 
 ```{r, echo=FALSE, warning=FALSE}
-plot_volcano(so, cond2)
+plot_volcano(so, case)
 ```
 
 PCA
@@ -61,7 +72,7 @@ plot_mean_var(so, which_model = "full", point_alpha = 0.4,
 Q-Q plot
 
 ```{r, echo=FALSE}
-plot_qq(so, cond2, test_type = "wt", which_model = "full",
+plot_qq(so, case, test_type = "wt", which_model = "full",
   sig_level = 0.1, point_alpha = 0.2, sig_color = "red",
   highlight = NULL, highlight_color = "green", line_color = "olivedrab")
 ```
@@ -83,16 +94,16 @@ genes2 <- head(na.omit(subset(results_table, !duplicated(ens_gene))), 25)$target
 
 for (i in 1:length(genes1)) {
   curr_gene1 <- genes1[i]
-  curr_data1 <- kallisto_output[which(kallisto_output$ensembl_gene_id==curr_gene1),]
-  curr_data1 <- subset(curr_data1, select=c(target_id, tpm, condition, gene_symbol))
+  curr_data1 <- k_curr[which(k_curr$ens_gene==curr_gene1),]
+  curr_data1 <- subset(curr_data1, select=c(target_id, tpm, condition, ext_gene))
   curr_data1$condition <- factor(curr_data1$condition) #, levels=c("Control_Baseline", "Asthma_Baseline"))
-  gene_symbol1 <- unique(curr_data1$gene_symbol)
+  gene_symbol1 <- unique(curr_data1$ext_gene)
   
   curr_gene2 <- genes2[i]
-  curr_data2 <- kallisto_output[which(kallisto_output$target_id==curr_gene2),]
-  curr_data2 <- subset(curr_data2, select=c(target_id, tpm, condition, gene_symbol))
+  curr_data2 <- k_curr[which(k_curr$target_id==curr_gene2),]
+  curr_data2 <- subset(curr_data2, select=c(target_id, tpm, condition, ext_gene))
   curr_data2$condition <- factor(curr_data2$condition) #, levels=c("Control_Baseline", "Asthma_Baseline"))
-  gene_symbol2 <- unique(curr_data2$gene_symbol)
+  gene_symbol2 <- unique(curr_data2$ext_gene)
   
   plot1 <- ggplot(curr_data1, aes(x = condition, y = tpm, fill=condition)) + 
     geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 

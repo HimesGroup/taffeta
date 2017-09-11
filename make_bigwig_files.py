@@ -76,7 +76,7 @@ def main(project_name, aligner, sample_info_file, path_start):
 		elif ref_genome == "rn6":
 			chr_size_file = "/project/bhimeslab/Reference/rn6/rn6_ERCC.chrom.sizes"			
 		elif ref_genome == "susScr3":
-			chr_size_file = "/project/bhimeslab/Reference/susScr3/chrNameLength.txt"	
+			chr_size_file = "/project/bhimeslab/Reference/susScr3/susScr3_ERCC.chrom.sizes"	
 		else:
 			print "No chromosome size file for this genome available:", ref_genome
 		
@@ -103,7 +103,7 @@ def main(project_name, aligner, sample_info_file, path_start):
 		#outp.write("./bedGraphToBigWig "+bedgraph_out+curr_sample+"_accepted_hits.REV.bedgraph "+chr_size_file+" "+bigwig_out+curr_sample+"_accepted_hits.REV.bigwig\n")
 		outp.write("bedGraphToBigWig "+bedgraph_out+curr_sample+"_accepted_hits.sorted.bedgraph "+chr_size_file+" "+bigwig_out+curr_sample+"_accepted_hits.bigwig\n")
 
-		outp.write("rm "+bedgraph_out+curr_sample+"_accepted_hits.bedgraph\n")
+		#outp.write("rm "+bedgraph_out+curr_sample+"_accepted_hits.bedgraph\n")
 		outp.close()
 		#subprocess.call("bsub < "+job_name+".lsf", shell=True)
 		#subprocess.call("mv "+job_name+".lsf "+out_dir, shell=True)

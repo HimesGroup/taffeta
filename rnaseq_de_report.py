@@ -41,7 +41,7 @@ def make_de_rnw_html(rnw_template, project_name, path_start, gtf, ref_genome):
 	outp.write("@\n")
 	outp.write(rnw_template)
 	outp.close()
-	subprocess.call("cd "+out_dir+"; echo \"library(R2HTML); Sweave('"+project_name+"_DE_RnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore", shell=True)
+	#subprocess.call("cd "+out_dir+"; echo \"library(R2HTML); Sweave('"+project_name+"_DE_RnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore", shell=True)
 
 
 
@@ -121,45 +121,61 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	#write .Rmd file
 	outp.write("---\ntitle: \"DESeq2 results - based on HTSeq Counts from STAR-Aligned Sample Reads\"\n")
 	outp.write("output: html_document\n---\n\n")
-	outp.write("## DESeq2 results - based on HTSeq Counts from STAR-Aligned Sample Reads for "+project_name+"\n")
-	outp.write("```{r, echo=FALSE, message=FALSE}\n")
+	outp.write("## Differential Expression Results for "+project_name+"\n\n")
+	outp.write("Reads were aligned to the "+ref_genome+" assembly using STAR (v. 2.5.2b).  The following alignment QC report was produced: <br><blockquote>"+project_name+"_QC_RnaSeqReport.html</blockquote><br>  HTSeq (v.0.6.1) function htseq-count was used to count reads. Counts for all samples were concatenated into the following text file: <blockquote>"+project_name+"_htseq_matrix.txt</blockquote><br>\n")
+	outp.write("DESeq2 (v. 1.12.4) was used for differential gene expression analaysis, based on the HTSeq counts matrix and the phenotype file provided.  Normalized counts from DESeq2 are saved in the following text file: <br><blockquote>"+project_name+"_counts_normalized_by_DESeq2.txt</blockquote><br> Normalized counts are obtained from DESeq2 function estimateSizeFactors(), which divides counts by the geometric mean across samples; this function does not correct for read length. The normalization method is described in detail here: https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106 <br><br> Differential gene expression analysis was done for all comparisons provided in the comparisons file.  The following design was used: <br><blockquote>design = ~ Label</blockquote><br> If desired, the design can be modified to include more independent variables, e.g. cell line, etc.<br>  In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form: <br><blockquote>"+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt</blockquote><br> where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br><br>\n")
+	outp.write("```{r, echo=FALSE, message=FALSE, warning=FALSE}\n")
 	outp.write("library(gplots)\nlibrary(reshape2)\nlibrary(RColorBrewer)\nlibrary(plyr)\nlibrary(lattice)\nlibrary(genefilter)\nlibrary(ggplot2)\nlibrary(DESeq2)\nlibrary(biomaRt)\noptions(width = 1000)\n")
 	outp.write("\n")
 	outp.write("curr.batch=\""+project_name+"\"\n")
 	outp.write("path.start='"+path_start+"'\n")
 	if ref_genome=="hg38":
 		outp.write("housekeeping_genes <- c('ACTB','GAPDH','B2M','RPL19','GABARAP')\n")
-	elif ref_genome=="mm38" or ref_genome=="rn6":
-		outp.write("housekeeping_genes <- c('Actb','Gapdh','B2m','Rpl19','Gabarap')\n")
+	elif ref_genome=="mm38" or ref_genome=="mm10" or ref_genome=="rn6":
+		outp.write("housekeeping_genes <- c('Actb','Gapdh','B2m','Rpl19','Gabarap','Hprt','Gnb2l1','Rpl32')\n") #,'Hprt','Gnb2l1','Rpl32' added for mouse_macrophages. remove later
 	else:
-		print("Housekeeping genes only available for hg38, mm38, rn6.")
+		print("Housekeeping genes only available for human, mouse and rat.")
 
-	#Read in phenofile; phenofile should contain columns"sample", "condition" and "individual" 
+	#Read in phenofile; phenofile should contain columns"Sample" and "Label"; if desired, it can have other columns (e.g. "Individual" or "Cell_Line", etc.) & design can be modified accordingly 
 	outp.write("coldata <- read.table(paste0(path.start,'"+pheno_file+"'), sep='\\t', header=TRUE)\n")
 	outp.write("coldata <- subset(coldata, select=c(Sample,Label))\n")
 
 	#load counts from HTSeq output 
-	outp.write("countdata <- read.table(paste0(path.start, curr.batch, '/', curr.batch, '_DE_Report/', curr.batch, '_htseq_matrix.txt'), sep='\\t', header=TRUE)\n")
-	outp.write("countdata$Gene <- sapply(strsplit(as.character(countdata$Gene), '\\\.'), '[[', 1)\n")
+	outp.write("countdata <- read.table(paste0(path.start, curr.batch, '/', curr.batch, '_DE_Report/', curr.batch, '_htseq_matrix.txt'), sep='\\t', header=TRUE, check.names=FALSE)\n\n") # need check.names=FALSE -- else dashes in colnames converted to periods
 	outp.write("row.names(countdata) <- countdata$Gene\n")
-	
+	outp.write("is_ensg <- if (substr(rownames(countdata)[1], 1, 4) == 'ENSG') {TRUE} else {FALSE}\n")
+	outp.write("countdata$Gene <- sapply(strsplit(as.character(countdata$Gene), '\\\.'), '[[', 1) # remove .5 in transcript ENSG00000000005.5\n")
+
 	if ref_genome=="hg38":
 		outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')\n")
-		outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'hgnc_symbol'), values=countdata$Gene, mart=mart)\n")
-		outp.write("countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')\n")
-		outp.write("countdata <- rename(countdata, c('hgnc_symbol'='gene_symbol'))\n")
-	elif ref_genome=="mm38":
+		outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'hgnc_symbol'), values=countdata$Gene, mart=mart) # 30 duplicates transcripts from ensembles. They are microRNA and SRP RNAs. Just use the unique transcripts.\n")
+                outp.write("genes <- genes[!duplicated(genes$ensembl_gene_id),]\n")
+		outp.write("if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}\n")
+		outp.write("if (is_ensg) {countdata <- rename(countdata, c('hgnc_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}\n")
+	elif ref_genome=="mm38" or ref_genome=="mm10":
 		outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='mmusculus_gene_ensembl')\n")
 		outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'mgi_symbol'), values=countdata$Gene, mart=mart)\n")
-		outp.write("countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')\n")
-		outp.write("countdata <- rename(countdata, c('mgi_symbol'='gene_symbol'))\n")
+                outp.write("genes <- genes[!duplicated(genes$ensembl_gene_id),]\n")
+		outp.write("if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}\n")
+		outp.write("if (is_ensg) {countdata <- rename(countdata, c('mgi_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}\n")
 	elif ref_genome=="rn6":
 		outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='rnorvegicus_gene_ensembl')\n")
 		outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'rgd_symbol'), values=countdata$Gene, mart=mart)\n")
-		outp.write("countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')\n")
-		outp.write("countdata <- rename(countdata, c('rgd_symbol'='gene_symbol'))\n")
+                outp.write("genes <- genes[!duplicated(genes$ensembl_gene_id),]\n")
+		outp.write("if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}\n")
+		outp.write("if (is_ensg) {countdata <- rename(countdata, c('rgd_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}\n")
 	else:
 		print("This code can only append official gene symbols for hg38, mm38, rn6.")
+       	outp.write("if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}\n")
+
+	#this part is only for getting normalized counts (this way all samples normalized together)
+	outp.write("\n# this part is only for getting normalized counts (this way all samples normalized together)\n")
+	outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,3:ncol(countdata)-1], colData = coldata, design = ~ Label)\n")  # can add 'Cell_Line' - this may be modified
+	outp.write("dds <- DESeq(ddsFullCountTable)\n") # not actually doing analysis here, so reference level does not matter.
+	outp.write("norm.counts <- counts(dds, normalized=TRUE)\n")
+	outp.write("norm.counts <- merge(norm.counts, countdata[,c('Gene','gene_symbol')], by='row.names')\n")
+	outp.write("norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column called 'Row.names'\n")
+	outp.write("write.table(norm.counts, paste0(curr.batch,'_counts_normalized_by_DESeq2.txt'), quote=FALSE, row.names=FALSE)\n")
 	outp.write("\n```\n")
 
 	#load text file containing all comparisons of interest
@@ -168,13 +184,13 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 
 	#create and paste the portion of the report that is unique to each comparison
 	for str in comps:
-		cond1 = re.split('&|\n', str)[0].rstrip()
-		cond2 = re.split('&|\n', str)[1].rstrip()
+		case = re.split('_vs_', str)[0].rstrip()
+		ctrl = re.split('_vs_', str)[1].rstrip()
 		outp.write("```{r, echo=FALSE}\n")
-		outp.write("cond1 <- '"+cond1+"'\n")
-		outp.write("cond2 <- '"+cond2+"'\n")
+		outp.write("case <- '"+case+"'\n")
+		outp.write("ctrl <- '"+ctrl+"'\n")
 		outp.write("\n```\n")
-		outp.write("### "+cond1+" vs. "+cond2+" comparison\n")
+		outp.write("### "+case+" vs. "+ctrl+" comparison\n")
 		outp.write("\n")
 		outp.writelines(rmd_template)
 		outp.write("\n")
@@ -201,6 +217,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	outp.write("      housekeeping_plot <- ggplot(curr_data, aes(x = curr_data$Label, y = count, fill=curr_data$Label)) +\n")
 	outp.write("      geom_boxplot(outlier.colour=NA, lwd=0.2, color='grey18') +\n")
 	outp.write("      stat_boxplot(geom ='errorbar', color='grey18') +\n")
+	outp.write(" 	  expand_limits(y=0) +\n")
 	outp.write("      geom_jitter(size=2, width=0.2) +\n")
 	outp.write("      guides(fill=FALSE) +\n")
 	outp.write("      theme_bw() +\n")
@@ -209,7 +226,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	outp.write("	print(housekeeping_plot)\n")
 	outp.write("}\n```\n")
 	outp.close()
-	subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_DESeq2_Report.Rmd', force_v1 = TRUE)\" | R --no-save --no-restore", shell=True)
+	subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_DESeq2_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
 
 def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file):
 	"""
@@ -223,22 +240,25 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	outp.write("---\ntitle: \"Sleuth results - based on Kallisto TPM\"\n")
 	outp.write("output: html_document \ntoc: true \ntoc_depth: 2 \n---\n")
 	outp.write("\n")
-	outp.write("## Sleuth results - based on Kallisto TPM for "+project_name+"\n")
+	outp.write("## Sleuth results - based on Kallisto TPM for "+project_name+"\n\n")
+	outp.write("Kallisto was used to quantify transcritpt abundances.  Kallisto TPMs for each comparison provided in the comparisons file were saved down in separate text files, with names of the form: <blockquote>"+project_name+"_CASE_vs_CTRL_kallisto_output.txt</blockquote>  Note that each comparison's kallisto output file only contains kallisto results for samples/conditions relevant to that comparison.\n\n")
+	outp.write("Sleuth was used to compute transcript-level differential expression results based on kallisto TPMs.  Sleuth results for each comparison provided in the comparisons file were saved down in separate text files, with names of the form: <blockquote>"+project_name+"_CASE_vs_CTRL_sleuth_output.txt</blockquote>\n")
+	outp.write("\nProject "+project_name+" consists of the following samples:\n")
 	outp.write("```{r set-options, echo=FALSE, cache=FALSE, warning=FALSE, message=FALSE}\n")
-	outp.write("library(VennDiagram)\nlibrary(reshape2)\nlibrary(sleuth)\nlibrary(biomaRt)\noptions(width = 2000)\n")
+	outp.write("library(reshape2)\nlibrary(sleuth)\nlibrary(biomaRt)\nlibrary(dplyr)\noptions(width = 2000)\n")
 	outp.write("\n")
 	outp.write("curr.batch=\""+project_name+"\"\n")
 	outp.write("path.start='"+path_start+"'\n")	
 	outp.write("kallisto_output <- data.frame()\n")
 	if ref_genome=="hg38":
 		outp.write("housekeeping_genes <- c('ACTB','GAPDH','B2M','RPL19','GABARAP')\n")
-	elif ref_genome=="mm38" or ref_genome=="rn6":
+	elif ref_genome=="mm38" or ref_genome=="mm10" or ref_genome=="rn6":
 		outp.write("housekeeping_genes <- c('Actb','Gapdh','B2m','Rpl19','Gabarap')\n")
 	else:
 		print("Housekeeping genes only available for hg38, mm38, rn6.")
 
 	#load info sheet 
-	outp.write("info_sheet <- read.table(sample_info_file, header = TRUE, stringsAsFactors=FALSE)\n") #outp.write("info_sheet <- read.table(paste0(path.start,'"+sample_info_file+"'), header = TRUE, stringsAsFactors=FALSE)\n")
+	outp.write("info_sheet <- read.table(paste0(path.start,'"+sample_info_file+"'), header = TRUE, stringsAsFactors=FALSE)\n") #outp.write("info_sheet <- read.table(paste0(path.start,'"+sample_info_file+"'), header = TRUE, stringsAsFactors=FALSE)\n")
 	outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Label'))\n")
 	outp.write("colnames(info_sheet) <- c('run_accession', 'condition')\n")
 	outp.write("info_sheet <- info_sheet[order(info_sheet$condition),]\n")
@@ -251,40 +271,45 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 
 	#create and paste the portion of the report that is unique to each comparison
 	for str in comps:
-		str1 = re.split('&|\n', str)[0]
-		str2 = re.split('&|\n', str)[1]
+		#note sleuth needs case and control to be in alphabetical order
+		#i.e. the thing that comes first alphabetically will become the control
+		#the first string in comps_file is the one you want to be 'case'; hence, add 'zz_' to it
+
+		str1 = 'zz_' + re.split('_vs_', str)[0]
+		str2 = re.split('_vs_', str)[1]
 		mylist = [str1, str2]
-		cond1 = mylist[0].rstrip()
-		cond2 = mylist[1].rstrip()
-		#sleuth needs cond1, cond2 to be in alphabetical order
 		mylist.sort()
+		ctrl = mylist[0].rstrip() #control will be the one that comes first alphabetically
+		case = mylist[1].rstrip() #case wil be the one that starts with 'zz_' and hence is second in the sorted list
 		outp.write("```{r, echo=FALSE}\n")
-		outp.write("cond1 <- paste0('condition','"+cond1+"')\n")
-		outp.write("cond2 <- paste0('condition','"+cond2+"')\n")
+		outp.write("case <- paste0('condition','"+case+"')\n")
+		outp.write("ctrl <- paste0('condition','"+ctrl+"')\n")
 		outp.write("\n```\n")
-		outp.write("### "+cond1+" vs. "+cond2+" comparison\n")
+		outp.write("### "+case+" vs. "+ctrl+" comparison\n")
 		outp.write("```{r, echo=FALSE}\n")
-		outp.write("so <- readRDS(paste0('"+sleuth_dir+"', 'so_', '"+cond1+"', '_vs_', '"+cond2+"', '.rds'))\n")
+		outp.write("so <- readRDS(paste0('"+sleuth_dir+"', 'so_', '"+case+"', '_vs_', '"+ctrl+"', '.rds'))\n")
 		outp.write("k_curr <- kallisto_table(so)\n")
-		
+		outp.write("k_transc <- k_curr$target_id #save down before string split b/c sleuth object has transcripts in original form\n") 
+		outp.write("k_curr$target_id <- sapply(strsplit(as.character(k_curr$target_id), '\\\.'), '[[', 1)\n")
+
 		if ref_genome=="hg38":
 			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')\n")
 			outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_transcript_id', 'ensembl_gene_id', 'hgnc_symbol'), values=k_curr$target_id, mart=mart)\n")
-			outp.write("k_curr <- merge(k_curr, genes, by.x='target_id', by.y='ensembl_transcript_id')\n")
-			outp.write("names(k_curr)[names(k_curr)=='hgnc_symbol'] <-'gene_symbol'\n")
-		elif ref_genome=="mm38":
+			outp.write("genes <- dplyr::rename(genes, target_id = ensembl_transcript_id,ens_gene = ensembl_gene_id, ext_gene = external_gene_name)\n")
+		elif ref_genome=="mm38" or ref_genome=="mm10":
 			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='mmusculus_gene_ensembl')\n")
 			outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_transcript_id', 'ensembl_gene_id', 'mgi_symbol'), values=k_curr$target_id, mart=mart)\n")
-			outp.write("k_curr <- merge(k_curr, genes, by.x='target_id', by.y='ensembl_transcript_id')\n")
-			outp.write("names(k_curr)[names(k_curr)=='mgi_symbol'] <-'gene_symbol'\n")
+			outp.write("genes <- dplyr::rename(genes, target_id = ensembl_transcript_id,ens_gene = ensembl_gene_id, ext_gene = mgi_symbol)\n")
 		elif ref_genome=="rn6":
 			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='rnorvegicus_gene_ensembl')\n")
 			outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_transcript_id', 'ensembl_gene_id', 'rgd_symbol'), values=k_curr$target_id, mart=mart)\n")
-			outp.write("k_curr <- merge(k_curr, genes, by.x='target_id', by.y='ensembl_transcript_id')\n")
-			outp.write("names(k_curr)[names(k_curr)=='rgd_symbol'] <-'gene_symbol'\n")
+			outp.write("genes <- dplyr::rename(genes, target_id = ensembl_transcript_id,ens_gene = ensembl_gene_id, ext_gene = rgd_symbol)\n")
 		else:
-			print("This code can only append official gene symbols for hg38, mm38, rn6.")
+			print("This code can only append official gene symbols for hg38, mm38, mm10 or rn6.")
+		outp.write("k_curr <- merge(k_curr, genes, by.x='target_id', by.y='target_id')\n")		
 		outp.write("kallisto_output <- rbind(kallisto_output, k_curr)\n")
+		outp.write("kallisto_output$sample <- gsub('zz_','',as.character(kallisto_output$sample))\n") 
+		outp.write("kallisto_output$condition <- gsub('zz_','',as.character(kallisto_output$condition))\n") 
 		outp.write("kallisto_output <- unique(kallisto_output)\n")
 		outp.write("```\n")
 		outp.write("\n")
@@ -294,13 +319,13 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	#Housekeeping gene expression barplots - once per report
 	outp.write("### Housekeeping genes\n")
 	outp.write("```{r, echo=FALSE}\n")
-	outp.write("house_ensg <- unique(k_curr$ensembl_gene_id[which(k_curr$gene_symbol %in% housekeeping_genes)])\n")
+	outp.write("house_ensg <- unique(kallisto_output$ens_gene[which(kallisto_output$ext_gene %in% housekeeping_genes)])\n")
 	outp.write("for (i in 1:length(house_ensg)) {\n")
   	outp.write("  curr_gene <- house_ensg[i]\n")
-  	outp.write("  curr_data <- kallisto_output[which(kallisto_output$ensembl_gene_id==curr_gene),]\n")
- 	outp.write("  curr_data <- subset(curr_data, select=c(target_id, tpm, condition, gene_symbol))\n")
+  	outp.write("  curr_data <- kallisto_output[which(kallisto_output$ens_gene==curr_gene),]\n")
+ 	outp.write("  curr_data <- subset(curr_data, select=c(target_id, tpm, condition, ext_gene))\n")
 	outp.write("  curr_data$condition <- factor(curr_data$condition)\n") #, levels=c('Control_Baseline', 'Asthma_Baseline'))\n")
-  	outp.write("  gene_symbol <- unique(curr_data$gene_symbol)\n")
+  	outp.write("  gene_symbol <- unique(curr_data$ext_gene)\n")
 	outp.write("  print({\n")
     	outp.write("	ggplot(curr_data, aes(x = condition, y = tpm, fill=condition)) + \n")
         outp.write("	geom_boxplot(outlier.colour=NA, lwd=0.2, color='grey18') + \n")
@@ -321,7 +346,7 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	outp.write("}\n")
 	outp.write("```\n")
 	outp.close()
-	subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_Sleuth_Report.Rmd', force_v1 = TRUE)\" | R --no-save --no-restore", shell=True)
+	subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_Sleuth_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
 
 def main(project_name, sample_info_file, de_package, pheno_file, path_start, comp_file):
 	if path_start == "./":
@@ -371,15 +396,17 @@ def main(project_name, sample_info_file, de_package, pheno_file, path_start, com
 		rmd_template = rmd_in.readlines()
 		make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file)	
 		
-		
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Create HTML report of differential expression results for RNA-seq samples associated with a project.")
 	parser.add_argument("--path_start", default="./", type=str, help="Directory path to where project directory created by rnaseq_de.py is located (default=./)")
 	parser.add_argument("--de", default="deseq2", type=str, help="Should cummeRbund, DESeq2 or sleuth be used for diferential expression (DE) analysis?  If sleuth, request an interactive node with more memory using: bsub -Is -M 36000 bash"
-		"(options: deseq2, cummerbund)")
+		"(options: sleuth, deseq2, cummerbund)")
 	parser.add_argument("--pheno", help="A tab-delimited txt file containing sample PHENOTYPE information. Make sure sample IDs match and are in the same order as those in the sample information file.")
-	parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, separate two conditions with & as in cond1&cond2.")
+	parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, separate two conditions with & as in case&control.")
 	parser.add_argument("project_name", type=str, help="Name of project that all samples correspond to.")
 	parser.add_argument("samples_in", help="A tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
 	args = parser.parse_args()
 	main(args.project_name, args.samples_in, args.de, args.pheno, args.path_start, args.comp)
+
+

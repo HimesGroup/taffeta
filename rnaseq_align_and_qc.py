@@ -2,22 +2,23 @@
 import subprocess
 import os
 import argparse
+import glob
 
 
 def get_sample_info(fin):
 	"""
 	Open tab-delimited txt file containing the following columns:
-	v0: customer_ID		| ID given to sample by customer
-	v1: gigpad_ID		| A sample ID that may differ from "Customer_ID" and that is associated with library prior to pooling
-	v2: lane			| Lane of sequencer where this sample's pool was run, needed to locate file output by HiSeq
-	v3: index			| Six digit sequence of the index for this library
-	v4: ercc_mix		| Mix of ERCC spike used for library construction (options: "1", "2", "-")
-	v5: file_directory	| Directory where sample's files were written to by Casava
-	v6: batch			| GIGPAD batch number associated with sample
-	v7: label			| Biological condition associated with the sample, provided by customer
-	v8: ref_genome		| Rerence genome associated with sample. (options: "hg19", "Zv9", "mm10")
-	v9: library_type	| Type of library for sample (options: "PE", "SE", "DGE", "SPE",
-							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end")
+	v0: sample_ID		| ID given to sample 
+	v1: index			| Six digit sequence of the index for this library
+	v2: ercc_mix		| Mix of ERCC spike used for library construction (options: "1", "2", "-")
+	v3: file_directory	| Directory where sample's fastq files reside
+	v4: project			| Name for project associated with sample
+	v5: label			| Biological condition associated with the sample, provided by customer
+	v6: ref_genome		| Rerence genome associated with sample. (options: "hg38")
+	v7: library_type	| Type of library for sample (options: "PE", "SE", "DGE", "SPE", "SSE"
+							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end", "stranded single-end")
+	v8: lane			| Lane of sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode)
+	v9: run				| Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode)
 	"""
 	f = open(fin,'r')
 	c = f.read().split('\n')[1:]
@@ -25,52 +26,94 @@ def get_sample_info(fin):
 		c.remove('')
 	d = []
 	for x in c:
-		customer_id = x.split('\t')[0]
-		gigpad_id = x.split('\t')[1]
-		lane = x.split('\t')[2]
-		index = x.split('\t')[3]
-		ercc_mix = x.split('\t')[4]
-		top_dir = x.split('\t')[5]
+		sample_id = x.split('\t')[0]
+		index = x.split('\t')[1]
+		ercc_mix = x.split('\t')[2]
+		top_dir = x.split('\t')[3]
 		if top_dir[-1] != "/":
 			top_dir = top_dir+"/"
-		batch = x.split('\t')[6]
-		label = x.split('\t')[7]
-		ref_genome = x.split('\t')[8]
-		library_type = x.split('\t')[9]
-		d.append([customer_id, gigpad_id, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type])
+		project = x.split('\t')[4]
+		label = x.split('\t')[5]
+		ref_genome = x.split('\t')[6]
+		library_type = x.split('\t')[7]
+		lane = x.split('\t')[8]
+		run = x.split('\t')[9]
+		d.append([sample_id, index, ercc_mix, top_dir, project, label, ref_genome, library_type, lane, run])
 	return d
 
 
-def get_genome_ref_files(genome):
+def get_genome_ref_files(genome, mask):
 	"""
 	Location of all reference files needed for a given genome.
-	For human, hg19 is preferred because GENCODE does not have gtf formatting needed for full use of Tuxedo Tools
 	The ERCC gtf files were appended separately to each species own gtf file
-	Current choices are: "hg19", "Zv9", "mm10"
+	Current choice: "hg38"
 	"""
-	if genome == "hg19":
-		ref_index = "/data/pcpgm/rnaseq/Indexes/hg19/hg19_ERCC"
-		fa = "/pub/genome_references/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa"
-		gtf = "/pub/genome_references/iGenomes/Homo_sapiens/UCSC/hg19/Annotation/Genes/genes.gtf"
-		ref = "/data/pcpgm/rnaseq/Indexes/hg19/refFlat.txt"
-		ERCC_gtf = "/data/pcpgm/rnaseq/Indexes/hg19/hg19_ERCC_tuxedo.gtf"
-	elif genome == "Zv9":
-		ref_index = "/data/pcpgm/rnaseq/Indexes/Zv9/Zv9_ERCC"
-		fa = "/pub/genome_references/Zv9/Danio_rerio.Zv9.69.dna.toplevel.fa"
-		gtf = "/pub/genome_references/Zv9/Danio_rerio.Zv9.69.gtf"
-		ref = "/data/pcpgm/rnaseq/Indexes/Zv9/refFlat_nochr.txt"
-		ERCC_gtf = "/data/pcpgm/rnaseq/Indexes/Zv9/Zv9_ERCC.gtf"
+	mask_gtf = "NA"
+	if genome == "hg38":
+		ref_index = "/project/bhimeslab/Reference/hg38/genome.ERCC"
+		fa = "/project/bhimeslab/Reference/hg38/genome.ERCC.fa"
+		gtf = "/project/bhimeslab/Reference/hg38/genes.gtf"
+		ref = "/project/bhimeslab/Reference/hg38/refFlat.txt"
+		ERCC_gtf = "/project/bhimeslab/Reference/hg38/genes.ERCC.gtf"
+		genome_dir = "/project/bhimeslab/Reference/hg38"
+		if mask == "rRNA":
+			mask_gtf = "/project/bhimeslab/Reference/hg38/rRNA_hg38.gtf"
+		elif mask == "globin":
+			mask_gtf = "/project/bhimeslab/Reference/hg38/globin_hg38.gtf"
+		elif mask == "rRNA_globin":
+		 	mask_gtf = "/project/bhimeslab/Reference/hg38/rRNA_globin_hg38.gtf"
+		else:
+			print 'Unknown mask selected: ', mask
+	elif genome == "hg19":
+		ref_index = "/project/bhimeslab/Reference/hg19/genome.ERCC"
+		fa = "/project/bhimeslab/Reference/hg19/genome.ERCC.fa"
+		gtf = "/project/bhimeslab/Reference/hg19/genes.gtf"
+		ref = "/project/bhimeslab/Reference/hg19/refFlat.txt"
+		ERCC_gtf = "/project/bhimeslab/Reference/hg19/genes.ERCC.gtf"
+		genome_dir = "/project/bhimeslab/Reference/hg19"
+		print 'No mask files available. Do not have STAR indexes for hg19.'
+	elif genome == "mm38":
+		ref_index = "/project/bhimeslab/Reference/mm38/mm38_ERCC"
+		fa = "/project/bhimeslab/Reference/mm38/mm.GRCm38.genome.ERCC92.fa"
+		gtf = "/project/bhimeslab/Reference/mm38/mm.GRCm38.75.genes.gtf"
+		ref = "/project/bhimeslab/Reference/mm38/refFlat.txt"
+		ERCC_gtf = "/project/bhimeslab/Reference/mm38/mm.GRCm38.75.genes.ERCC.gtf"
+		genome_dir = "/project/bhimeslab/Reference/mm38"
+		print 'No mask files available. Do not have STAR indexes for mm38.'
 	elif genome == "mm10":
-		ref_index = "/data/pcpgm/rnaseq/Indexes/mm10/mm10_ERCC"
-		fa = "/pub/genome_references/ensemble/Mmusculus/Mus_musculus.GRCm38.70.dna.toplevel.fa"
-		gtf = "/pub/genome_references/ensemble/Mmusculus/Mus_musculus.GRCm38.70.gtf"
-		ref = "/data/pcpgm/rnaseq/Indexes/mm10/refFlat_nochr.txt"
-		ERCC_gtf = "/data/pcpgm/rnaseq/Indexes/mm10/mm10_ERCC.gtf"
+		ref_index = "/project/bhimeslab/Reference/mm38/UCSC_mm10_ERCC"
+		fa = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genome.ERCC92.fa"
+		gtf = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genes.gtf"
+		ref = "/project/bhimeslab/Reference/mm38/refFlat_UCSC.txt"
+		ERCC_gtf = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genes.ERCC.gtf"
+		genome_dir = "/project/bhimeslab/Reference/mm38"
+		print 'No mask files available.'
+	elif genome == "rn6":
+		ref_index = "/project/bhimeslab/Reference/rn6/genome.ERCC"
+		fa = "/project/bhimeslab/Reference/rn6/genome.ERCC.fa"
+		gtf = "/project/bhimeslab/Reference/rn6/genes.gtf"
+		ref = "/project/bhimeslab/Reference/rn6/refFlat.txt"
+		ERCC_gtf = "/project/bhimeslab/Reference/rn6/genes.ERCC.gtf"
+		genome_dir = "/project/bhimeslab/Reference/rn6"
+		print 'No mask files available. Do not have STAR indexes for rn6.'
+	elif genome == "susScr3":
+		ref_index = "/project/bhimeslab/Reference/susScr3/genome.ERCC"
+		fa = "/project/bhimeslab/Reference/susScr3/Ensembl_susScr3_genome.ERCC92.fa"
+		gtf = "/project/bhimeslab/Reference/susScr3/genes.gtf"
+		ref = "/project/bhimeslab/Reference/susScr3/refFlat.txt"
+		ERCC_gtf = "/project/bhimeslab/Reference/susScr3/Ensembl_susScr3_genes.ERCC.gtf"
+		genome_dir = "/project/bhimeslab/Reference/susScr3"
+		print 'No mask files available. Do not have STAR indexes for susScr3.'
 	else:
 		print 'Unknown genome selected: ', genome
-	return(ref_index, fa, gtf, ref, ERCC_gtf)
+	return(ref_index, fa, gtf, ref, ERCC_gtf, mask_gtf, genome_dir)
 
-	
+		
+#ERCC gtf file
+ERCC_only = "/project/bhimeslab/Reference/ERCC92.gtf"	
+#hg38 rRNA file
+rRNA_gtf = "/project/bhimeslab/Reference/hg38/rRNA_hg38.gtf"
+
 #Index sequencing primers
 primer_start = "GATCGGAAGAGCACACGTCTGAACTCCAGTCAC"
 primer_end = "ATCTCGTATGCCGTCTTCTGCTTG"
@@ -160,10 +203,13 @@ def make_adapter_fa(index, index_dictionary, out_name, library_type):
 		outp.write(">PrefixMultiplexingReadSequencingPrimer\nACACTCTTTCCCTACACGACGCTCTTCCGATCT\n")
 	if index in index_dictionary:
 		outp.write(">"+index_dictionary[index][0]+"\n"+index_dictionary[index][1]+"\n")
+	else:
+		print "Assuming the index provided works with standard Illumina primer sequences"
+		outp.write(">"+index+"\n"+primer_start+index+primer_end+"\n")
 	outp.close()
 
 
-def main(sample_info_file, discovery, standard_trim, path_start):
+def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 	"""
 	Dispatches an lsf job to locate fastq files that were output by Casava (GIGPAD A1 routine) and then:
 	1) Perform adapter trimming
@@ -174,120 +220,174 @@ def main(sample_info_file, discovery, standard_trim, path_start):
 	6) Run cufflinks to quantify ERCC spike ins (if applicable)
 	7) Run cufflinks to quantify all other transcripts in sample
 	
-	The directory structure below is specific to the Partners HPC cluster
+	The directory structure below is specific to the UPenn HPC cluster
 	"""
 	runs = get_sample_info(sample_info_file)
 	#for curr_sample, k in runs.iteritems():
 	for k in runs:
 		#Get sample information
-		curr_sample, gigpad, lane, index, ercc_mix, top_dir, batch, label, ref_genome, library_type = k
-		
-		#Get genome reference files
-		ref_index, fa, gtf, ref, ERCC_gtf = get_genome_ref_files(ref_genome)
+		curr_sample, index, ercc_mix, top_dir, project, label, ref_genome, library_type, lane, run = k
 
-		#Set up batch and sample output directories
+		#Get genome reference files
+		ref_index, fa, gtf, ref, ERCC_gtf, mask_gtf, genome_dir = get_genome_ref_files(ref_genome, mask)
+
+		#Set up project and sample output directories
 		if path_start == "./":
 			path_start = os.getcwd()
 		if path_start[-1] != "/":
 			path_start = path_start+"/"		
-		batch_dir = path_start+batch+"/"
-		if not os.path.exists(batch_dir):
-			os.makedirs(batch_dir)
-		out_dir = batch_dir+curr_sample+"/"
+		project_dir = path_start+project+"/"
+		if not os.path.exists(project_dir):
+			os.makedirs(project_dir)
+		out_dir = project_dir+curr_sample+"/"
 		if not os.path.exists(out_dir):
 			os.makedirs(out_dir)
 		
 		job_name = curr_sample
 				
-		#This directory structure and naming convention is (obviously!) unique to PCPGM
-		R1 = top_dir+"Unaligned-"+lane+"/Project_pcpgm/Sample_"+gigpad+"/filtered/"+gigpad+"_"+index+"_L00"+lane+"_R1.fastq"
-		R2 = top_dir+"Unaligned-"+lane+"/Project_pcpgm/Sample_"+gigpad+"/filtered/"+gigpad+"_"+index+"_L00"+lane+"_R2.fastq"
-		local_R1 = out_dir+curr_sample+"_R1.fastq"
-		local_R2 = out_dir+curr_sample+"_R2.fastq"
+		if lane != "-":
+			#This directory structure and naming convention is (obviously!) unique to UPenn 
+			#[RUN]_s_[LANE]_[1/2 corresponding to READ]_[BARCODE].fastq.gz
+			if library_type in ("SE", "DGE"):
+				R1 = project_dir+run+"_s_"+lane+"_1_"+index+".fastq.gz"
+			#for mir34a specifically
+			elif library_type in ("SSE"): 
+				R1=project_dir+curr_sample+"_"+index+".R1.fastq.gz" #changed from '_R1' to '.R1' for hbe_enterolactone
+			else:
+				R1 = project_dir+run+"_s_"+lane+"_1_"+index+".fastq.gz"
+				R2 = project_dir+run+"_s_"+lane+"_2_"+index+".fastq.gz"			
+		elif "SRR" in curr_sample:
+			if library_type in ("SE", "DGE"):
+				R1 = project_dir+curr_sample+".fastq.gz"
+			else:
+				R1 = project_dir+curr_sample+"_1.fastq.gz"
+				R2 = project_dir+curr_sample+"_2.fastq.gz"			
+		elif index == "-":
+			#This directory structure and naming convention is (obviously!) unique to UPenn 
+			if library_type in ("SE", "DGE"):
+				R1 = project_dir+curr_sample+".fastq.gz"
+			else:
+				R1 = project_dir+curr_sample+"_1.fastq.gz"
+				R2 = project_dir+curr_sample+"_2.fastq.gz"
+		else:
+			#This directory structure and naming convention is (obviously!) unique to UPenn 
+			if library_type in ("SE", "DGE"):
+				#For rat_stretch, the index is not part of file name
+				#R1 = project_dir+curr_sample+".fastq.gz"
+				R1 = project_dir+curr_sample+"_"+index+".R1.fastq.gz"
+			else:
+				#For pig_lung, the index is not part of file name
+				R1 = project_dir+curr_sample+"_1.fastq.gz"
+				R2 = project_dir+curr_sample+"_2.fastq.gz"
+				#R1 = project_dir+curr_sample+"_"+index+"_1.fastq.gz"
+				#R2 = project_dir+curr_sample+"_"+index+"_2.fastq.gz"
 		
 		#Make lsf file		
 		outp = open(job_name+".lsf", "w")
 		outp.write("#!/bin/bash \n")
 		outp.write("#BSUB -L /bin/bash\n")
 		outp.write("#BSUB -J "+job_name+"\n")
-		outp.write("#BSUB -q big-multi \n")
+		outp.write("#BSUB -q normal \n")
 		outp.write("#BSUB -o "+job_name+"_%J.out\n")
 		outp.write("#BSUB -e "+job_name+"_%J.screen\n")
-		outp.write("#BSUB -R 'rusage[mem=24000]'\n")
+		outp.write("#BSUB -M 36000\n")
 		outp.write("#BSUB -n 12\n")
-		
-		#Check whether unaligned fastq files that were processed by Casava are zipped and make local unzipped copies
-		if not os.path.isfile(local_R1):
-			if os.path.isfile(R1):
-				outp.write("cp "+R1+" "+local_R1+"\n")
-			elif os.path.isfile(R1+".gz"):
-				outp.write("zcat "+R1+".gz > "+local_R1+"\n")
-			else:
-				print "R1 file not found ", R1
-		if not os.path.isfile(local_R2):		
-			if os.path.isfile(R2):
-				outp.write("cp "+R2+" "+local_R2+"\n")
-			elif os.path.isfile(R2+".gz"):
-				outp.write("zcat "+R2+".gz > "+local_R2+"\n")
-			else:
+				
+		#Check whether unaligned fastq files that were processed by Casava are present
+		#Create directory for each sample
+		if not os.path.isfile(R1):
+			print "R1 file not found ", R1
+		if library_type in ("PE", "SPE"):
+			if not os.path.isfile(R2):		
 				print "R2 file not found", R2
 		
+		#In case need to unzip at some point:
+		#outp.write("zcat "+R1+".gz > "+R1[:-3]+"\n")
+		#outp.write("zcat "+R2+".gz > "+R2[:-3]+"\n")
+				
 		outp.write("cd "+out_dir+"\n")
-		
+ 		R1_trim = out_dir+curr_sample+"_R1_Trimmed.fastq"
+ 		R2_trim = out_dir+curr_sample+"_R2_Trimmed.fastq"	
+ 		#outp.write("zcat "+R1+" > "+ R1_trim+"\n")
+ 		#R1_trim = R1
+ 		#R2_trim = R2
+ 		#print "R1: ", R1_trim	
+
+
 		#Perform adapter trimming with trimmomatic
 		#May perform a standard trimming of bases from reads by amount given above if standard_trim variable is greater than 0. Most will use standard_trim=0 
 		#Create fa file of adapters specific to file
-		if library_type in ["PE", "SE", "SPE"]:
-			make_adapter_fa(index, illumina_indexes, out_dir+curr_sample+"_adapter.fa", library_type)
-		elif library_type == "DGE":
-			make_adapter_fa(index, nextflex_indexes, out_dir+curr_sample+"_adapter.fa", library_type)
-		if standard_trim == 0:
-			R1_trim = out_dir+curr_sample+"_R1_Trimmed.fastq"
-			R2_trim = out_dir+curr_sample+"_R2_Trimmed.fastq"		
+ 		if not os.path.isfile(R1_trim):
+ 			if library_type in ["PE", "SE", "SPE", "SSE"]:
+ 				make_adapter_fa(index, illumina_indexes, out_dir+curr_sample+"_adapter.fa", library_type)
+ 			elif library_type == "DGE":
+ 				make_adapter_fa(index, nextflex_indexes, out_dir+curr_sample+"_adapter.fa", library_type)
+ 			if standard_trim == 0:
+ 				R1_trim = out_dir+curr_sample+"_R1_Trimmed.fastq"
+ 				R2_trim = out_dir+curr_sample+"_R2_Trimmed.fastq"		
+ 				if library_type in ["PE", "SPE"]:
+ 					make_adapter_fa(index, illumina_indexes, out_dir+curr_sample+"_adapter.fa", library_type)
+ 					outp.write("java -Xmx1024m  -classpath /opt/software/Trimmomatic/0.32/trimmomatic-0.32.jar org.usadellab.trimmomatic.TrimmomaticPE -phred33 "+R1+" "+R2+" "+R1_trim+" R1_Trimmed_Unpaired.fastq "+R2_trim+" R2_Trimmed_Unpaired.fastq ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:40\n")
+ 				elif library_type in ["SE", "DGE", "SSE"]:				
+ 					outp.write("java -Xmx1024m  -classpath /opt/software/Trimmomatic/0.32/trimmomatic-0.32.jar org.usadellab.trimmomatic.TrimmomaticSE -phred33 "+R1+" "+R1_trim+" ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:40\n")
+ 			else:
+ 				R1_trim = out_dir+curr_sample+"_R1_Trim"+str(standard_trim)+".fastq"
+ 				R2_trim = out_dir+curr_sample+"_R2_Trim"+str(standard_trim)+".fastq"
+ 				if library_type in ["PE", "SPE"]:
+ 					outp.write("java -Xmx1024m  -classpath /opt/software/Trimmomatic/0.32/trimmomatic-0.32.jar org.usadellab.trimmomatic.TrimmomaticPE -phred33 "+R1+" "+R2+" "+R1_trim+" R1_Trimmed_Unpaired.fastq "+R2_trim+" R2_Trimmed_Unpaired.fastq HEADCROP:"+standard_trim+" ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:40\n")
+ 				elif library_type in ["SE", "DGE", "SSE"]:
+ 					outp.write("java -Xmx1024m  -classpath /opt/software/Trimmomatic/0.32/trimmomatic-0.32.jar org.usadellab.trimmomatic.TrimmomaticSE -phred33 "+R1+" "+R1_trim+" HEADCROP:"+standard_trim+"ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:40\n")					
+
+		#Run fastqc on trimmed files. 
+		if not glob.glob(out_dir+curr_sample+'*fastqc.zip'):
+			#In some cases fastqc should be run on original files, but we have dropped this as a routine practice because the reports haven't changed much after trimming - adapter contamination has been minimal.
 			if library_type in ["PE", "SPE"]:
-				make_adapter_fa(index, illumina_indexes, out_dir+curr_sample+"_adapter.fa", library_type)
-				outp.write("java -Xmx1024m  org.usadellab.trimmomatic.TrimmomaticPE -phred33 "+local_R1+" "+local_R2+" "+R1_trim+" R1_Trimmed_Unpaired.fastq "+R2_trim+" R2_Trimmed_Unpaired.fastq ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:50\n")
-			elif library_type in ["SE", "DGE"]:				
-				outp.write("java -Xmx1024m  org.usadellab.trimmomatic.TrimmomaticSE -phred33 "+local_R1+" "+R1_trim+" ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:50\n")
-		else:
-			R1_trim = out_dir+curr_sample+"_R1_Trim"+str(standard_trim)+".fastq"
-			R2_trim = out_dir+curr_sample+"_R2_Trim"+str(standard_trim)+".fastq"
-			if library_type in ["PE", "SPE"]:
-				outp.write("java -Xmx1024m  org.usadellab.trimmomatic.TrimmomaticPE -phred33 "+local_R1+" "+local_R2+" "+R1_trim+" R1_Trimmed_Unpaired.fastq "+R2_trim+" R2_Trimmed_Unpaired.fastq HEADCROP:"+standard_trim+" ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:50\n")
-			elif library_type in ["SE", "DGE"]:
-				outp.write("java -Xmx1024m  org.usadellab.trimmomatic.TrimmomaticSE -phred33 "+local_R1+" "+R1_trim+" HEADCROP:"+standard_trim+"ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:50\n")					
-								
-		#Run fastqc on trimmed files.  
-		#In some cases fastqc should be run on original files, but we have dropped this as a routine practice because the reports haven't changed much after trimming - adapter contamination has been minimal.
-		if library_type in ["PE", "SPE"]:
-			outp.write("fastqc -o "+out_dir+" "+R1_trim+" "+R2_trim+"\n")
-		elif library_type in ("SE", "DGE"):
-			outp.write("fastqc -o "+out_dir+" "+R1_trim+"\n")
-		
+				outp.write("fastqc -o "+out_dir+" "+R1_trim+" "+R2_trim+"\n")
+			elif library_type in ("SE", "DGE", "SSE"):
+				outp.write("fastqc -o "+out_dir+" "+R1_trim+"\n")
+
 		#Get total number of reads, unique reads, % unique reads from trimmed file(s). 
 		outp.write("cat "+R1_trim+" | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' > "+curr_sample+"_ReadCount\n")
 		if library_type in ["PE", "SPE"]:
 			outp.write("cat "+R2_trim+" | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' >> "+curr_sample+"_ReadCount\n")
 		
-		#Run TopHat with options specific to library type
-		if discovery == "no":
-			if library_type == "PE":
-				outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" --no-novel-juncs --transcriptome-only -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
-			elif library_type == "SPE":
-				outp.write("tophat --library-type fr-firststrand -G "+ERCC_gtf+" --no-novel-juncs --transcriptome-only -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
-			elif library_type in ["DGE", "SE"]:
-				outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" --no-novel-juncs --transcriptome-only -r 50 -p 12 "+ref_index+" "+R1_trim+"\n")
+ 		if aligner == "tophat":
+ 			#Run TopHat with options specific to library type
+			if discovery == "no":
+				if library_type == "PE":
+					outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" --no-novel-juncs --transcriptome-only -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
+				elif library_type == "SPE":
+					outp.write("tophat --library-type fr-firststrand -G "+ERCC_gtf+" --no-novel-juncs --transcriptome-only -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
+				elif library_type == "SSE":
+					outp.write("tophat --library-type fr-firststrand -G "+ERCC_gtf+" --no-novel-juncs --transcriptome-only -r 50 -p 12 "+ref_index+" "+R1_trim+"\n")
+				elif library_type in ["DGE", "SE"]:
+					outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" --no-novel-juncs --transcriptome-only -r 50 -p 12 "+ref_index+" "+R1_trim+"\n")
 		
-		elif discovery == "yes":
-			if library_type == "PE":
-				outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
-			elif library_type == "SPE":
-				outp.write("tophat --library-type fr-firststrand -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
-			elif library_type in ["DGE", "SE"]:
-				outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+"\n")
+			elif discovery == "yes":
+				if library_type == "PE":
+					outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
+				elif library_type == "SPE":
+					outp.write("tophat --library-type fr-firststrand -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
+				elif library_type in ["DGE", "SE"]:
+					outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+"\n")
+			outp.write("cd "+out_dir+"/tophat_out/\n")
 				
+		elif aligner == "star":
+			outp.write("mkdir star_out\n")
+			outp.write("cd star_out\n")
+			if library_type == "SPE":
+				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+" "+R2_trim+"\n")
+			elif library_type == "PE":
+				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+" "+R2_trim+"\n")			
+			elif library_type in ["DGE", "SE"]:
+				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+"\n")
+			elif library_type in ["SSE"]:
+				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --sjdbOverhang 100 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+"\n")	
+			outp.write("mv Aligned.sortedByCoord.out.bam accepted_hits.bam\n")
+			outp.write("mkdir "+out_dir+"/htseq_out/\n")
+			outp.write("samtools view accepted_hits.bam | htseq-count -r pos - "+gtf+" > "+out_dir+"/htseq_out/"+curr_sample+"_counts.txt\n")
+		
 		#Get samtools mapping stats
-		outp.write("cd "+out_dir+"/tophat_out/\n")
 		#Create sorted bam file:
 		outp.write("samtools sort accepted_hits.bam "+curr_sample+"_accepted_hits.sorted\n")
 		#Create indexed bam file:
@@ -298,53 +398,88 @@ def main(sample_info_file, discovery, standard_trim, path_start):
 		outp.write("bamtools stats -in "+curr_sample+"_accepted_hits.sorted.bam > "+curr_sample+"_accepted_hits.sorted.bamstats\n")
 		#Run CollectRnaSeqMetrics
 		if library_type == "SPE":
-			outp.write("java -Xmx2g -jar /source/picardtools/picard-tools-1.58/CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n")	
+			outp.write("java -Xmx2g -jar /opt/software/picard/picard-tools-1.96/CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n")	
+		elif library_type == "SSE":
+			outp.write("java -Xmx2g -jar /opt/software/picard/picard-tools-1.96/CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n")	 
 		else:
-			outp.write("java -Xmx2g -jar /source/picardtools/picard-tools-1.58/CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n")	
+			outp.write("java -Xmx2g -jar /opt/software/picard/picard-tools-1.96/CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n")	
 		
 		#Get number of reads spanning junctions by getting "N"s in CIGAR field of bam file
 		#Be sure that Junction Spanning Reads are Added First then Unmapped Reads for proper ordering of fields in report
-		outp.write("echo \"Junction Spanning Reads: \" $(bamtools filter -in "+curr_sample+"_accepted_hits.sorted.bam -script /data/pcpgm/rnaseq/cigarN.script | bamtools count ) >> "+curr_sample+"_accepted_hits.sorted.bamstats \n")
-		#Get number of unmapped reads
-		outp.write("echo Unmapped Reads: $(samtools view -c unmapped.bam) >> "+curr_sample+"_accepted_hits.sorted.bamstats \n")		
+		outp.write("echo \"Junction Spanning Reads: \" $(bamtools filter -in "+curr_sample+"_accepted_hits.sorted.bam -script /project/bhimeslab/taffeta/cigarN.script | bamtools count ) >> "+curr_sample+"_accepted_hits.sorted.bamstats \n")
+		
+		if aligner == "tophat":
+			#Get number of unmapped reads
+			outp.write("echo Unmapped Reads: $(samtools view -c unmapped.bam) >> "+curr_sample+"_accepted_hits.sorted.bamstats \n")		
 
 		#Gather metrics unique to paired-end samples using CollectInsertSizeMetrics
 		if library_type in ["PE", "SPE"]:
-			outp.write("java -Xmx2g -jar /source/picardtools/picard-tools-1.58/CollectInsertSizeMetrics.jar HISTOGRAM_FILE="+curr_sample+"_InsertSizeHist.pdf INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_InsertSizeMetrics\n")	
+			outp.write("java -Xmx2g -jar /opt/software/picard/picard-tools-1.96/CollectInsertSizeMetrics.jar VALIDATION_STRINGENCY=LENIENT HISTOGRAM_FILE="+curr_sample+"_InsertSizeHist.pdf INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_InsertSizeMetrics\n")	
 		
 		#Run cufflinks to count ERCC spike ins
 		outp.write("mkdir "+out_dir+"/cufflinks_out_ERCC/\n")
 		outp.write("cd "+out_dir+"/cufflinks_out_ERCC/\n")
-		if library_type == "DGE":
-			outp.write("cufflinks --library-type fr-unstranded --no-length-correction -G /data/pcpgm/rnaseq/ERCC/Ambion_Documents/ERCC92.gtf -p 12 ../tophat_out/accepted_hits.bam \n")
-		elif library_type == "SPE":
-			outp.write("cufflinks --library-type fr-firststrand -G /data/pcpgm/rnaseq/ERCC/Ambion_Documents/ERCC92.gtf -p 12 ../tophat_out/accepted_hits.bam \n")
+		if library_type in ["DGE"]:
+			outp.write("cufflinks --library-type fr-unstranded --no-length-correction -G "+ERCC_only+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+		elif library_type in ["SPE"]:
+			outp.write("cufflinks --library-type fr-firststrand -G "+ERCC_only+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+		elif library_type in ["SSE"]:
+			outp.write("cufflinks --library-type fr-secondstrand -G "+ERCC_only+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
 		else:
-			outp.write("cufflinks --library-type fr-unstranded -G /data/pcpgm/rnaseq/ERCC/Ambion_Documents/ERCC92.gtf -p 12 ../tophat_out/accepted_hits.bam \n")
+			outp.write("cufflinks --library-type fr-unstranded -G "+ERCC_only+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+
+		#Run cufflinks to count rRNA. Currently only works with hg38
+		if ref_genome == "hg38":
+			outp.write("mkdir "+out_dir+"/cufflinks_out_rRNA/\n")
+			outp.write("cd "+out_dir+"/cufflinks_out_rRNA/\n")
+			if library_type == "DGE":
+				outp.write("cufflinks --library-type fr-unstranded --no-length-correction -G "+rRNA_gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+			elif library_type in ["SPE"]:
+				outp.write("cufflinks --library-type fr-firststrand -G "+rRNA_gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+			elif library_type in ["SSE"]:
+				outp.write("cufflinks --library-type fr-secondstrand -G "+rRNA_gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+			else:
+				outp.write("cufflinks --library-type fr-unstranded -G "+rRNA_gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
 		
 		#Cufflinks to assemble and quantify transcripts
 		outp.write("mkdir "+out_dir+"/cufflinks_out/\n")
 		outp.write("cd "+out_dir+"/cufflinks_out/\n")
-		if library_type == "DGE":
-			outp.write("cufflinks --library-type fr-unstranded --no-length-correction -M /data/pcpgm/rnaseq/ERCC/Ambion_Documents/ERCC92.gtf -p 12 ../tophat_out/accepted_hits.bam \n")
-		elif library_type == "SPE":
-			outp.write("cufflinks --library-type fr-firststrand -M /data/pcpgm/rnaseq/ERCC/Ambion_Documents/ERCC92.gtf -p 12 ../tophat_out/accepted_hits.bam \n")			
+		if mask == "none":
+			if library_type in ["DGE"]:
+				outp.write("cufflinks --library-type fr-unstranded --no-length-correction -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+			elif library_type in ["SPE"]:
+				outp.write("cufflinks --library-type fr-firststrand -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")			
+			elif library_type in ["SSE"]:
+				outp.write("cufflinks --library-type fr-secondstrand -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")			
+			else:
+				outp.write("cufflinks --library-type fr-unstranded -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
 		else:
-			outp.write("cufflinks --library-type fr-unstranded -M /data/pcpgm/rnaseq/ERCC/Ambion_Documents/ERCC92.gtf -p 12 ../tophat_out/accepted_hits.bam \n")
+			if library_type in ["DGE"]:
+				outp.write("cufflinks --library-type fr-unstranded --no-length-correction -M "+mask_gtf+" -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+			elif library_type in ["SPE"]:
+				outp.write("cufflinks --library-type fr-firststrand -M "+mask_gtf+" -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")			
+			elif library_type in ["SSE"]:
+				outp.write("cufflinks --library-type fr-secondstrand -M "+mask_gtf+" -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")			
+			else:
+				outp.write("cufflinks --library-type fr-unstranded -M "+mask_gtf+" -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
+		#outp.write("rm ../"+aligner+"_out/accepted_hits.bam \n")	#commented out for now
 		outp.close()
 	
-		subprocess.call("bsub < "+job_name+".lsf", shell=True)
-		subprocess.call("mv "+job_name+".lsf "+out_dir, shell=True)
+		#subprocess.call("bsub < "+job_name+".lsf", shell=True)
+		#subprocess.call("mv "+job_name+".lsf "+out_dir, shell=True)
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a PCPGM project.")
+	parser = argparse.ArgumentParser(description="Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project.")
 	parser.add_argument("--standard_trim", default=0, type=int, help="Number of bases to be trimmed from leftmost end of all reads (default=0)")
 	parser.add_argument("--discovery", default="yes", type=str, help="Should TopHat be run with options to discover novel transcripts (i.e. disable --no-novel-juncs --transcriptome-only)? "
-		"(options: yes, no; default=yes) "
-		"Note: the 'no' option only works with hg19 at the moment")
-	parser.add_argument("--path_start", default="./", type=str, help="Directory path where PCPGM batch-level directories are located and report directory will be written (default=./)")
+		"(options: yes, no; default=yes) ")
+	parser.add_argument("--mask", default="none", type=str, help="Should Cufflinks be run with options to mask transcripts (i.e. -M mask.gtf)? "
+		"(options: rRNA, globin, rRNA_globin, none; default=none) ")
+	parser.add_argument("--aligner", default="tophat", type=str, help="Should TopHat or STAR be used as aligner?"
+		"(options: tophat, star)")
+	parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
 	parser.add_argument("samples_in", help="Path to a tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
 	args = parser.parse_args()
-	main(args.samples_in, args.discovery, args.standard_trim, args.path_start)
+	main(args.samples_in, args.discovery, args.standard_trim, args.mask, args.aligner, args.path_start)
 

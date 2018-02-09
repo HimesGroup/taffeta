@@ -115,17 +115,42 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	"""
 	out_dir = path_start+"/"+project_name+"/"+project_name+"_DE_Report/"
 	if not os.path.exists(out_dir):
-		os.makedirs(out_dir)
+		os.makedirs(out_dir)		
+	css_outp = open(out_dir+"custom.css", "w")
+	css_outp.write("blockquote {\n")
+	css_outp.write("    padding: 10px 20px;\n")
+	css_outp.write("    margin: 0 0 20px;\n")
+	css_outp.write("    font-size: 14px;\n")
+        css_outp.write("    border-left: 5px solid #eee;\n")
+	css_outp.write("}\n\n")
+	css_outp.write(".main-container {\n")
+  	css_outp.write("    max-width: 2000px !important;\n") # "!important" overrides other rules
+	css_outp.write("}\n")
+	css_outp.close()
 	outp = open(out_dir+'/'+project_name+"_DESeq2_Report.Rmd", "w")
 
 	#write .Rmd file
-	outp.write("---\ntitle: \"DESeq2 results - based on HTSeq Counts from STAR-Aligned Sample Reads\"\n")
-	outp.write("output: html_document\n---\n\n")
-	outp.write("## Differential Expression Results for "+project_name+"\n\n")
-	outp.write("Reads were aligned to the "+ref_genome+" assembly using STAR (v. 2.5.2b).  The following alignment QC report was produced: <br><blockquote>"+project_name+"_QC_RnaSeqReport.html</blockquote><br>  HTSeq (v.0.6.1) function htseq-count was used to count reads. Counts for all samples were concatenated into the following text file: <blockquote>"+project_name+"_htseq_matrix.txt</blockquote><br>\n")
-	outp.write("DESeq2 (v. 1.12.4) was used for differential gene expression analaysis, based on the HTSeq counts matrix and the phenotype file provided.  Normalized counts from DESeq2 are saved in the following text file: <br><blockquote>"+project_name+"_counts_normalized_by_DESeq2.txt</blockquote><br> Normalized counts are obtained from DESeq2 function estimateSizeFactors(), which divides counts by the geometric mean across samples; this function does not correct for read length. The normalization method is described in detail here: https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106 <br><br> Differential gene expression analysis was done for all comparisons provided in the comparisons file.  The following design was used: <br><blockquote>design = ~ Label</blockquote><br> If desired, the design can be modified to include more independent variables, e.g. cell line, etc.<br>  In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form: <br><blockquote>"+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt</blockquote><br> where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br><br>\n")
-	outp.write("```{r, echo=FALSE, message=FALSE, warning=FALSE}\n")
-	outp.write("library(gplots)\nlibrary(reshape2)\nlibrary(RColorBrewer)\nlibrary(plyr)\nlibrary(lattice)\nlibrary(genefilter)\nlibrary(ggplot2)\nlibrary(DESeq2)\nlibrary(biomaRt)\noptions(width = 1000)\n")
+	outp.write("---\ntitle: \"Differential Expression Results for "+project_name+"\"\n")
+	outp.write("author: 'Blanca Himes (bhimes@upenn.edu)'\n")
+	outp.write("output: \n")
+	outp.write("  html_document:\n")
+	outp.write("    css: custom.css\n")
+	outp.write("    toc: true\n")
+	outp.write("    toc_float: true\n---\n\n")
+	outp.write("Reads were aligned to the "+ref_genome+" assembly using STAR (v. 2.5.2b).  The following alignment QC report was produced:<br>\n\n")
+	outp.write("> "+project_name+"_QC_RnaSeqReport.html<br>\n\n")
+  	outp.write("HTSeq (v.0.6.1) function htseq-count was used to count reads. Counts for all samples were concatenated into the following text file:<br>\n\n")
+	outp.write("> "+project_name+"_htseq_matrix.txt<br>\n\n")
+	outp.write("DESeq2 (v. 1.12.4) was used for differential gene expression analaysis, based on the HTSeq counts matrix and the phenotype file provided.  Normalized counts from DESeq2 are saved in the following text file:<br>\n\n")
+	outp.write("> "+project_name+"_counts_normalized_by_DESeq2.txt<br>\n\n")
+	outp.write("Normalized counts are obtained from DESeq2 function estimateSizeFactors(), which divides counts by the geometric mean across samples; this function does not correct for read length. The normalization method is described in detail here: https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106<br>\n\n") 
+	outp.write("Differential gene expression analysis was done for all comparisons provided in the comparisons file.  The following design was used:<br>\n\n")
+	outp.write("> design = ~ Label<br>\n\n")
+	outp.write("If desired, the design can be modified to include more independent variables, e.g. cell line, etc. In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form:<br>\n\n")
+	outp.write("> "+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt<br>\n\n")
+	outp.write("where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br>\n\n")
+	outp.write("\n\n```{r, echo=FALSE, message=FALSE, warning=FALSE}\n")
+	outp.write("library(gplots)\nlibrary(reshape2)\nlibrary(RColorBrewer)\nlibrary(plyr)\nlibrary(lattice)\nlibrary(genefilter)\nlibrary(ggplot2)\nlibrary(DESeq2)\nlibrary(DT)\nlibrary(biomaRt)\noptions(width = 1000)\n")
 	outp.write("\n")
 	outp.write("curr.batch=\""+project_name+"\"\n")
 	outp.write("path.start='"+path_start+"'\n")
@@ -190,19 +215,18 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 		outp.write("case <- '"+case+"'\n")
 		outp.write("ctrl <- '"+ctrl+"'\n")
 		outp.write("\n```\n")
-		outp.write("### "+case+" vs. "+ctrl+" comparison\n")
+		outp.write("## "+case+" vs. "+ctrl+"\n")
 		outp.write("\n")
 		outp.writelines(rmd_template)
 		outp.write("\n")
 
 	#Housekeeping gene expression barplots - once per report
-	outp.write("### Housekeeping genes\n")
+	outp.write("## Housekeeping genes\n")
 	outp.write("Counts have been normalized by sequencing depth, with pseudocount of 0.5 added to allow for log scale plotting, using DESeq2 function plotCounts().\n")
 	outp.write("\n")
 	outp.write("```{r, echo=FALSE, cache=FALSE, warning=FALSE, message=FALSE}\n")
 	outp.write("for (i in 1:length(housekeeping_genes)) {\n")
 	outp.write("  gene_symbol <- housekeeping_genes[i]\n")
-	outp.write("  gene <- res_df[which(res_df$gene_symbol==gene_symbol),]$Gene\n")
 	outp.write("  dfs <- ls()[grep('_norm_data_', ls())]\n")
 	outp.write("  dfs <- dfs[grep(gene_symbol, dfs)]\n")
 	outp.write("  curr_data <- data.frame()\n")	
@@ -221,13 +245,14 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	outp.write("      geom_jitter(size=2, width=0.2) +\n")
 	outp.write("      guides(fill=FALSE) +\n")
 	outp.write("      theme_bw() +\n")
-	outp.write("      labs(title=paste0(gene_symbol,'_',gene)) + labs(x='condition') + labs(y='counts') +\n")
-	outp.write("      theme(strip.text.x = element_text(size = 10),axis.text.x = element_text(angle = 90, hjust = 1, size=12),axis.text.y = element_text(size=9),title = element_text(size=12), axis.title.x = element_text(size=12), axis.title.y = element_text(size=12))\n")	
+	outp.write("      labs(title=paste0(gene_symbol)) + labs(x='condition') + labs(y='counts') +\n")
+	outp.write("      theme(strip.text.x = element_text(size = 10),axis.text.x = element_text(angle = 90, hjust = 1, size=12),axis.text.y = element_text(size=9), plot.title = element_text(size=12), axis.title.x = element_text(size=12), axis.title.y = element_text(size=12))\n")	
 	outp.write("	print(housekeeping_plot)\n")
 	outp.write("}\n```\n")
 	outp.close()
-	subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_DESeq2_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
-
+	#subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_DESeq2_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
+	subprocess.call("cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore", shell=True)
+	
 def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file):
 	"""
 	Creates Rmd report. The top of report is below and the rest concatenated from a separate text document (rmd_template).
@@ -236,6 +261,17 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	if not os.path.exists(out_dir):
 		os.makedirs(out_dir)
 	sleuth_dir = path_start+"/"+project_name+"/sleuth_out/"
+	css_outp = open(path_start+"custom.css", "w")
+	css_outp.write("blockquote {\n")
+	css_outp.write("    padding: 10px 20px;\n")
+	css_outp.write("    margin: 0 0 20px;\n")
+	css_outp.write("    font-size: 14px;\n")
+        css_outp.write("    border-left: 5px solid #eee;\n")
+	css_outp.write("}\n\n")
+	css_outp.write(".main-container {\n")
+  	css_outp.write("    max-width: 2000px !important;\n") # "!important" overrides other rules
+	css_outp.write("}\n")
+	css_outp.close()	
 	outp = open(out_dir+project_name+"_Sleuth_Report.Rmd", "w")
 	outp.write("---\ntitle: \"Sleuth results - based on Kallisto TPM\"\n")
 	outp.write("output: html_document \ntoc: true \ntoc_depth: 2 \n---\n")
@@ -346,7 +382,8 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	outp.write("}\n")
 	outp.write("```\n")
 	outp.close()
-	subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_Sleuth_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
+	#subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_Sleuth_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
+	subprocess.call("cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_Sleuth_Report.Rmd')\" | R --no-save --no-restore", shell=True)
 
 def main(project_name, sample_info_file, de_package, pheno_file, path_start, comp_file):
 	if path_start == "./":

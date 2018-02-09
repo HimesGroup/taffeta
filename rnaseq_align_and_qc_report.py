@@ -142,8 +142,8 @@ def read_tophat_logs(fin, library_type):
 	"""
 	f = open(fin,'r')
 	c = f.read().split('\n')
-	if '' in c:
-		c.remove('')
+	#if '' in c:
+		#c.remove('')
 	#First entry is 'left_reads_in'; Second entry is 'left_reads_out'
 	#For paired-end data, third entry is 'right_reads_in'; fourth entry is 'right_reads_out'
 	if library_type in ["PE", "SPE"]:
@@ -420,18 +420,30 @@ def make_project_data_files(project_name, sample_names, sample_paths, path_out, 
 def make_rmd_html(rmd_template, project_name, path_start, sample_names, ercc_mixes, ref_genome, library_type, aligner):
 	"""
 	Creates Rmd report. The top of report is below and the rest concatenated from a separate text document (rmd_template).
-	Runs Knitr to create html document with R output 
+	Runs rmarkdown to create html document 
+	Also makes a custom css format file - improvement on rmarkdown defaults
 	"""
+	css_outp = open(path_start+"custom.css", "w")
+	css_outp.write("blockquote {\n")
+	css_outp.write("    padding: 10px 20px;\n")
+	css_outp.write("    margin: 0 0 20px;\n")
+	css_outp.write("    font-size: 14px;\n")
+	css_outp.write("    background-color: #eee;\n")
+        css_outp.write("    border-left: 5px solid #eee;\n")
+	css_outp.write("}\n\n")
+	css_outp.write(".main-container {\n")
+  	css_outp.write("    max-width: 2000px !important;\n") # "!important" overrides other rules
+	css_outp.write("}\n")
+	css_outp.close()
 	outp = open(path_start+project_name+"_QC_RnaSeqReport.Rmd", "w")
-	outp.write("---\ntitle: \'RNA-seq Summary QC for Project "+project_name+"'\n")
+	outp.write("---\ntitle: \'RNA-Seq Report of Sample QC and Alignment Summary Statistics for Project "+project_name+"'\n")
 	outp.write("author: 'Blanca Himes (bhimes@upenn.edu)'\n")
-	outp.write("output: html_document:\n")
-	outp.write("  toc: true\n")
-	outp.write("  toc_depth: 2\n")
-	outp.write("  toc_float: true\n---\n\n")
-	outp.write("# RNA-Seq Report of Sample QC and Alignment Summary Statistics\n")
+	outp.write("output: \n")
+	outp.write("  html_document:\n")
+	outp.write("    css: custom.css\n")
+	outp.write("    toc: true\n")
+	outp.write("    toc_float: true\n---\n\n")
 	outp.write("**Project:** "+project_name+"\n\n")
-	outp.write("**Author:** Blanca Himes (bhimes@upenn.edu)\n\n")
 	if aligner == "star":
 		align_abbrev = "STAR (v. 2.5.2b)"
 	else:
@@ -442,9 +454,9 @@ def make_rmd_html(rmd_template, project_name, path_start, sample_names, ercc_mix
 	elif ref_genome == "hg38":
 		outp.write("**Genome:** For human, the hg38 assembly was used. We estimate the number of rRNA reads as those mapped to chrM plus chrUn_GL000220v1, corresponding to 12S, 16S and 5.8S rRNA. The 'Other' category contains all other chr*_random and chrUn_* available.\n")
 	elif ref_genome == "mm38":
-		outp.write("**Genome:** For mouse, the ENSEMBL GRCm38 assmembly available in iGenomes was used.\n")
+		outp.write("**Genome:** For mouse, the ENSEMBL GRCm38 assembly available in iGenomes was used.\n")
 	elif ref_genome == "mm10":
-		outp.write("**Genome:** For mouse, the ENSEMBL GRCm38 assmembly available in iGenomes was used.\n")
+		outp.write("**Genome:** For mouse, the UCSC mm10 assembly available in iGenomes was used.\n")
 	elif ref_genome == "rn6":
 		outp.write("**Genome:** For rat, the rn6 assembly was used.\n")
 	elif ref_genome == "susScr3":
@@ -467,8 +479,8 @@ def make_rmd_html(rmd_template, project_name, path_start, sample_names, ercc_mix
 	outp.write(rmd_template)
 	outp.close()
 	#subprocess.call("cd "+path_start+"; echo \"library(R2HTML); Sweave('"+project_name+"_QC_RnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore", shell=True)
-	subprocess.call("cd "+path_start+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_QC_RnaSeqReport.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
-	#subprocess.call("cd "+path_start+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_QC_RnaSeqReport.Rmd')\" | R --no-save --no-restore", shell=True)
+	#subprocess.call("cd "+path_start+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_QC_RnaSeqReport.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
+	subprocess.call("cd "+path_start+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_QC_RnaSeqReport.Rmd')\" | R --no-save --no-restore", shell=True)
 
 
 def main(project_name, sample_info_file, path_start, aligner):

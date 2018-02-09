@@ -10,7 +10,7 @@ from rnaseq_align_and_qc import *
 def make_track_file(sample_info_file, path_start, aligner):
 	runs = get_sample_info(sample_info_file)
 	outp = open(path_start+"ucsc_track_names.txt", "w")
-	output_url = "https://dl.dropboxusercontent.com/u/178614/"
+	output_url = "http://public.himeslab.org/"
 	
 	#Get a dictionary of colors for conditions in info_sheet
 	colors = ["0,0,400", "400,0,0", "0,0,100", "100,0,0", "200,200,0", "0,200,200"]

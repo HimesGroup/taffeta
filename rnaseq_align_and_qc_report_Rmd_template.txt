@@ -1,7 +1,11 @@
 
 ```{r, echo=FALSE, message=FALSE}
-library(xtable)
-library(pander)
+#library(xtable)
+#library(pander)
+#library(knitr)
+library(DT)
+library(ggplot2)
+library(reshape2)
 metrics.data <- read.table(paste(curr.batch,"_rnaseqmetrics_hist.txt", sep=""), header=T)
 counts.data <- read.table(paste(curr.batch,"_counts.txt", sep=""), header=T, sep="\t")
 ercc.data <- read.table(paste(curr.batch,"_ERCC.txt", sep=""), header=T, as.is=T)
@@ -21,53 +25,40 @@ duplicates <- read.table(paste(curr.batch,"_duplicates.txt", sep=""), header=T, 
 ambion.specs <- read.table("/project/bhimeslab/taffeta/ERCC_SpikeIn_Controls_Analysis.txt", header=T, as.is=T, sep='\t')
 ```
 
-**Depending on whether the STAR or Tophat aligner was chosen during the alignment step:** <br>
+For each sample, the following programs were run to generate the data necessary to create this report. Written as for unstranded paired-end data. For single-end reads, R2s and insert size metrics would be omitted. <br> 
 
-For each sample, the following programs were run to generate the data necessary to create this report. Written as for unstranded paired-end data. For single-end reads, R2s and insert size metrics would be omitted. For stranded data, Tophat and Cufflinks option --library-type fr-firststrand would be used and CollectRnaSeqMetrics.jar option STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND would be used.<br>
-<blockquote>
-java -Xmx1024m	TrimmomaticPE -phred33 [raw_sample_R1] [raw_sample_R2] [sample_R1] [sample_R1_unpaired] [sample_R2] [sample_R2_unpaired] HEADCROP:[bases to trim, if any] ILLUMINACLIP:[sample_primer_fasta]:2:30:10 MINLEN:50
-fastqc [sample_R1] [sample_R2] <br>
-cat [sample_R1/R2] | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' <br>
+> java -Xmx1024m	TrimmomaticPE -phred33 [raw_sample_R1] [raw_sample_R2] [sample_R1] [sample_R1_unpaired] [sample_R2] [sample_R2_unpaired] HEADCROP:[bases to trim, if any] ILLUMINACLIP:[sample_primer_fasta]:2:30:10 MINLEN:50<br> <br>
+> fastqc [sample_R1] [sample_R2] <br> <br>
+> cat [sample_R1/R2] | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' <br>
 
-</blockquote>
-If "No Discovery" TopHat options were selected (conservative alignment): <br>
-<blockquote>
-tophat --library-type fr-unstranded -G [ref+ERCC gtf] --no-novel-juncs --transcriptome-only -p 12 [ref_genome_index] [sample_R1] [sample_R2] <br>
-</blockquote>
-If default TopHat options were selected: <br>
-<blockquote>
-tophat --library-type fr-unstranded -G [ref+ERCC gtf] -p 12 [ref_genome_index] [sample_R1] [sample_R2] <br>
-</blockquote>
-If STAR was selected: <br>
-<blockquote>
-STAR-2.5.2b --genomeDir [ref_genome_index] --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn [sample_R1] [sample_R2] <br>
-</blockquote>
+
+The following STAR options were used: <br>
+
+> STAR-2.5.2b --genomeDir [ref_genome_index] --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn [sample_R1] [sample_R2] <br>
+
 
 Using aligned output files accepted_hits.bam and unmapped.bam:<br>
-<blockquote>
-samtools sort accepted_hits.bam accepted_hits.sorted <br>
-samtools index accepted_hits.sorted.bam <br>
-samtools idxstats accepted_hits.sorted.bam > accepted_hits.sorted.stats <br>
-bamtools stats -in accepted_hits.sorted.bam > accepted_hits.sorted.bamstats <br>
-bamtools filter -in accepted_hits.sorted.bam -script cigarN.script | bamtools count <br>
-samtools view -c unmapped.bam <br>
-java -Xmx2g -jar CollectRnaSeqMetrics.jar REF_FLAT=[ref_flat file] STRAND_SPECIFICITY=NONE INPUT=accepted_hits.bam OUTPUT=RNASeqMetrics <br>
-java -Xmx2g -jar CollectInsertSizeMetrics.jar HISTOGRAM_FILE=InsertSizeHist.pdf INPUT=accepted_hits.sorted.bam OUTPUT=InsertSizeMetrics <br>
-</blockquote>
 
-If ERCC Spike-Ins were used: <br>
-<blockquote>
-cufflinks -G [ERCC .gtf file] -p 12 accepted_hits.bam <br>
-</blockquote>
+> samtools sort accepted_hits.bam accepted_hits.sorted <br><br>
+> samtools index accepted_hits.sorted.bam <br><br>
+> samtools idxstats accepted_hits.sorted.bam > accepted_hits.sorted.stats <br><br>
+> bamtools stats -in accepted_hits.sorted.bam > accepted_hits.sorted.bamstats <br><br>
+> bamtools filter -in accepted_hits.sorted.bam -script cigarN.script | bamtools count <br><br>
+> samtools view -c unmapped.bam <br><br>
+> java -Xmx2g -jar CollectRnaSeqMetrics.jar REF_FLAT=[ref_flat file] STRAND_SPECIFICITY=NONE INPUT=accepted_hits.bam OUTPUT=RNASeqMetrics <br><br>
+> java -Xmx2g -jar CollectInsertSizeMetrics.jar HISTOGRAM_FILE=InsertSizeHist.pdf INPUT=accepted_hits.sorted.bam OUTPUT=InsertSizeMetrics <br>
 
-## Summary Read Numbers for Each Sample
 
-The number of raw reads correspond to those that passed Casava QC filters, were trimmed to remove adaptors by Trimmomatic, and were aligned by TopHat or STAR to ref_genome+ERCC transcripts as reported in .info files. Unique read counts were obtained by using awk on trimmed fastq files. FastQC estimates of percentage of sequences remaining after deduplication were retrieved from fastqc_data.txt files. Bamtools statistics were based on sorted and indexed bam files. The mapped reads were those that mapped to reference and were output by TopHat or STAR to accepted_hits.bam. The unmapped reads were output by TopHat or STAR to unmapped.bam. Some reads may be mapped to multiple locations in the genome so that the number of total reads reported by bamstats may be greater than the number of raw reads. The Junction spanning reads are computed based on accepted_hits.bam CIGAR entries containing "N." Related text files that were saved:
+## Summary Read Numbers 
 
-```{r, echo=FALSE, message=FALSE}
-cat(curr.batch, "_read_counts.txt\n", curr.batch, "_duplicates.txt\n", curr.batch, "_unique_counts.txt\n", curr.batch, "_bamstats_counts.txt\n\n")
+The number of raw reads correspond to those that passed Casava QC filters, were trimmed to remove adaptors by Trimmomatic, and were aligned by STAR to ref_genome+ERCC transcripts as reported in .info files. Unique read counts were obtained by using awk on trimmed fastq files. FastQC estimates of percentage of sequences remaining after deduplication were retrieved from fastqc_data.txt files. Bamtools statistics were based on sorted and indexed bam files. The mapped reads were those that mapped to reference and were output by STAR to accepted_hits.bam. The unmapped reads were output by STAR to unmapped.bam. Some reads may be mapped to multiple locations in the genome so that the number of total reads reported by bamstats may be greater than the number of raw reads. The Junction spanning reads are computed based on accepted_hits.bam CIGAR entries containing "N." Related text files that were saved:
+
+
+```{r, echo=FALSE, message=FALSE, results='asis'}
+cat(curr.batch, "_read_counts.txt\n\n", curr.batch, "_duplicates.txt\n\n", curr.batch, "_unique_counts.txt\n\n", curr.batch, "_bamstats_counts.txt\n\n")
 ```
-Total Number of Raw Reads Summary
+
+### Total Number of Raw Reads Summary
 
 ```{r, echo=FALSE, message=FALSE}
 if (library.type %in% c("PE", "SPE")) {
@@ -82,19 +73,36 @@ if (library.type %in% c("PE", "SPE")) {
 	row.names(unique.counts.data.2) <- c(1:length(row.names(unique.counts.data.2)))
 	names(unique.counts.data.2)[5] <- "Fastqc_Total_Duplicate_Estimate"
 	}
-pander::pandoc.table(unique.counts.data.2, split.table = Inf)
+unique.counts.data.2$Percent_Unique <- round(unique.counts.data.2$Percent_Unique, 2) #else get a ton of decimal points
+unique.counts.data.2$Fastqc_Total_Duplicate_Estimate <- round(unique.counts.data.2$Fastqc_Total_Duplicate_Estimate, 2)
+DT::datatable(unique.counts.data.2, rownames = FALSE, options = list(pageLength = 25))
 ```
 
-```{r, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+### Plot: Percentage of Unique Reads in Original Fastq File
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=8, fig.height=10}
 par(mai=c(1.02,1,0.82,2.5))
 if (library.type %in% c("PE", "SPE")) {
 	unique.counts.only = rbind(unique.counts.data$R1_Percent_Unique, unique.counts.data$R2_Percent_Unique)
-	barplot(unique.counts.only, beside=TRUE, ylim=c(0,100), col=c("red", "darkblue"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Unique Reads in Original Fastq File", names.arg=c(1:length(unique.counts.data$Sample)), cex.axis=1.75, cex.lab=2, cex.main=2)
-	legend("right", c("R1", "R2"), fill=c("red", "darkblue"), border=NA, bty="n", xpd=TRUE, inset=-0.3, cex=1.5)
+	#barplot(unique.counts.only, beside=TRUE, ylim=c(0,100), col=c("red", "darkblue"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Unique Reads in Original Fastq File", names.arg=c(1:length(unique.counts.data$Sample)), cex.axis=1.75, cex.lab=2, cex.main=2)
+	#legend("right", c("R1", "R2"), fill=c("red", "darkblue"), border=NA, bty="n", xpd=TRUE, inset=-0.3, cex=1.5)
+	ggplot(unique.counts.only, aes(Sample))
 	} else {
-	barplot(unique.counts.data$Percent_Unique, ylim=c(0,100), col=c("red"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Unique Reads in Original Fastq File", names.arg=c(1:length(unique.counts.data$Sample)), cex.axis=1.75, cex.lab=2, cex.main=2)	
+	#barplot(unique.counts.data$Percent_Unique, ylim=c(0,100), col=c("red"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Unique Reads in Original Fastq File", names.arg=c(1:length(unique.counts.data$Sample)), cex.axis=1.75, cex.lab=2, cex.main=2)	
+	ggplot(data = unique.counts.data, aes(x = Sample, y = Percent_Unique)) + 
+		geom_bar(stat="identity", fill="firebrick") +
+		labs(title=curr.batch, x="Sample", y="Percentage of Unique Reads in Original Fastq File") +
+		ylim(0, 100) +
+		theme_bw() +
+		theme(axis.text.x = element_text(angle = 90, hjust = 1, size=14),
+            	axis.text.y = element_text(size=14),
+            	plot.title = element_text(size=18, hjust=0.5, face="bold"),
+            	axis.title.x = element_text(size=14),
+            	axis.title.y = element_text(size=16))
 }
 ```
+
+### Plot: Sequence Duplication Level
 
 ```{r, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
 color.list <- rep(brewer.pal(12,"Paired"), length(sample.names))
@@ -132,15 +140,15 @@ if (aligner == "tophat") {
 		total.read.data$Total_Raw_Reads <- total.read.data$R1_Raw_Reads + total.read.data$R2_Raw_Reads
 		total.read.data$Total_Aligned_Reads <- total.read.data$R1_Aligned_Reads + total.read.data$R2_Aligned_Reads
 		total.read.data$Pct_Aligned_Reads <- 100*total.read.data$Total_Aligned_Reads/total.read.data$Total_Raw_Reads
-		pander::pandoc.table(total.read.data, split.table = Inf)
+		DT::datatable(total.read.data, options = list(pageLength = 25))
 		} else {
 		total.read.data$Pct_Aligned_Reads <- 100*total.read.data$Aligned_Reads/total.read.data$Raw_Reads
-		pander::pandoc.table(total.read.data, split.table = Inf)
+		DT::datatable(total.read.data, options = list(pageLength = 25))
 		}
 	}
 ```
 
-Bamtools Reads Summary
+### Bamtools Reads Summary
 
 ```{r, echo=FALSE, message=FALSE}
 if (library.type %in% c("PE", "SPE")) {
@@ -168,22 +176,27 @@ if (library.type %in% c("PE", "SPE")) {
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample)
 		row.names(bamstats.summary) <- c(bamstats.data[c(2:4, 8), 1], "Unmapped Reads", "Total Reads")
 	} 
-}	
-pander::pandoc.table(bamstats.summary, split.table = Inf)
-
+}
+DT::datatable(bamstats.summary, options = list(pageLength = 25))
 ```
-Bamtools Reads Summary As Percentage of Mapped Reads
+
+
+### Bamtools Reads Summary As Percentage of Mapped Reads
+
 ```{r, echo=FALSE, message=FALSE}
+#if use xtable: print(xtable(bamstats.percent.table, split.table = Inf), type = 'html')
 #need results="asis" for xtable to be output as table--else will be output as html code
+
 if (library.type %in% c("PE", "SPE")) {
 	bamstats.percent.table <- 100*bamstats.summary[c(1:10), , drop=FALSE] / rep(as.numeric(bamstats.summary[1, ]), each=10)
 	} else {
 	bamstats.percent.table <- 100*bamstats.summary[c(1:4), , drop=FALSE] / rep(as.numeric(bamstats.summary[1, ]), each=4)
 	}
-pander::pandoc.table(bamstats.percent.table, split.table = Inf)
-
+bamstats.percent.table <- round(bamstats.percent.table, 2)	
+DT::datatable(bamstats.percent.table, options = list(pageLength = 25))
 ```
-Percentage of Mapped/Unmapped Reads
+
+### Percentage of Mapped/Unmapped Reads
 
 ```{r, echo=FALSE, message=FALSE}
 if (library.type %in% c("PE", "SPE")) {
@@ -191,38 +204,109 @@ if (library.type %in% c("PE", "SPE")) {
 	} else {
 	mapped.percent.table <- 100*bamstats.summary[c(1,5), , drop=FALSE] / rep(as.numeric(bamstats.summary[6, ]), each=2)
 	}
-pander::pandoc.table(mapped.percent.table, split.table = Inf)
+mapped.percent.table <- round(mapped.percent.table, 2)
+DT::datatable(mapped.percent.table, options = list(pageLength = 25))
 ```
 
-```{r, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+### Plot: Percentage of Mapped/Unmapped Reads
+
+```{r, echo=FALSE, message=FALSE, fig.width=9, fig.height=10}
 par(mai=c(1.02,1,0.82,2.5))
-barplot(as.matrix(mapped.percent.table), beside=FALSE, ylim=c(0,100), col=c("red", "darkblue"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Total Reads", names.arg=c(1:length(names(mapped.percent.table))), cex.axis=1.75, cex.lab=2, cex.main=2)
-legend("right", c("Mapped", "Unmapped"), fill=c("red", "darkblue"), border=NA, bty="n", xpd=TRUE, inset=-0.3, cex=1.5)
+#barplot(as.matrix(mapped.percent.table), beside=FALSE, ylim=c(0,100), col=c("red", "darkblue"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Total Reads", names.arg=c(1:length(names(mapped.percent.table))), cex.axis=1.75, cex.lab=2, cex.main=2)
+#legend("right", c("Mapped", "Unmapped"), fill=c("red", "darkblue"), border=NA, bty="n", xpd=TRUE, inset=-0.3, cex=1.5)
+
+rownames(mapped.percent.table) <- c("Mapped", "Unmapped")
+mapped.percent.table$which  <- rownames(mapped.percent.table)
+mapped.percent.for.plot <- melt(mapped.percent.table, id.vars="which")
+mapped.percent.for.plot$which <- factor(mapped.percent.for.plot$which, levels=c("Unmapped", "Mapped")) # order so mapped reads are at the bottom 
+
+#note stacked is default for ggplot2
+ggplot(data = mapped.percent.for.plot, aes(x = variable, y = value, fill=which)) + 
+	geom_bar(stat="identity") +
+	scale_fill_manual(values=c("navy", "firebrick")) +
+	labs(title=curr.batch, x="Sample", y="Percentage of Total Reads") +
+	ylim(0, 100) +
+	theme_bw() +
+	theme(axis.text.x = element_text(angle = 90, hjust = 1, size=14),
+		legend.title = element_text(color="white", size=12),
+		legend.text = element_text(size = 16),
+           	axis.text.y = element_text(size=16),
+         	plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+           	axis.title.x = element_text(size=18),
+         	axis.title.y = element_text(size=18))
 ```
 
-```{r, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
+### Plot: Percentage of Junction Spanning Reads Among Mapped Reads
+
+```{r, echo=FALSE, message=FALSE, fig.width=8, fig.height=10}
 par(mai=c(1.02,1,0.82,0.42))
-barplot(as.matrix(bamstats.percent.table[length(row.names(bamstats.percent.table)), , drop=FALSE]), ylim=c(0, ceiling(max(bamstats.percent.table[length(row.names(bamstats.percent.table)), ]))), col=c("red"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Junction Spanning Reads Among Mapped Reads", names.arg=c(1:length(names(bamstats.percent.table))), cex.axis=1.75, cex.lab=2, cex.main=2)
+#barplot(as.matrix(bamstats.percent.table[length(row.names(bamstats.percent.table)), , drop=FALSE]), ylim=c(0, ceiling(max(bamstats.percent.table[length(row.names(bamstats.percent.table)), ]))), col=c("red"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Junction Spanning Reads Among Mapped Reads", names.arg=c(1:length(names(bamstats.percent.table))), cex.axis=1.75, cex.lab=2, cex.main=2)
+
+junc.for.table <- melt(bamstats.percent.table["Junction Spanning Reads",])
+
+ggplot(data = junc.for.table, aes(x = variable, y = value)) + 
+	geom_bar(stat="identity", fill="firebrick") +
+	labs(title=curr.batch, x="Sample", y="Percentage of Junction Spanning Reads Among Mapped Reads") +
+	ylim(0, ceiling(max(bamstats.percent.table[length(row.names(bamstats.percent.table)), ]))) +
+	theme_bw() +
+	theme(axis.text.x = element_text(angle = 90, hjust = 1, size=14),
+		legend.title = element_text(color="white", size=12),
+		legend.text = element_text(size = 16),
+           	axis.text.y = element_text(size=16),
+         	plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+           	axis.title.x = element_text(size=18),
+         	axis.title.y = element_text(size=18))
 ```
+
+
 ## RnaSeqMetrics Summary
 
 The Picard Tools RnaSeqMetrics function computes the number of bases assigned to various classes of RNA. It also computes the coverage of bases across all transcripts (normalized to a same-sized reference). Computations are based on comparison to a refFlat file. Related text files that were saved:
-```{r, echo=FALSE, message=FALSE}
-cat(curr.batch, "_rnaseqmetrics_summary.txt\n", curr.batch, "_rnaseqmetrics_hist.txt\n\n")
+
+```{r, echo=FALSE, message=FALSE, results='asis'}
+cat(curr.batch, "_rnaseqmetrics_summary.txt\n\n", curr.batch, "_rnaseqmetrics_hist.txt\n\n")
 ```
-Reference Genome Mapped Reads Summary
+
+
+### Reference Genome Mapped Reads Summary
+
 ```{r, echo=FALSE, message=FALSE}
 sum.data <- summary.data[c(1:2,4:10,12:22), c(2:length(names(summary.data))), drop=FALSE]
 row.names(sum.data) <- summary.data[c(1:2,4:10,12:22), 1]
 table.digits <- matrix(c(rep(0,9),rep(3,11)), nrow=20, ncol=length(names(summary.data)))
-pander::pandoc.table(sum.data, split.table = Inf)
+sum.data["PCT_CODING_BASES",] <- round(sum.data["PCT_CODING_BASES",]*100, 2)
+DT::datatable(sum.data, options = list(pageLength = 25))
 ```
+
+### Plot: Percentages of Total Mapped Bases Mapping to mRNA, Intronic and Intergenic Regions
 
 ```{r, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
 par(mai=c(1.02,1,0.82,2.5))
-barplot(sapply(sum.data[c(14,12,13), ], as.numeric)*100, beside=TRUE, ylim=c(0,100), col=c("red", "darkblue", "darkgreen"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Total Mapped Bases", names.arg=c(1:length(names(sum.data))), cex.axis=1.75, cex.lab=2, cex.main=2)
-legend("right", c("mRNA", "Intronic", "Intergenic"), fill=c("red", "darkblue", "darkgreen"), border=NA, bty="n", xpd=TRUE, inset=-0.17, cex=1.5)
+#barplot(sapply(sum.data[c(14,12,13), ], as.numeric)*100, beside=TRUE, ylim=c(0,100), col=c("red", "darkblue", "darkgreen"), border=NA, main=curr.batch, xlab="Sample", ylab="Percentage of Total Mapped Bases", names.arg=c(1:length(names(sum.data))), cex.axis=1.75, cex.lab=2, cex.main=2)
+#legend("right", c("mRNA", "Intronic", "Intergenic"), fill=c("red", "darkblue", "darkgreen"), border=NA, bty="n", xpd=TRUE, inset=-0.17, cex=1.5)
+
+sum.data.for.plot <- sum.data[c("PCT_INTERGENIC_BASES", "PCT_INTRONIC_BASES", "PCT_MRNA_BASES"),]*100
+rownames(sum.data.for.plot) <- c("Intergenic", "Intronic", "mRNA")
+sum.data.for.plot$which  <- rownames(sum.data.for.plot)
+sum.data.melted <- melt(sum.data.for.plot, id.vars="which")
+sum.data.melted$which <- factor(sum.data.melted$which, levels=c("mRNA", "Intronic", "Intergenic")) # desired order
+
+ggplot(data = sum.data.melted, aes(x = variable, y = value, fill=which)) + 
+	geom_bar(stat="identity", position = "dodge") +  #note stacked is default for ggplot2, so must specify "dodge" to get side-by-side bars
+	scale_fill_manual(values=c("red", "darkblue", "darkgreen")) +
+	labs(title=curr.batch, x="Sample", y="Percentage of Total Mapped Bases") +
+	ylim(0, 100) +
+	theme_bw() +
+	theme(axis.text.x = element_text(angle = 90, hjust = 1, size=14),
+		legend.title = element_text(color="white", size=12),
+		legend.text = element_text(size = 16),
+           	axis.text.y = element_text(size=16),
+         	plot.title = element_text(size=20, hjust = 0.5, face="bold"),
+           	axis.title.x = element_text(size=18),
+         	axis.title.y = element_text(size=18))
 ```
+
+### Plot: Normalized Coverage
 
 ```{r, echo=FALSE, message=FALSE, fig.width=10, fig.height=10}
 sample.names <- names(metrics.data)[2:length(names(metrics.data))]
@@ -290,8 +374,8 @@ if (library.type %in% c("PE", "SPE")) {
 ## Reads per Chromosome
 
 Samtools produces a summary document that includes the number of reads mapped to each chromosome. Related text files that were saved:
-```{r, echo=FALSE, message=FALSE}
-cat(curr.batch, "_counts.txt\n")
+```{r, echo=FALSE, message=FALSE, results='asis'}
+cat("\n\n", curr.batch, "_counts.txt\n\n")
 ```
 
 ```{r, echo=FALSE, message=FALSE}
@@ -343,6 +427,26 @@ for (i in c(1:length(sample.names))){
 	  sample.index <- i+2
 	  if (i==1) {
 		 plot(counts.data.ordered.by.chr[,sample.index], type="h", col=c[i], xlab="Chromosome", ylab="Read Counts", main=curr.batch, axes=FALSE, ylim=c(0, max(counts.data.ordered.by.chr[,c(3:length(names(counts.data.ordered.by.chr)))])), cex.axis=1.75, cex.lab=2, cex.main=2)
+	  	 
+			
+		 counts.data.melted <- melt(counts.data.ordered.by.chr)
+		 counts.data.melted <- counts.data.melted[!(counts.data.melted$variable == "Length"),]
+		 #sum.data.melted$which <- factor(sum.data.melted$which, levels=c("mRNA", "Intronic", "Intergenic")) # desired order
+
+	 	 ggplot(data = counts.data.melted, aes(x = Chromosome, y = value, fill=variable)) + 
+			geom_bar(stat="identity", position = "dodge") +  #note stacked is default for ggplot2, so must specify "dodge" to get side-by-side bars
+			#scale_fill_manual(values=c("red", "darkblue", "darkgreen")) +
+			labs(title=curr.batch, x="Chromosome", y="Read Counts") +
+			ylim(0, 100) +
+			theme_bw() +
+			theme(axis.text.x = element_text(angle = 90, hjust = 1, size=14),
+				legend.title = element_text(color="white", size=12),
+				legend.text = element_text(size = 16),
+		           	axis.text.y = element_text(size=16),
+         			plot.title = element_text(size=20, hjust = 0.5, face="bold"),
+		           	axis.title.x = element_text(size=18),
+         			axis.title.y = element_text(size=18))
+
 	  } else {
 		 shifted = c(1:length(counts.data.ordered.by.chr[,1]))+delta*(i-1)
 		 lines(shifted, counts.data.ordered.by.chr[,sample.index], type="h", col=c[i])
@@ -353,7 +457,8 @@ axis(side=2, cex.axis=1.75, cex.lab=2)
 legend("right", sample.names, fill=c, bty="n", border=c, cex=1.5, xpd=TRUE, inset=-0.2)
 ```
 
-Mapped Reads to Reference Genome
+### Mapped Reads to Reference Genome
+
 ```{r, echo=FALSE, message=FALSE}
 #Add in the total row at bottom
 count.total <- colSums(counts.data.ordered.by.chr[ , c(3:length(names(counts.data.ordered.by.chr))), drop=FALSE])
@@ -365,9 +470,12 @@ if (class(counts.data.ordered.by.chr[,1]) == "factor") {
 	row.names(count.total.table) <- c(counts.data.ordered.by.chr[,1], "Total")
 }
 #print(xtable(count.total.table, caption="Mapped Reads to Reference Genome", digits=0, align=rep("r", dim(count.total.table)[2]+1)), type="html", label="tab:seven", table.placement="tbp", caption.placement="top")
-pander::pandoc.table(count.total.table, split.table = Inf)
+DT::datatable(count.total.table, options = list(pageLength = 25))
 ```
-Percent of Total Reads Mapped to Reference Genome 
+
+
+### Percent of Total Reads Mapped to Reference Genome
+ 
 ```{r, echo=FALSE, message=FALSE}
 counts.percent.table <- 100*counts.data.ordered.by.chr[ , c(3:length(names(counts.data.ordered.by.chr))), drop=FALSE] / rep(count.total, each=nrow(counts.data.ordered.by.chr[, c(3:length(names(counts.data.ordered.by.chr)))])) 
 counts.percent.table <- rbind(counts.percent.table, colSums(counts.percent.table))
@@ -377,20 +485,24 @@ if (class(counts.data.ordered.by.chr[,1]) == "factor") {
 	row.names(counts.percent.table) <- c(counts.data.ordered.by.chr[,1], "Total")
 }
 #print(xtable(counts.percent.table, caption="Percent of Total Reads Mapped to Reference Genome", digits=2, align=rep("r", dim(counts.percent.table)[2]+1)), type="html", label="tab:eight", table.placement="tbp", caption.placement="top")
-pander::pandoc.table(counts.percent.table, split.table = Inf)
+counts.percent.table <- round(counts.percent.table, 2)
+DT::datatable(counts.percent.table, options = list(pageLength = 25))
 ```
 
 ## ERCC Spike-in Dose Response Plots
 
 For samples that contained External RNA Controls Consortium (ERCC) Spike-Ins, dose response curves (i.e. plots of ERCC transcript FPKM vs. ERCC transcript molecules) were created. Ideally, the slope and R2 would equal 1.0. Related text files that were saved:
-```{r, echo=FALSE, message=FALSE}
-cat(curr.batch, "_ERCC.txt\n")
-cat(curr.batch,"_ERCC_FPKM.txt")
-cat(curr.batch,"_ERCC_RAW_COUNTS.txt")
-```
-ERCC Spike-in Dose Response Fit Details:
 
-```{r, echo=FALSE, message=FALSE}
+```{r, echo=FALSE, message=FALSE, results='asis'}
+cat(curr.batch, "_ERCC.txt\n\n")
+cat(curr.batch,"_ERCC_FPKM.txt\n\n")
+cat(curr.batch,"_ERCC_RAW_COUNTS.txt\n\n")
+```
+
+
+### ERCC Spike-in Dose Response Fit Details:
+
+```{r, echo=FALSE, message=FALSE, results='asis'}
 if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
 	n.samples <- (dim(ercc.data)[2]-1)/2
 	dilution.factor <- 0.02
@@ -426,7 +538,7 @@ if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
 	ercc.fit.table <- data.frame(cbind(slope.all, r2.all), row.names=names.all)
 	names(ercc.fit.table) <- c("Slope", "r2")
 	#try(HTML(print(xtable(ercc.fit.table, caption="ERCC Spike-in Dose Response Fit Details"), type="html", label="tab:nine", table.placement="tbp", caption.placement="top", floating=FALSE))) #added "try()" when doing pig_lung - else was getting thrown out of loop with 'Error: could not find function "HTML"'
-	pander::pandoc.table(ercc.fit.table, split.table = Inf)
+	DT::datatable(ercc.fit.table)
 
 	names(ercc)[4:5] <- c("Mix1.Concentration", "Mix2.Concentration")
 	write.table(ercc, file=paste(curr.batch,"_ERCC_complete.txt", sep=""), row.names=FALSE, quote=FALSE)

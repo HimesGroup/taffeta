@@ -15,17 +15,6 @@ This set of scripts was initially developed to analyze RNA-Seq and DGE data at t
 
 Several freely available software packages are used to perform most of these steps (see below). 
 
-One of two workflows: STAR/HTSeq/DESeq2 or Kallisto/Sleuth
-
-## STAR/HTSeq/DESeq2
-
-### dependencies
-* The Tuxedo suite of tools and various other programs should be installed: bowtie or bowtie2, tophat, cufflinks, cummerbund, fastqc, trimmomatic, samtools, bamtools, picardtools. 
-* Annotation files should be available: reference genome fasta, gtf, refFlat, and index files. We use ERCC spike-ins, so our reference files include ERCC mix transcripts. 
-* For adapter trimming, we include Ilumina and Nextflex sequences as used in the PCPGM lab.
-* The Python scripts make use of modules that include subprocess, os, argparse, sys.
-* To create reports, R and various libraries should be available, including cummeRbund, R2HTML, RColorBrewer, xtable.
-
 ### input files
 Before running the pipeline, characteristics of a set of fastq files for samples that are part of a project are described in a tab-delimited txt file containing the following fields:
 ```
@@ -43,6 +32,18 @@ Before running the pipeline, characteristics of a set of fastq files for samples
 ```
 
 PCPGM uses a rigid naming structure as is apparent in rnaseq_align_and_qc.py. The file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). Steps 5-7 are optional.
+
+
+Use one of two workflows: STAR/HTSeq/DESeq2 or Kallisto/Sleuth
+
+## STAR/HTSeq/DESeq2
+
+### dependencies
+* The Tuxedo suite of tools and various other programs should be installed: bowtie or bowtie2, tophat, cufflinks, cummerbund, fastqc, trimmomatic, samtools, bamtools, picardtools. 
+* Annotation files should be available: reference genome fasta, gtf, refFlat, and index files. We use ERCC spike-ins, so our reference files include ERCC mix transcripts. 
+* For adapter trimming, we include Ilumina and Nextflex sequences as used in the PCPGM lab.
+* The Python scripts make use of modules that include subprocess, os, argparse, sys.
+* To create reports, R and various libraries should be available, including cummeRbund, R2HTML, RColorBrewer, xtable.
 
 ### workflow
 1) Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project using rnaseq_align_and_qc.py:
@@ -116,6 +117,11 @@ Requires the existence of a chromosome size file, which can be made using fetchC
 where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of the cuffdiff output file, one per line.
 
 ## Kallisto/Sleuth
+
+### dependencies
+
+### workflow
+
 
 ### acknowledgements
 Barbara Klanderman is the molecular biologist who led the establishment of PCPGM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PCPGM wet lab staff. Thank you to Ken Auerbach and Jonathan Jackson of the Enterprise Research Infrastructure & Services (ERIS) group at Partners Healthcare for their in-depth support with installing and testing the programs whose output taffeta requires. Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.

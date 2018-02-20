@@ -13,7 +13,11 @@ This set of scripts was initially developed to analyze RNA-Seq and DGE data at t
   * Perform differential expression of reads aligned to transcripts according to a given reference genome
   * Create a report that summarizes the differential expression results
 
-Several freely available software packages are used to perform most of these steps (see below). The pipeline is currently implemented in the Partners HealthCare, Inc. [High Performance Computing (HPC)](http://rc.partners.org/hpc) environment, where jobs are dispatched using LSF. 
+Several freely available software packages are used to perform most of these steps (see below). 
+
+One of two workflows: STAR/HTSeq/DESeq2 or Kallisto/Sleuth
+
+## STAR/HTSeq/DESeq2
 
 ### dependencies
 * The Tuxedo suite of tools and various other programs should be installed: bowtie or bowtie2, tophat, cufflinks, cummerbund, fastqc, trimmomatic, samtools, bamtools, picardtools. 
@@ -111,6 +115,7 @@ Requires the existence of a chromosome size file, which can be made using fetchC
 
 where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of the cuffdiff output file, one per line.
 
+## Kallisto/Sleuth
 
 ### acknowledgements
 Barbara Klanderman is the molecular biologist who led the establishment of PCPGM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PCPGM wet lab staff. Thank you to Ken Auerbach and Jonathan Jackson of the Enterprise Research Infrastructure & Services (ERIS) group at Partners Healthcare for their in-depth support with installing and testing the programs whose output taffeta requires. Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.

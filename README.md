@@ -31,11 +31,9 @@ Before running the pipeline, characteristics of a set of fastq files for samples
 							corresponding to: "paired-end", "single-end", "stranded single-end", "digital gene expression", "stranded paired-end")
 ```
 
-rnaseq_align_and_qc.py uses a rigid naming structure. The file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 
+The rigid file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 
 
-Use one of two workflows: STAR/HTSeq/DESeq2 or Kallisto/Sleuth
-
-## STAR/HTSeq/DESeq2
+Results may be obtained at a gene or transcript level, depending on the set of scripts used.
 
 ### dependencies
 * The Tuxedo suite of tools and various other programs should be installed: bowtie or bowtie2, tophat, cufflinks, cummerbund, fastqc, trimmomatic, samtools, bamtools, picardtools. 
@@ -117,12 +115,6 @@ Requires the existence of a chromosome size file, which can be made using fetchC
 > python rnaseq_gene_subset_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> <i>gene_list_file.txt</i>
 
 where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of the cuffdiff output file, one per line.
-
-## Kallisto/Sleuth
-
-### dependencies
-
-### workflow
 
 
 ### acknowledgements

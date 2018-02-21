@@ -26,13 +26,12 @@ Before running the pipeline, characteristics of a set of fastq files for samples
 	file_directory	| Top-level directory where sample's fastq files were written to following Casava filters
 	batch			| gigpad batch number associated with sample, needed to locate raw fastq file and used as directory name for pipeline output files
 	label			| Biological condition associated with the sample, provided by customer
-	ref_genome		| Rerence genome associated with sample. (options: "hg19", "Zv9", "mm10")
-	library_type	| Type of library for sample (options: "PE", "SE", "DGE", "SPE",
-							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end")
+	ref_genome		| Rerence genome associated with sample. (options: "hg38", "hg19", "Zv9", "mm10", "rn6", "susScr3")
+	library_type	| Type of library for sample (options: "PE", "SE", "SSE", "DGE", "SPE",
+							corresponding to: "paired-end", "single-end", "stranded single-end", "digital gene expression", "stranded paired-end")
 ```
 
-PCPGM uses a rigid naming structure as is apparent in rnaseq_align_and_qc.py. The file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). Steps 5-7 are optional.
-
+rnaseq_align_and_qc.py uses a rigid naming structure. The file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 
 
 Use one of two workflows: STAR/HTSeq/DESeq2 or Kallisto/Sleuth
 
@@ -46,6 +45,9 @@ Use one of two workflows: STAR/HTSeq/DESeq2 or Kallisto/Sleuth
 * To create reports, R and various libraries should be available, including cummeRbund, R2HTML, RColorBrewer, xtable.
 
 ### workflow
+
+Steps 5-7 are optional.
+
 1) Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project using rnaseq_align_and_qc.py:
 
 > python rnaseq_align_and_qc.py --discovery no <i>sample_info_file.txt</i>

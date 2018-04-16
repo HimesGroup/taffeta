@@ -69,7 +69,7 @@ The "--discovery no" option refers to using --no-novel-juncs and --transcriptome
 > module load pandoc/2.0.6 <br>
 > python rnaseq_align_and_qc_report.py <i>project_name</i> <i>sample_info_file.txt</i>
 	
-This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rnw document (main template is rnaseq_align_and_qc_report_Rnw_template.txt) that is converted into an html report using R/Sweave. The report and accompanying files are contained in:
+This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document (main template is rnaseq_align_and_qc_report_Rmd_template.txt) that is converted into an html report using pandoc and R package rmarkdown. The report and accompanying files are contained in:
 
 > <i>project_name</i>/<i>project_name</i>_Alignment_QC_Report/
 
@@ -88,7 +88,7 @@ Differential expression analysis is conducted with cuffdiff using cufflinks outp
 > module load pandoc/2.0.6 <br>
 > python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i>
 
-This script creates an Rnw document (main template is rnaseq_de_report_Rnw_template.txt) that uses the cummeRbund R package to load and process the cuffdiff output files created in step 3). The report and accompanying files are contained in:
+This script creates an Rmd document (main template is rnaseq_de_report_Rmd_template.txt) that uses the cummeRbund R package to load and process the cuffdiff output files created in step 3). The report and accompanying files are contained in:
 
 > <i>project_name</i>/<i>project_name</i>_DE_Report/
 

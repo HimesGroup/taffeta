@@ -46,7 +46,7 @@ Results may be obtained at a gene or transcript level, depending on the set of s
 
 #### for gene-based results
 
-Steps 5-7 are optional.
+Steps 4-6 are optional.
 
 1) Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project using rnaseq_align_and_qc.py:
 
@@ -77,18 +77,14 @@ The report can be opened with the file:
 
 > <i>project_name</i>/<i>project_name</i>_Alignment_QC_Report/<i>project_name</i>_QC_RnaSeqReport.html
 
-3) Write and execute an lsf job to perform differential expression analysis for RNA-seq samples associated with a project using rnaseq_de.py:
-
-> python rnaseq_de.py <i>project_name</i> <i>sample_info_file.txt</i>
-
-Differential expression analysis is conducted with cuffdiff using cufflinks output files created after running rnaseq_align_and_qc.py. A merged transcriptome can be created using these files (option --merge_transcriptme yes), but the default is to use the reference genome gtf file. If a particular order of conditions among samples is desired, it can be provided as a comma-separated list (option --conditions cond1,cond2,cond3,...). Otherwise, all condition types according to <i>sample_info_file.txt</i> sorted in alphabetical order are used.
-
-4) Create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all specified pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
+3) Perform differential expression analysis and create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all specified pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
 
 > module load pandoc/2.0.6 <br>
 > python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i>
 
-This script creates an Rmd document (main template is rnaseq_de_report_Rmd_template.txt) that uses the cummeRbund R package to load and process the cuffdiff output files created in step 3). The report and accompanying files are contained in:
+Differential expression analysis is conducted with DESeq2 using the HTSeq output file created after running rnaseq_align_and_qc.py. A merged transcriptome can be created using these files (option --merge_transcriptme yes), but the default is to use the reference genome gtf file. If a particular order of conditions among samples is desired, it can be provided as a comma-separated list (option --conditions cond1,cond2,cond3,...). Otherwise, all condition types according to <i>sample_info_file.txt</i> sorted in alphabetical order are used.
+
+This script creates an Rmd document (main template is rnaseq_de_report_Rmd_template.txt) that uses the DESeq2 R package to load and process the HTSeq output file 2). The report and accompanying files are contained in:
 
 > <i>project_name</i>/<i>project_name</i>_DE_Report/
 
@@ -96,7 +92,7 @@ The report can be opened with the file:
 
 > <i>project_name</i>/<i>project_name</i>_DE_Report/<i>project_name</i>_DE_RnaSeqReport.html
 	
-5) Create an [IGV](http://www.broadinstitute.org/igv/) batch script that can be used to create PDF snapshots of raw reads for differentially expressed genes (or any list of genes read from a txt file) using:
+4) Create an [IGV](http://www.broadinstitute.org/igv/) batch script that can be used to create PDF snapshots of raw reads for differentially expressed genes (or any list of genes read from a txt file) using:
 
 > python make_igv_script_file.py <i>project_name</i> <i>sample_info_file.txt</i>
 	
@@ -108,13 +104,13 @@ can be loaded from within IGV using File->Run Batch Script. Snapshots are saved 
 
 > <i>project_name</i>/<i>project_name</i>_DE_Report/IGV_Plots/
 
-6) Create bigwig files of raw reads to be visualized on, e.g., the UCSC genome browser using:
+5) Create bigwig files of raw reads to be visualized on, e.g., the UCSC genome browser using:
 
 > python make_bigwig_files.py <i>project_name</i> <i>sample_info_file.txt</i>
 	
 Requires the existence of a chromosome size file, which can be made using fetchChromSizes.
 
-7) Create a report of differentially expressed results for a given set of genes of interest. 
+6) Create a report of differentially expressed results for a given set of genes of interest. 
 
 > python rnaseq_gene_subset_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> <i>gene_list_file.txt</i>
 

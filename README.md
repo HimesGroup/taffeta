@@ -40,7 +40,7 @@ Results may be obtained at a gene or transcript level, depending on the set of s
 * Annotation files should be available: reference genome fasta, gtf, refFlat, and index files. We use ERCC spike-ins, so our reference files include ERCC mix transcripts. 
 * For adapter trimming, we include Ilumina and Nextflex sequences as used in the PCPGM lab.
 * The Python scripts make use of modules that include subprocess, os, argparse, sys.
-* To create reports, R and various libraries should be available, including DT, gplots, ggplot2, reshape2, cummeRbund, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. If following the workflow for transcript-based resutls, R package sleuth should be available. Additionally, pandoc version 1.12.3 or higher should be available.
+* To create reports, R and various libraries should be available, including DT, gplots, ggplot2, reshape2, cummeRbund, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Additionally, pandoc version 1.12.3 or higher should be available. If following the workflow for transcript-based results, R package sleuth should be available. 
 
 ### workflow
 
@@ -83,7 +83,7 @@ The report can be opened with the file:
 
 Differential expression analysis is conducted with cuffdiff using cufflinks output files created after running rnaseq_align_and_qc.py. A merged transcriptome can be created using these files (option --merge_transcriptme yes), but the default is to use the reference genome gtf file. If a particular order of conditions among samples is desired, it can be provided as a comma-separated list (option --conditions cond1,cond2,cond3,...). Otherwise, all condition types according to <i>sample_info_file.txt</i> sorted in alphabetical order are used.
 
-4) Create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all possible pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
+4) Create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all specified pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
 
 > module load pandoc/2.0.6 <br>
 > python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i>
@@ -122,5 +122,19 @@ where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of t
 
 #### for transcript-based results
 
+1) Write and execute an lsf job to perform read pseudoalignment and quantification for RNA-seq samples associated with a project using kallisto_analysis.py:
+
+> kallisto_analysis.py --path_start <i>project_directory_location</i> <i>sample_info_file.txt</i>
+
+2) Write and execute an lsf job to perform differential expression analysis for RNA-seq samples associated with a project using sleuth_analysis.py:
+
+> sleuth_analysis.py --path_start <i>project_directory_location</i>  --comp <i>project_comparison_file</i> <i>project_name</i> <i>sample_info_file.txt</i>
+
+3) Create an HTML report of differential expression summary statistics and plots for top differentially expressed transcripts according to all specified pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
+
+> module load pandoc/2.0.6 <br>
+> python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> --path_start <i>project_directory_location</i> --de sleuth --comp <i>project_comparison_file</i>
+
+	
 ### acknowledgements
 Barbara Klanderman is the molecular biologist who led the establishment of PCPGM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PCPGM wet lab staff. Thank you to Ken Auerbach and Jonathan Jackson of the Enterprise Research Infrastructure & Services (ERIS) group at Partners Healthcare for their in-depth support with installing and testing the programs whose output taffeta requires. Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.

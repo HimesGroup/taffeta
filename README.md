@@ -66,7 +66,7 @@ The "--discovery no" option refers to using --no-novel-juncs and --transcriptome
 
 2) Create an HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project using rnaseq_align_and_qc_report.py:
 
-> module load pandoc/2.0.6
+> module load pandoc/2.0.6 <br>
 > python rnaseq_align_and_qc_report.py <i>project_name</i> <i>sample_info_file.txt</i>
 	
 This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rnw document (main template is rnaseq_align_and_qc_report_Rnw_template.txt) that is converted into an html report using R/Sweave. The report and accompanying files are contained in:
@@ -85,7 +85,7 @@ Differential expression analysis is conducted with cuffdiff using cufflinks outp
 
 4) Create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all possible pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
 
-> module load pandoc/2.0.6
+> module load pandoc/2.0.6 <br>
 > python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i>
 
 This script creates an Rnw document (main template is rnaseq_de_report_Rnw_template.txt) that uses the cummeRbund R package to load and process the cuffdiff output files created in step 3). The report and accompanying files are contained in:

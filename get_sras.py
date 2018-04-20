@@ -110,7 +110,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Download individual sample fastq files from the SRA.")
 	parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
 	parser.add_argument("samples_in", help="Path to a tab-delimited txt file containing sample information.")
-	parser.add_argument("project", help="Directory name for this project. Corresponds to GEO Series name - e.g. GSE85568")
+	parser.add_argument("project", help="Directory name for this project. Corresponds to GEO Series (Subseries) name - e.g. GSE85567")
 	args = parser.parse_args()
 	main(args.samples_in, args.path_start, args.project)
 	

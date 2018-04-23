@@ -47,7 +47,7 @@ Results may be obtained at a gene or transcript level, depending on the set of s
 
 #### for gene-based results
 
-Steps 4-6 are optional.
+Steps 4-5 are optional.
 
 If downloading data from GEO, start at "Step 0," else start at "Step 1." Additionally, if downloading data from GEO, the "Run" column in the sample info file should say "ncbi."
 
@@ -103,25 +103,13 @@ The report can be opened with the file:
 
 > <i>project_name</i>/<i>project_name</i>_DE_Report/<i>project_name</i>_DE_RnaSeqReport.html
 	
-4) Create an [IGV](http://www.broadinstitute.org/igv/) batch script that can be used to create PDF snapshots of raw reads for differentially expressed genes (or any list of genes read from a txt file) using:
-
-> python make_igv_script_file.py <i>project_name</i> <i>sample_info_file.txt</i>
-	
-The resulting output file:
-
-> <i>project_name</i>/<i>project_name</i>_DE_Report/IGV_Plots/igv_snapshots_of_top_genes_script.txt
-	
-can be loaded from within IGV using File->Run Batch Script. Snapshots are saved to:
-
-> <i>project_name</i>/<i>project_name</i>_DE_Report/IGV_Plots/
-
-5) Create bigwig files of raw reads to be visualized on, e.g., the UCSC genome browser using:
+4) Create bigwig files of raw reads to be visualized on, e.g., the UCSC genome browser using:
 
 > python make_bigwig_files.py <i>project_name</i> <i>sample_info_file.txt</i>
 	
-Requires the existence of a chromosome size file, which can be made using fetchChromSizes.
+Requires the existence of a chromosome size file, which can be made using fetchChromSizes. Note that bigwig files 
 
-6) Create a report of differentially expressed results for a given set of genes of interest. 
+5) Create a report of differentially expressed results for a given set of genes of interest. 
 
 > python rnaseq_gene_subset_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> <i>gene_list_file.txt</i>
 

@@ -5,7 +5,7 @@ RNAseq/DGE analysis protocols.
 
 Authors: Maya Shumyatcher, Blanca Himes.
 
-This set of scripts was initially developed to analyze RNA-Seq and DGE data at the [Partners Personalized Medicine PPM](http://pcpgm.partners.org/). The goal is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
+The goal of taffeta is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
   * Perform preliminary QC 
   * Align reads to a reference genome
   * Perform QC on aligned files
@@ -144,5 +144,5 @@ where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of t
 
 	
 ### acknowledgements
-Barbara Klanderman is the molecular biologist who led the establishment of PPM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PPM wet lab staff. 
+This set of scripts was initially developed to analyze RNA-Seq and DGE data at the [Partners Personalized Medicine PPM](http://pcpgm.partners.org/). Barbara Klanderman is the molecular biologist who led the establishment of PPM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PPM wet lab staff. 
 

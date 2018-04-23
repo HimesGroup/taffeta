@@ -36,11 +36,12 @@ The rigid file naming and directory structure are obviously only applicable to l
 Results may be obtained at a gene or transcript level, depending on the set of scripts used.
 
 ### dependencies
-* The Tuxedo suite of tools and various other programs should be installed: bowtie or bowtie2, tophat, cufflinks, cummerbund, fastqc, trimmomatic, samtools, bamtools, picardtools, STAR, HTSeq, DESeq2.
+* STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are still available).
+* Programs that should be installed for QC: fastqc, trimmomatic, samtools, bamtools, picardtools.
 * Annotation files should be available: reference genome fasta, gtf, refFlat, and index files. We use ERCC spike-ins, so our reference files include ERCC mix transcripts. 
 * For adapter trimming, we include Ilumina and Nextflex sequences as used in the PCPGM lab.
 * The Python scripts make use of modules that include subprocess, os, argparse, sys.
-* To create reports, R and various libraries should be available, including DT, gplots, ggplot2, reshape2, cummeRbund, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Additionally, pandoc version 1.12.3 or higher should be available. If following the workflow for transcript-based results, R package sleuth should be available. 
+* To create reports, R and various libraries should be available, including DT, gplots, ggplot2, reshape2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Additionally, pandoc version 1.12.3 or higher should be available. If following the gene-based workflow, R package DESeq2 should be available. If following the workflow for transcript-based results, R package sleuth should be available. 
 
 ### workflow
 
@@ -143,4 +144,5 @@ where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of t
 
 	
 ### acknowledgements
-Barbara Klanderman is the molecular biologist who led the establishment of PCPGM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PCPGM wet lab staff. Thank you to Ken Auerbach and Jonathan Jackson of the Enterprise Research Infrastructure & Services (ERIS) group at Partners Healthcare for their in-depth support with installing and testing the programs whose output taffeta requires. Thank you to Rory Kirchner (@roryk) and Benjamin Harshfield for github-101 help and inspiration.
+Barbara Klanderman is the molecular biologist who led the establishment of PPM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PPM wet lab staff. 
+

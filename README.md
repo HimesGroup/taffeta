@@ -56,9 +56,9 @@ If downloading data from GEO, start at "Step 0," else start at "Step 1." Additio
 
 1) Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project using rnaseq_align_and_qc.py:
 
-> python rnaseq_align_and_qc.py --discovery no <i>sample_info_file.txt</i>
+> python rnaseq_align_and_qc.py --discovery no --aligner star <i>sample_info_file.txt</i>
 
-The "--discovery no" option refers to using --no-novel-juncs and --transcriptome-only options with tophat. Following execution of this script, various output files will be written for each sample in directories structured as:
+The "--aligner star" option indicates that star should be used as the aligner (default is tophat). The "--discovery no" option refers to using --no-novel-juncs and --transcriptome-only options with tophat; while this option is not relevant if using star as the aligner, it must be specified in order for the script to run. Following execution of this script, various output files will be written for each sample in directories structured as:
 > 
  <i>batch_num</i>/<i>sample_name</i>/tophat_out <br>
  <i>batch_num</i>/<i>sample_name</i>/cufflinks_out <br>
@@ -75,7 +75,7 @@ Note that the adapter trimming step is skipped for datasets downloaded from GEO,
 2) Create an HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project using rnaseq_align_and_qc_report.py:
 
 > module load pandoc/2.0.6 <br>
-> python rnaseq_align_and_qc_report.py <i>project_name</i> <i>sample_info_file.txt</i>
+> python rnaseq_align_and_qc_report.py --aligner star <i>project_name</i> <i>sample_info_file.txt</i>
 	
 This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document (main template is rnaseq_align_and_qc_report_Rmd_template.txt) that is converted into an html report using pandoc and R package rmarkdown. The report and accompanying files are contained in:
 
@@ -85,12 +85,14 @@ The report can be opened with the file:
 
 > <i>project_name</i>/<i>project_name</i>_Alignment_QC_Report/<i>project_name</i>_QC_RnaSeqReport.html
 
+Note that pandoc version 1.12.3 or higher is required in order to use the rmarkdown package from the command line.
+
 3) Perform differential expression analysis and create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all specified pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
 
 > module load pandoc/2.0.6 <br>
-> python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i>
+> python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> --de deseq2 --comp <i>sample_comp_file.txt</i> --pheno <i>sample_pheno_file.txt</i>
 
-Differential expression analysis is conducted with DESeq2 using the HTSeq output file created after running rnaseq_align_and_qc.py. A merged transcriptome can be created using these files (option --merge_transcriptme yes), but the default is to use the reference genome gtf file. If a particular order of conditions among samples is desired, it can be provided as a comma-separated list (option --conditions cond1,cond2,cond3,...). Otherwise, all condition types according to <i>sample_info_file.txt</i> sorted in alphabetical order are used.
+The "--de deseq2" option is needed in order to specify that differential expression analysis should be conducted with DESeq2 using the HTSeq output file created after running rnaseq_align_and_qc.py. A merged transcriptome can be created using these files (option --merge_transcriptme yes), but the default is to use the reference genome gtf file. Comparisons of interest must be specified in a tab-delimited text file with one comparison per line, where comparison conditions are separated by "_vs_", as in "case_vs_control." Lastly, a phenotype file must be provided; this file must at minimum indicate a phenotype for each sample; it may also contain other information, such as batch or cell line, if these are of interest, as per experiment design.
 
 This script creates an Rmd document (main template is rnaseq_de_report_Rmd_template.txt) that uses the DESeq2 R package to load and process the HTSeq output file 2). The report and accompanying files are contained in:
 

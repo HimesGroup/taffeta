@@ -48,6 +48,12 @@ Results may be obtained at a gene or transcript level, depending on the set of s
 
 Steps 4-6 are optional.
 
+If downloading data from GEO, start at "Step 0," else start at "Step 1." Additionally, if downloading data from GEO, the "Run" column in the sample info file should say "ncbi."
+
+0) Download RNA-Seq data from GEO for all runs within a project using get_sras.py:
+
+> get_sras.py --path_start /project/bhimeslab <i>sample_info_file.txt</i> <i>GEO_Accession</i>
+
 1) Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project using rnaseq_align_and_qc.py:
 
 > python rnaseq_align_and_qc.py --discovery no <i>sample_info_file.txt</i>
@@ -63,6 +69,8 @@ The "--discovery no" option refers to using --no-novel-juncs and --transcriptome
  <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc <br>
  <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount <br>
  ...
+
+Note that the adapter trimming step is skipped for datasets downloaded from GEO, since Illumina barcodes for each sample are not provided in GEO.
 
 2) Create an HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project using rnaseq_align_and_qc_report.py:
 

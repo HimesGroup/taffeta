@@ -440,7 +440,7 @@ if __name__ == "__main__":
 	parser.add_argument("--de", default="deseq2", type=str, help="Should cummeRbund, DESeq2 or sleuth be used for diferential expression (DE) analysis?  If sleuth, request an interactive node with more memory using: bsub -Is -M 36000 bash"
 		"(options: sleuth, deseq2, cummerbund)")
 	parser.add_argument("--pheno", help="A tab-delimited txt file containing sample PHENOTYPE information. Make sure sample IDs match and are in the same order as those in the sample information file.")
-	parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, separate two conditions with & as in case&control.")
+	parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, separate two conditions with _vs_ as in case_vs_control.")
 	parser.add_argument("project_name", type=str, help="Name of project that all samples correspond to.")
 	parser.add_argument("samples_in", help="A tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
 	args = parser.parse_args()

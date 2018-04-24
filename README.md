@@ -27,9 +27,11 @@ Before running the pipeline, characteristics of a set of fastq files for samples
 	label			| Biological condition associated with the sample, provided by customer
 	ref_genome		| Rerence genome associated with sample. (options: "hg38", "hg19", "Zv9", "mm10", "rn6", "susScr3")
 	library_type	        | Type of library for sample (options: "PE", "SE", "DGE", "SPE", "SSE"
-							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end", "stranded single-end")
+				corresponding to: "paired-end", "single-end", "digital gene expression", 
+				"stranded paired-end", "stranded single-end")
 	lane			| Lane of sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-")
-	run		        | Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-" or "ncbi" if files were downloaded from GEO)
+	run		        | Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - 
+				else "-" or "ncbi" if files were downloaded from GEO)
 	
 ```
 

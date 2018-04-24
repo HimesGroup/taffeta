@@ -29,6 +29,18 @@ Before running the pipeline, characteristics of a set of fastq files for samples
 	ref_genome		| Rerence genome associated with sample. (options: "hg38", "hg19", "Zv9", "mm10", "rn6", "susScr3")
 	library_type	| Type of library for sample (options: "PE", "SE", "SSE", "DGE", "SPE",
 							corresponding to: "paired-end", "single-end", "stranded single-end", "digital gene expression", "stranded paired-end")
+							
+	sample_ID		| ID given to sample by customer
+	index			| Six digit sequence of the index for this library 
+	ercc_mix		| Mix of ERCC spike used for library construction (options: "1", "2", "-")
+	file_directory	| Directory where sample's fastq files reside
+	project			| Name for project associated with sample
+	label			| Biological condition associated with the sample, provided by customer
+	ref_genome		| Rerence genome associated with sample. (options: "hg38", "hg19", "Zv9", "mm10", "rn6", "susScr3")
+	library_type	| Type of library for sample (options: "PE", "SE", "DGE", "SPE", "SSE"
+							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end", "stranded single-end")
+	lane			| Lane of sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-")
+	run				| Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-" or "ncbi" if files downloaded from GEO)
 ```
 
 The rigid file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 

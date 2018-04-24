@@ -30,6 +30,7 @@ Before running the pipeline, characteristics of a set of fastq files for samples
 							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end", "stranded single-end")
 	lane			| Lane of sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-")
 	run		        | Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-" or "ncbi" if files were downloaded from GEO)
+	
 ```
 
 The rigid file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 

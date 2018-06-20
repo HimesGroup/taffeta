@@ -109,14 +109,14 @@ def make_htseq_count_matrix(project_name, path_start, sample_info_file):
 	print "Created read count matrix file "+out_dir+project_name+"_htseq_matrix.txt"
 
 
-def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_genome, comp_file):
+def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_genome, comp_file, design):
 	"""
 	Creates Rmd report. The top of report is below and the rest concatenated from a separate text document (rmd_template).
 	"""
 	out_dir = path_start+"/"+project_name+"/"+project_name+"_DE_Report/"
 	if not os.path.exists(out_dir):
 		os.makedirs(out_dir)		
-	css_outp = open(out_dir+"custom.css", "w")
+	css_outp = open(out_dir+"custom.css", "w") #style sheet so blockquotes and plots look good
 	css_outp.write("blockquote {\n")
 	css_outp.write("    padding: 10px 20px;\n")
 	css_outp.write("    margin: 0 0 20px;\n")
@@ -145,8 +145,17 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	outp.write("> "+project_name+"_counts_normalized_by_DESeq2.txt<br>\n\n")
 	outp.write("Normalized counts are obtained from DESeq2 function estimateSizeFactors(), which divides counts by the geometric mean across samples; this function does not correct for read length. The normalization method is described in detail here: https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106<br>\n\n") 
 	outp.write("Differential gene expression analysis was done for all comparisons provided in the comparisons file.  The following design was used:<br>\n\n")
-	outp.write("> design = ~ Label<br>\n\n")
-	outp.write("If desired, the design can be modified to include more independent variables, e.g. cell line, etc. In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form:<br>\n\n")
+	if design=="unpaired":
+		outp.write("> design = ~ Label<br>\n\n") 
+	elif design.split(':')[0]=="paired":
+		control_var = design.split(':')[1]
+		outp.write("> design = ~ "+control_var+" + Label<br>\n\n") # regular
+	else:
+		print("Please specify study design. Choices include 'unpaired' or 'paired.' If paired, additionally specify the variable to control for, matching the column name you assign this variable in the coldata file - e.g. 'paired:Cell_Line'")
+	
+
+	#outp.write("> design = ~ Day + Label<br>\n\n") # paired - measure effect of "Label" while controling for "Day"
+	outp.write("If desired, the design can be modified to include more independent variables. In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form:<br>\n\n")
 	outp.write("> "+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt<br>\n\n")
 	outp.write("where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br>\n\n")
 	outp.write("\n\n```{r, echo=FALSE, message=FALSE, warning=FALSE}\n")
@@ -157,13 +166,12 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	if ref_genome=="hg38":
 		outp.write("housekeeping_genes <- c('ACTB','GAPDH','B2M','RPL19','GABARAP')\n")
 	elif ref_genome=="mm38" or ref_genome=="mm10" or ref_genome=="rn6":
-		outp.write("housekeeping_genes <- c('Actb','Gapdh','B2m','Rpl19','Gabarap','Hprt','Gnb2l1','Rpl32')\n") #,'Hprt','Gnb2l1','Rpl32' added for mouse_macrophages. remove later
+		outp.write("housekeeping_genes <- c('Actb','Gapdh','B2m','Rpl19','Gabarap')\n") #also had added 'Hprt','Gnb2l1','Rpl32' for mouse_macrophages
 	else:
 		print("Housekeeping genes only available for human, mouse and rat.")
 
 	#Read in phenofile; phenofile should contain columns"Sample" and "Label"; if desired, it can have other columns (e.g. "Individual" or "Cell_Line", etc.) & design can be modified accordingly 
 	outp.write("coldata <- read.table(paste0(path.start,'"+pheno_file+"'), sep='\\t', header=TRUE)\n")
-	outp.write("coldata <- subset(coldata, select=c(Sample,Label))\n")
 
 	#load counts from HTSeq output 
 	outp.write("countdata <- read.table(paste0(path.start, curr.batch, '/', curr.batch, '_DE_Report/', curr.batch, '_htseq_matrix.txt'), sep='\\t', header=TRUE, check.names=FALSE)\n\n") # need check.names=FALSE -- else dashes in colnames converted to periods
@@ -191,12 +199,49 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 		outp.write("if (is_ensg) {countdata <- rename(countdata, c('rgd_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}\n")
 	else:
 		print("This code can only append official gene symbols for hg38, mm38, rn6.")
-       	outp.write("if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}\n")
+       	outp.write("if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}\n\n")
 
+	#DESeq2 analysis - all samples together, then get individual comparison results using the results function
+	#this approach is recommended in the FAQ rather than splitting into pairs as our script had previously done - see DESeq2 FAQ for more details
+	#if design=="unpaired":
+	#	outp.write("# unpaired design, testing for effect of Label\n")
+	#	outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,3:ncol(countdata)-1], colData = coldata, design = ~ Label)\n")
+	#elif design.split(':')[0]=="paired":
+	#	control_var = design.split(':')[1]
+	#	outp.write("# paired design, testing for effect of Label while controlling for "+control_var+"\n")
+	#	outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,3:ncol(countdata)-1], colData = coldata, design = ~ "+control_var+" + Label)\n")
+	#else:
+	#	print("Please specify study design. Choices include 'unpaired' or 'paired.' If paired, additionally specify the variable to control for, matching the column name you assign this variable in the coldata file - e.g. 'paired:Cell_Line'")
+
+	#outp.write("dds <- DESeq(ddsFullCountTable)\n")	
+
+	#save normalized counts
+	#outp.write("norm.counts <- counts(dds, normalized=TRUE)\n")
+	#outp.write("norm.counts <- merge(norm.counts, countdata[,c('Gene','gene_symbol')], by='row.names')\n")
+	#outp.write("norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column called 'Row.names'\n")
+	#outp.write("write.table(norm.counts, paste0(curr.batch,'_counts_normalized_by_DESeq2.txt'), quote=FALSE, row.names=FALSE)\n")
+
+	#transformations - used later in heatmaps and PCA plot
+	#in transformations, blind=FALSE means tells it to use the design info (i.e. controling by control_var if that is specified)
+	#outp.write("rld<- rlogTransformation(dds, blind=FALSE)\n")	
+
+	#outp.write("\n```\n")
+
+	
 	#this part is only for getting normalized counts (this way all samples normalized together)
 	outp.write("\n# this part is only for getting normalized counts (this way all samples normalized together)\n")
-	outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,3:ncol(countdata)-1], colData = coldata, design = ~ Label)\n")  # can add 'Cell_Line' - this may be modified
-	outp.write("dds <- DESeq(ddsFullCountTable)\n") # not actually doing analysis here, so reference level does not matter.
+	if design=="unpaired":
+		outp.write("# unpaired design, testing for effect of Label\n")
+		outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,3:ncol(countdata)-1], colData = coldata, design = ~ Label)\n")
+	elif design.split(':')[0]=="paired":
+		control_var = design.split(':')[1]
+		outp.write("# paired design, testing for effect of Label while controlling for "+control_var+"\n")
+		outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,3:ncol(countdata)-1], colData = coldata, design = ~ "+control_var+" + Label)\n")
+	else:
+		print("Please specify study design. Choices include 'unpaired' or 'paired.' If paired, additionally specify the variable to control for, matching the column name you assign this variable in the coldata file - e.g. 'paired:Cell_Line'")
+
+	outp.write("dds <- DESeq(ddsFullCountTable)\n") 
+	# not actually doing analysis here, so reference level does not matter.
 	outp.write("norm.counts <- counts(dds, normalized=TRUE)\n")
 	outp.write("norm.counts <- merge(norm.counts, countdata[,c('Gene','gene_symbol')], by='row.names')\n")
 	outp.write("norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column called 'Row.names'\n")
@@ -214,9 +259,43 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 		outp.write("```{r, echo=FALSE}\n")
 		outp.write("case <- '"+case+"'\n")
 		outp.write("ctrl <- '"+ctrl+"'\n")
+		#outp.write("res <- results(dds, contrast=c('Label','"+case+"','"+ctrl+"'))\n")
 		outp.write("\n```\n")
 		outp.write("## "+case+" vs. "+ctrl+"\n")
 		outp.write("\n")
+		outp.write("### Samples in this comparison\n")
+		outp.write("```{r, echo=FALSE, message=FALSE}\n")
+		outp.write("#conditions from file - select the portion of the info sheet relevant to the two conditions being tested\n")
+		outp.write("coldata_curr <- coldata[which(coldata$Label==case | coldata$Label==ctrl),]\n")
+		if design.split(':')[0]=="paired": # if there is a sample without a pair in this comparison, remove it from the comparison
+			outp.write("#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.\n") 
+			outp.write("for (i in unique(coldata_curr$"+control_var+")) {\n")
+			outp.write("	if (nrow(coldata_curr[which(coldata_curr$Label=='"+case+"' & coldata_curr$"+control_var+"==i),]) != nrow(coldata_curr[which(coldata_curr$Label=='"+ctrl+"' & coldata_curr$"+control_var+"==i),])) {\n")
+			outp.write("		coldata_curr <- coldata_curr[-which(coldata_curr$"+control_var+"==i),]\n")	
+			outp.write("		cat('Samples with "+control_var+"==', i, 'were removed from the "+case+" vs. "+ctrl+" comparison because there was an unequal number of case and control samples')\n}\n}\n") 
+		outp.write("coldata_curr <- coldata_curr[order(coldata_curr$Sample), ]\n")
+		outp.write("DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box\n")
+		outp.write("rownames(coldata_curr) <- coldata_curr$Sample\n")
+		outp.write("coldata_curr$Sample <- NULL\n")
+		outp.write("```\n\n")
+		outp.write("### Top 50 genes by p-value\n")
+		outp.write("```{r, echo=FALSE, message=FALSE}\n")
+		outp.write("#select the portion of the HTSeq output matrix relevant to the two conditions being tested\n")
+		outp.write("a <- colnames(countdata)\n")
+		outp.write("b <- rownames(coldata_curr)\n")
+		outp.write("countdata_curr <- countdata[,which(a %in% b | a %in% paste0('X',b))] # paste0('X',a) %in% b)] #2nd condition needed in case of numerical sample names -- R appends an 'X' to colnames of countdata, but not to rownames of coldata\n")
+		outp.write("countdata_curr <- countdata_curr[ ,order(names(countdata_curr))] #columns of countdata & rows of coldata must be ordered in the same way\n")
+		outp.write("#combine HTSeq counts and info from info sheet\n")
+		outp.write("#in spedifying design, order matters: test for the effect of condition (the last factor), controlling for the effect of individual (first factor)\n")
+		if design=="unpaired":
+			outp.write("# unpaired design, testing for effect of Label\n")
+			outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata, colData = coldata, design = ~ Label)\n")
+		elif design.split(':')[0]=="paired":
+			control_var = design.split(':')[1]
+			outp.write("# paired design, testing for effect of Label while controlling for "+control_var+"\n")
+			outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ "+control_var+" + Label)\n")
+		else:
+			print("Please specify study design. Choices include 'unpaired' or 'paired.' If paired, additionally specify the variable to control for, matching the column name you assign this variable in the coldata file - e.g. 'paired:Cell_Line'")
 		outp.writelines(rmd_template)
 		outp.write("\n")
 
@@ -250,7 +329,6 @@ def make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_gen
 	outp.write("	print(housekeeping_plot)\n")
 	outp.write("}\n```\n")
 	outp.close()
-	#subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_DESeq2_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
 	subprocess.call("cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore", shell=True)
 	
 def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file):
@@ -295,7 +373,8 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 
 	#load info sheet 
 	outp.write("info_sheet <- read.table(paste0(path.start,'"+sample_info_file+"'), header = TRUE, stringsAsFactors=FALSE)\n") #outp.write("info_sheet <- read.table(paste0(path.start,'"+sample_info_file+"'), header = TRUE, stringsAsFactors=FALSE)\n")
-	outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Label'))\n")
+	#outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Label'))\n") #regular
+	outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Label','Day'))\n") #paired
 	outp.write("colnames(info_sheet) <- c('run_accession', 'condition')\n")
 	outp.write("info_sheet <- info_sheet[order(info_sheet$condition),]\n")
 	outp.write("print(info_sheet, row.names=FALSE)\n")
@@ -385,7 +464,7 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	#subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_Sleuth_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
 	subprocess.call("cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_Sleuth_Report.Rmd')\" | R --no-save --no-restore", shell=True)
 
-def main(project_name, sample_info_file, de_package, pheno_file, path_start, comp_file):
+def main(project_name, sample_info_file, de_package, pheno_file, path_start, comp_file, design):
 	if path_start == "./":
 		path_start = os.getcwd()
 	if path_start[-1] != "/":
@@ -422,7 +501,7 @@ def main(project_name, sample_info_file, de_package, pheno_file, path_start, com
 			sys.exit()
 		rmd_in = open("/project/bhimeslab/taffeta/rnaseq_deseq2_Rmd_template.txt", "r")
 		rmd_template = rmd_in.readlines()
-		make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_genome, comp_file)
+		make_deseq2_html(rmd_template, project_name, path_start, pheno_file, ref_genome, comp_file, design)
 	
 	if de_package == "sleuth":
 		#Create the report
@@ -437,13 +516,14 @@ def main(project_name, sample_info_file, de_package, pheno_file, path_start, com
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Create HTML report of differential expression results for RNA-seq samples associated with a project.")
 	parser.add_argument("--path_start", default="./", type=str, help="Directory path to where project directory created by rnaseq_de.py is located (default=./)")
-	parser.add_argument("--de", default="deseq2", type=str, help="Should cummeRbund, DESeq2 or sleuth be used for diferential expression (DE) analysis?  If sleuth, request an interactive node with more memory using: bsub -Is -M 36000 bash"
+	parser.add_argument("--de_package", default="deseq2", type=str, help="Should cummeRbund, DESeq2 or sleuth be used for diferential expression (DE) analysis?  If sleuth, request an interactive node with more memory using: bsub -Is -M 36000 bash"
 		"(options: sleuth, deseq2, cummerbund)")
+	parser.add_argument("--design", type=str, help="paired or unpaired; if paired is selected, specify condition to correct for, matching the column name in the 'coldata' file - e.g. paired:Cell_Line")
 	parser.add_argument("--pheno", help="A tab-delimited txt file containing sample PHENOTYPE information. Make sure sample IDs match and are in the same order as those in the sample information file.")
-	parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, separate two conditions with _vs_ as in case_vs_control.")
+	parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, separate two conditions with & as in case&control.")
 	parser.add_argument("project_name", type=str, help="Name of project that all samples correspond to.")
 	parser.add_argument("samples_in", help="A tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
 	args = parser.parse_args()
-	main(args.project_name, args.samples_in, args.de, args.pheno, args.path_start, args.comp)
+	main(args.project_name, args.samples_in, args.de_package, args.pheno, args.path_start, args.comp, args.design)
 
 

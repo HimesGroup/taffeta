@@ -387,7 +387,11 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 		job_name = curr_sample
 				
 		if run == "ncbi": # for data downloaded from GEO
-			R1 = project_dir+curr_sample+".fastq.gz" 
+			if library_type in ("PE", "SPE", "SPE-PrepX"):
+				R1 = project_dir+curr_sample+"_1.fastq.gz"
+				R2 = project_dir+curr_sample+"_2.fastq.gz"
+			else:
+				R1 = project_dir+curr_sample+".fastq.gz" 
 		if lane != "-":
 			#This directory structure and naming convention is (obviously!) unique to UPenn 
 			#[RUN]_s_[LANE]_[1/2 corresponding to READ]_[BARCODE].fastq.gz
@@ -400,8 +404,8 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 				R1=project_dir+curr_sample+"_L00"+lane+"_R1_001.fastq.gz"
 				R2=project_dir+curr_sample+"_L00"+lane+"_R2_001.fastq.gz"
 			else:
-				R1 = project_dir+run+"_s_"+lane+"_1_"+index+".fastq.gz"
-				R2 = project_dir+run+"_s_"+lane+"_2_"+index+".fastq.gz"			
+				R1 = project_dir+curr_sample+"_s_"+lane+"_1_"+index+".fastq.gz"
+				R2 = project_dir+curr_sample+"_s_"+lane+"_2_"+index+".fastq.gz"			
 		elif "SRR" in curr_sample:
 			if library_type in ("SE", "DGE"):
 				R1 = project_dir+curr_sample+".fastq.gz"
@@ -481,6 +485,7 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
  						outp.write("java -Xmx1024m  -classpath /opt/software/Trimmomatic/0.32/trimmomatic-0.32.jar org.usadellab.trimmomatic.TrimmomaticPE -phred33 "+R1+" "+R2+" "+R1_trim+" R1_Trimmed_Unpaired.fastq "+R2_trim+" R2_Trimmed_Unpaired.fastq ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:40\n")
  					elif library_type == "SPE-PrepX":
  						make_adapter_fa(index, illumina_ud_indexes, out_dir+curr_sample+"_adapter.fa", library_type)
+						# ILLUMINACLIP:<fastaWithAdaptersEtc>:<seed mismatches>:<palindrome clipthreshold>:<simple clip threshold> 
  						outp.write("java -Xmx1024m  -classpath /opt/software/Trimmomatic/0.32/trimmomatic-0.32.jar org.usadellab.trimmomatic.TrimmomaticPE -phred33 "+R1+" "+R2+" "+R1_trim+" R1_Trimmed_Unpaired.fastq "+R2_trim+" R2_Trimmed_Unpaired.fastq ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:40\n")						
 					elif library_type in ["SE", "DGE", "SSE"]:				
  						outp.write("java -Xmx1024m  -classpath /opt/software/Trimmomatic/0.32/trimmomatic-0.32.jar org.usadellab.trimmomatic.TrimmomaticSE -phred33 "+R1+" "+R1_trim+" ILLUMINACLIP:"+out_dir+curr_sample+"_adapter.fa:2:30:10 MINLEN:40\n")
@@ -494,7 +499,7 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 			if run == "ncbi": # if data downloaded from GEO, skip trimming the files and simply copy untrimmed file into "trimmed" file so rest of script can proceed
 				R1_trim = out_dir+curr_sample+"_R1_Trimmed.fastq"
  				R2_trim = out_dir+curr_sample+"_R2_Trimmed.fastq"
-				if library_type in ["PE", "SPE"]:
+				if library_type in ["PE", "SPE", "SPE-PrepX"]:
 					outp.write("zcat "+R1+" > "+R1_trim+"\n")
 					outp.write("zcat "+R2+" > "+R2_trim+"\n")
 				elif library_type in ["SE", "DGE", "SSE"]:
@@ -532,28 +537,29 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 					outp.write("tophat --library-type fr-firststrand -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+" "+R2_trim+"\n")
 				elif library_type in ["DGE", "SE"]:
 					outp.write("tophat --library-type fr-unstranded -G "+ERCC_gtf+" -r 50 -p 12 "+ref_index+" "+R1_trim+"\n")
-			outp.write("cd "+out_dir+"/tophat_out/\n")
+			outp.write("cd "+out_dir+"tophat_out/\n")
 				
 		elif aligner == "star":
 			outp.write("mkdir star_out\n")
 			outp.write("cd star_out\n")
+                        star_index_dir=genome_dir+"/STAR_index"
 			if library_type in ["SPE", "SPE-PrepX"]:
-				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+" "+R2_trim+"\n")
+				outp.write("STAR --genomeDir "+star_index_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+" "+R2_trim+"\n")
 			elif library_type == "PE":
-				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+" "+R2_trim+"\n")			
+				outp.write("STAR --genomeDir "+star_index_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+" "+R2_trim+"\n")			
 			elif library_type in ["DGE", "SE"]:
-				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+"\n")
+				outp.write("STAR --genomeDir "+star_index_dir+" --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+"\n")
 			elif library_type in ["SSE"]:
-				outp.write("/project/bhimeslab/STAR-2.5.2b/bin/Linux_x86_64/STAR --genomeDir "+genome_dir+" --runThreadN 12 --sjdbOverhang 100 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+"\n")	
+				outp.write("STAR --genomeDir "+star_index_dir+" --runThreadN 12 --sjdbOverhang 100 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+"\n")	
 			outp.write("mv Aligned.sortedByCoord.out.bam accepted_hits.bam\n")
-			outp.write("mkdir "+out_dir+"/htseq_out/\n")
-			outp.write("samtools view accepted_hits.bam | htseq-count -r pos - "+gtf+" > "+out_dir+"/htseq_out/"+curr_sample+"_counts.txt\n")
+			outp.write("mkdir "+out_dir+"htseq_out/\n")
+			outp.write("samtools view accepted_hits.bam | htseq-count -r pos - "+gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n")
 		
 		#Get samtools mapping stats
 		#Create sorted bam file:
-		outp.write("samtools sort accepted_hits.bam "+curr_sample+"_accepted_hits.sorted\n")
+		outp.write("samtools sort accepted_hits.bam -@12 -T "+curr_sample+".tmp -o "+curr_sample+"_accepted_hits.sorted.bam\n")
 		#Create indexed bam file:
-		outp.write("samtools index "+curr_sample+"_accepted_hits.sorted.bam\n")
+		outp.write("samtools index -@12 "+curr_sample+"_accepted_hits.sorted.bam\n")
 		#Write out index stats of where reads align to by chr:
 		outp.write("samtools idxstats "+curr_sample+"_accepted_hits.sorted.bam > "+curr_sample+"_accepted_hits.sorted.stats\n")
 		#Write out bamtools summary stats:
@@ -627,14 +633,14 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 					outp.write("cufflinks --library-type fr-unstranded -M "+mask_gtf+" -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
 		if aligner == "star":
 			#Run htseq to count ERCC spike ins
-			outp.write("mkdir "+out_dir+"/htseq_out_ERCC/\n")
-			outp.write("cd "+out_dir+"/htseq_out_ERCC/\n")
-			outp.write("samtools view ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos - "+gtf+" > "+out_dir+"/htseq_out_ERCC/"+curr_sample+"_counts.txt\n")
+			outp.write("mkdir "+out_dir+"htseq_out_ERCC/\n")
+			outp.write("cd "+out_dir+"htseq_out_ERCC/\n")
+			outp.write("samtools view ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos - "+ERCC_only+" > "+out_dir+"htseq_out_ERCC/"+curr_sample+"_ERCC_counts.txt\n")
 
 			#Run htseq to count rRNA. Currently only works with hg38
-			outp.write("mkdir "+out_dir+"/htseq_out_rRNA/\n")
-			outp.write("cd "+out_dir+"/htseq_out_rRNA/\n")
-			outp.write("samtools view ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos - "+gtf+" > "+out_dir+"/htseq_out_rRNA/"+curr_sample+"_counts.txt\n")
+			outp.write("mkdir "+out_dir+"htseq_out_rRNA/\n")
+			outp.write("cd "+out_dir+"htseq_out_rRNA/\n")
+			outp.write("samtools view ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos - "+rRNA_gtf+" > "+out_dir+"htseq_out_rRNA/"+curr_sample+"_rRNA_counts.txt\n")
 
 		#outp.write("rm ../"+aligner+"_out/accepted_hits.bam \n")	#commented out for now
 		outp.close()

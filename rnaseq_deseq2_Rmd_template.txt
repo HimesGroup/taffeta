@@ -1,34 +1,3 @@
-### Samples in this comparison
-
-```{r, echo=FALSE, message=FALSE}
-#conditions from file
-
-#select the portion of the info sheet relevant to the two conditions being tested
-coldata_curr <- coldata[which(coldata$Label==case | coldata$Label==ctrl),]
-coldata_curr <- coldata_curr[order(coldata_curr$Sample), ]
-DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = "_all")))) # dom = 't' removes search box
-rownames(coldata_curr) <- coldata_curr$Sample
-coldata_curr$Sample <- NULL
-```
-
-
-### Top 50 genes by p-value
-
-
-```{r, echo=FALSE, message=FALSE}
-
-#select the portion of the HTSeq output matrix relevant to the two conditions being tested
-
-a <- colnames(countdata)
-b <- rownames(coldata_curr)
-
-countdata_curr <- countdata[,which(a %in% b | a %in% paste0("X",b))] # paste0("X",a) %in% b)] #2nd condition needed in case of numerical sample names -- R appends an "X" to colnames of countdata, but not to rownames of coldata
-countdata_curr <- countdata_curr[ ,order(names(countdata_curr))] #columns of countdata & rows of coldata must be ordered in the same way 
-
-#combine HTSeq counts and info from info sheet
-#in spedifying design, order matters: test for the effect of condition (the last factor), controlling for the effect of individual (first factor)
-ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ Label)  # can add 'Cell_Line' - this may be modified
-
 
 #DESeq analysis
 dds <- DESeq(ddsFullCountTable)

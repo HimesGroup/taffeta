@@ -553,7 +553,7 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 				outp.write("STAR --genomeDir "+star_index_dir+" --runThreadN 12 --sjdbOverhang 100 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMtype BAM SortedByCoordinate --readFilesIn "+R1_trim+"\n")	
 			outp.write("mv Aligned.sortedByCoord.out.bam accepted_hits.bam\n")
 			outp.write("mkdir "+out_dir+"htseq_out/\n")
-			outp.write("samtools view accepted_hits.bam | htseq-count -r pos - "+gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n")
+			outp.write("samtools view accepted_hits.bam | htseq-count -r pos --stranded=reverse - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n")
 		
 		#Get samtools mapping stats
 		#Create sorted bam file:
@@ -631,22 +631,12 @@ def main(sample_info_file, discovery, standard_trim, mask, aligner, path_start):
 					outp.write("cufflinks --library-type fr-secondstrand -M "+mask_gtf+" -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")			
 				else:
 					outp.write("cufflinks --library-type fr-unstranded -M "+mask_gtf+" -G "+gtf+" -p 12 ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam \n")
-		if aligner == "star":
-			#Run htseq to count ERCC spike ins
-			outp.write("mkdir "+out_dir+"htseq_out_ERCC/\n")
-			outp.write("cd "+out_dir+"htseq_out_ERCC/\n")
-			outp.write("samtools view ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos - "+ERCC_only+" > "+out_dir+"htseq_out_ERCC/"+curr_sample+"_ERCC_counts.txt\n")
 
-			#Run htseq to count rRNA. Currently only works with hg38
-			outp.write("mkdir "+out_dir+"htseq_out_rRNA/\n")
-			outp.write("cd "+out_dir+"htseq_out_rRNA/\n")
-			outp.write("samtools view ../"+aligner+"_out/"+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos - "+rRNA_gtf+" > "+out_dir+"htseq_out_rRNA/"+curr_sample+"_rRNA_counts.txt\n")
+
+                # All genes, rRNAs and ERCCs within the combined .gtf file are quantified together using htseq-count. No need to quantify ERCC and rRNA separately. In the report pipeline, read counts of genes, rRNAs and ERCCs will be outputed in separate files with all samples together.
 
 		#outp.write("rm ../"+aligner+"_out/accepted_hits.bam \n")	#commented out for now
 		outp.close()
-	
-		#subprocess.call("bsub < "+job_name+".lsf", shell=True)
-		#subprocess.call("mv "+job_name+".lsf "+out_dir, shell=True)
 
 
 if __name__ == "__main__":

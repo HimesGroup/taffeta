@@ -568,7 +568,7 @@ erccplot_func=function(conc,count,colname){
     p=p+annotate('text', 5, 0, label=paste0("R-sq =", round(r2,3))) +
       annotate('text', 5, -0.8, label=paste0("slope =", round(slope,3)))}
   print(p)
-  return(data.frame(r2=r2, slope=slope))
+  return(data.frame(r2=round(r2,3), slope=round(slope,3)))
 }
 ```
 
@@ -616,9 +616,4 @@ if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
 	try(HTML(print(xtable(ercc.fit.table, caption="ERCC Spike-in Dose Response Fit Details"), type="html", label="tab:nine", table.placement="tbp", caption.placement="top", floating=FALSE))) #added "try()" when doing pig_lung - else was getting thrown out of loop with 'Error: could not find function "HTML"'
 	DT::datatable(ercc.fit.table)
 }
-```
-
-
-```{r sessioninfo, eval=T, echo=F}
-pander(sessionInfo())
 ```

@@ -883,7 +883,24 @@ def make_rmd_html(rmd_template, project_name, path_start, sample_names, ercc_mix
     outp.write("```\n\n")
 
     outp.write(rmd_template)
+
+    # output no feature count stat table if htseq-count is used
+    if aligner=="star":
+        outp.write("\n")
+        outp.write("## HTSeq-count: No feature counts statistics\n\n")
+        outp.write("No feature count (per million reads) statistics from htseq-count quantification results\n\n")
+        outp.write("```{r nofeature, eval=T, echo=F, message=F, warning=F, results='asis'}\n")
+        outp.write("nofeature.data <- read.table('"+project_name+"_htseq_nofeature.txt', sep='\\t', header=T, as.is=T)\n")
+        outp.write("DT::datatable(nofeature.data)\n")
+        outp.write("```\n\n")
+
+    # output session info
+    outp.write("```{r sessioninfo, eval=T, echo=F}\n")
+    outp.write("pander(sessionInfo())\n")
+    outp.write("```\n\n")
+
     outp.close()
+
     #subprocess.call("cd "+path_start+"; echo \"library(R2HTML); Sweave('"+project_name+"_QC_RnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore", shell=True)
     #subprocess.call("cd "+path_start+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_QC_RnaSeqReport.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
     subprocess.call("cd "+path_start+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_QC_RnaSeqReport.Rmd')\" | R --no-save --no-restore", shell=True)
@@ -939,7 +956,7 @@ def main(project_name, sample_info_file, path_start, aligner, template_dir):
 	library_type = library_type_list[0]
 
     # create stats files used for QC report
-    make_project_data_files(project_name, sample_names, sample_paths, new_dir, ref_genome, library_type, aligner)
+#    make_project_data_files(project_name, sample_names, sample_paths, new_dir, ref_genome, library_type, aligner)
 
     #Create the report
     if not os.path.exists(template_dir+"rnaseq_align_and_qc_report_Rmd_template.txt"):

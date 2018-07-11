@@ -94,7 +94,8 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
     #write .Rmd file
     outp.write("---\ntitle: \"Differential Expression Results for "+project_name+"\"\n")
-    outp.write("author: 'Blanca Himes (bhimes@upenn.edu)'\n")
+    outp.write("author: 'Mengyuan Kan (mengykan@upenn.edu)'\n")
+    outp.write("date: \"`r format(Sys.time(), '%d %B, %Y')`\"\n")
     outp.write("output: \n")
     outp.write("  html_document:\n")
     outp.write("    css: custom.css\n")
@@ -124,9 +125,10 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("If desired, the design can be modified to include more independent variables. In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form:<br>\n\n")
     outp.write("> "+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt<br>\n\n")
     outp.write("where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br>\n\n")
-    outp.write("\n\n```{r, echo=F, message=F, warning=F}\n")
-    outp.write("library(gplots)\nlibrary(reshape2)\nlibrary(RColorBrewer)\nlibrary(plyr)\nlibrary(lattice)\nlibrary(genefilter)\nlibrary(ggplot2)\nlibrary(DESeq2)\nlibrary(DT)\nlibrary(biomaRt)\noptions(width = 1000)\n")
+    outp.write("\n\n```{r lib, echo=F, message=F, warning=F}\n")
+    outp.write("library(gplots)\nlibrary(reshape2)\nlibrary(RColorBrewer)\nlibrary(plyr)\nlibrary(lattice)\nlibrary(genefilter)\nlibrary(ggplot2)\nlibrary(viridis)\nlibrary(DESeq2)\nlibrary(DT)\nlibrary(tidyr)\nlibrary(biomaRt)\nlibrary(pander)\noptions(width = 1000)\n```\n")
     outp.write("\n")
+    outp.write("\n\n```{r vars, eval=T, echo=F}\n")
     outp.write("project_name=\""+project_name+"\"\n")
     outp.write("path.start='"+path_start+"'\n")
     if ref_genome=="hg38":
@@ -173,11 +175,13 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 	print("This code can only append official gene symbols for hg38, mm38, rn6.")
 
     outp.write("if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}\n\n")
+    outp.write("```\n")
 
     ###
     # DESeq2 analysis
     ###
 
+    outp.write("\n\n```{r normcount, eval=T, echo=F, message=F, warnings=F, results=\"hide\"}\n")
     #this part is only for getting normalized counts (this way all samples normalized together)
     outp.write("\n# this part is only for getting normalized counts (this way all samples normalized together)\n")
 
@@ -190,8 +194,10 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("norm.counts <- counts(dds, normalized=TRUE)\n")
     outp.write("norm.counts <- merge(norm.counts, countdata[,c('Gene','gene_symbol')], by='row.names')\n")
     outp.write("norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column called 'Row.names'\n")
+    outp.write("```\n\n")
+    outp.write("```{r normcount_save, eval=F, echo=F}\n")
     outp.write("write.table(norm.counts, paste0(project_name,'_counts_normalized_by_DESeq2.txt'), quote=FALSE, row.names=FALSE)\n")
-    outp.write("\n```\n")
+    outp.write("```\n\n")
 
     #create and paste the portion of the report that is unique to each comparison
     for line in comps:
@@ -206,15 +212,15 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
             design="paired"
             control_var=(line.split('\t')[2]).split(':')[1]
 
-        outp.write("```{r, echo=F}\n")
+        outp.write("```{r, eval=T, echo=F}\n")
         outp.write("case <- '"+case+"'\n")
         outp.write("ctrl <- '"+ctrl+"'\n")
         #outp.write("res <- results(dds, contrast=c('Label','"+case+"','"+ctrl+"'))\n")
-        outp.write("\n```\n")
+        outp.write("```\n\n")
         outp.write("## "+case+" vs. "+ctrl+"\n")
         outp.write("\n")
         outp.write("### Samples in this comparison\n")
-        outp.write("```{r, echo=F, message=F}\n")
+        outp.write("```{r, eval=T, echo=F, message=F}\n")
         outp.write("#conditions from file - select the portion of the info sheet relevant to the two conditions being tested\n")
         outp.write("coldata_curr <- coldata[which(coldata$Label==case | coldata$Label==ctrl),]\n")
 
@@ -228,14 +234,14 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
 
         outp.write("coldata_curr <- coldata_curr[order(coldata_curr$Sample), ]\n")
-        outp.write("coldata_curr$Label <- factor(coldata_curr$Label, levels = c(ctrl,case))\n")
+        outp.write("coldata_curr$Label <- factor(coldata_curr$Label, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)\n")
         outp.write("DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box\n")
         outp.write("rownames(coldata_curr) <- coldata_curr$Sample\n")
         outp.write("coldata_curr$Sample <- NULL\n")
         outp.write("```\n\n")
 
-        outp.write("### Top 50 genes by p-value\n")
-        outp.write("```{r, echo=F, message=F}\n")
+        outp.write("### DE analysis\n")
+        outp.write("```{r, eval=T, echo=F, message=F}\n")
         outp.write("#select the portion of the HTSeq output matrix relevant to the two conditions being tested\n")
         outp.write("a <- colnames(countdata)\n")
         outp.write("b <- rownames(coldata_curr)\n")
@@ -259,36 +265,22 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
     #Housekeeping gene expression barplots - once per report
     outp.write("## Housekeeping genes\n")
-    outp.write("Counts have been normalized by sequencing depth, with pseudocount of 0.5 added to allow for log scale plotting, using DESeq2 function plotCounts().\n")
+    outp.write("Counts have been normalized by estimated size factors using DESeq2 function counts to obtain the count matrix.\n")
     outp.write("\n")
-    outp.write("```{r, echo=F, cache=F, warning=F, message=F}\n")
-    outp.write("for (i in 1:length(housekeeping_genes)) {\n")
-    outp.write("  gene_symbol <- housekeeping_genes[i]\n")
-    outp.write("  dfs <- ls()[grep('_norm_data_', ls())]\n")
-    outp.write("  dfs <- dfs[grep(gene_symbol, dfs)]\n")
-    outp.write("  curr_data <- data.frame()\n")
-    outp.write("  for (j in dfs) {\n")
-    outp.write("  	norm_data <- get(j)\n")
-    outp.write("  	norm_data$Sample <- rownames(norm_data)\n")
-    outp.write("  	rownames(norm_data) <- NULL\n")
-    outp.write("  	curr_data <- rbind(curr_data, norm_data)\n")
-    outp.write("  }\n")
-    outp.write("  	curr_data <- unique(curr_data)\n")
-    outp.write("  	curr_data$Sample <- NULL\n")
-    outp.write("      housekeeping_plot <- ggplot(curr_data, aes(x = curr_data$Label, y = count, fill=curr_data$Label)) +\n")
-    outp.write("      geom_boxplot(outlier.colour=NA, lwd=0.2, color='grey18') +\n")
-    outp.write("      stat_boxplot(geom ='errorbar', color='grey18') +\n")
-    outp.write(" 	  expand_limits(y=0) +\n")
-    outp.write("      geom_jitter(size=2, width=0.2) +\n")
-    outp.write("      guides(fill=FALSE) +\n")
-    outp.write("      theme_bw() +\n")
-    outp.write("      labs(title=paste0(gene_symbol)) + labs(x='condition') + labs(y='counts') +\n")
-    outp.write("      theme(strip.text.x = element_text(size = 10),axis.text.x = element_text(angle = 90, hjust = 1, size=12),axis.text.y = element_text(size=9), plot.title = element_text(size=12), axis.title.x = element_text(size=12), axis.title.y = element_text(size=12))\n")
-    outp.write("	print(housekeeping_plot)\n")
+    outp.write("```{r, eval=T, echo=F, cache=F, warning=F, message=F}\n")
+    outp.write("for (i in housekeeping_genes) {\n")
+    outp.write("  gene_symbol <- i\n")
+    outp.write("  gene_ids <- norm.counts[which(norm.counts$gene_symbol==i),'Gene']\n")
+    outp.write("  curr_data <- norm.counts[which(norm.counts$gene_symbol==i),names(norm.counts)[names(norm.counts)%in%coldata$Sample]] # choose Ensembl gene with the most counts\n")
+    outp.write("  curr_data <- curr_data[which.max(rowSums(curr_data)),]\n")
+    outp.write("  gene_id <- gene_ids[which.max(rowSums(curr_data))]\n")
+    outp.write("  curr_data <- data.frame(Sample=colnames(curr_data),Gene=rep(gene_id,ncol(curr_data)),gene_symbol=rep(gene_symbol,ncol(curr_data)),count=as.numeric(curr_data))\n")
+    outp.write("  curr_data <- merge(curr_data,coldata[which(coldata$Sample%in%curr_data$Sample),c('Sample','Label')],by='Sample')\n")
+    outp.write("  print(boxplot_func(df=curr_data))")
     outp.write("}\n```\n\n")
 
     outp.write("```{r session_info, eval=T, echo=F}\n")
-    outp.write("sessionInfo()\n")
+    outp.write("pander(sessionInfo())\n")
     outp.write("```\n\n")
     outp.close()
     #subprocess.call("cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore", shell=True)
@@ -398,7 +390,7 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 
 	#Housekeeping gene expression barplots - once per report
 	outp.write("### Housekeeping genes\n")
-	outp.write("```{r, echo=F}\n")
+	outp.write("```{r, eval=T, echo=F}\n")
 	outp.write("house_ensg <- unique(kallisto_output$ens_gene[which(kallisto_output$ext_gene %in% housekeeping_genes)])\n")
 	outp.write("for (i in 1:length(house_ensg)) {\n")
   	outp.write("  curr_gene <- house_ensg[i]\n")

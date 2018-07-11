@@ -956,7 +956,7 @@ def main(project_name, sample_info_file, path_start, aligner, template_dir):
 	library_type = library_type_list[0]
 
     # create stats files used for QC report
-#    make_project_data_files(project_name, sample_names, sample_paths, new_dir, ref_genome, library_type, aligner)
+    make_project_data_files(project_name, sample_names, sample_paths, new_dir, ref_genome, library_type, aligner)
 
     #Create the report
     if not os.path.exists(template_dir+"rnaseq_align_and_qc_report_Rmd_template.txt"):

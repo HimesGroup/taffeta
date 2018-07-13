@@ -32,13 +32,13 @@ res_ct_df$Label <- factor(res_ct_df$Label, levels = c(ctrl,case))
 ```{r, eval=T, echo=F}
 #save down ALL DESeq2 results in the directory... this is not really going into the report so much as for reference
 res_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_full_DESeq2_results.txt")
-write.table(res_df[order(res_df$pvalue, decreasing=FALSE),], res_fn, quote=FALSE, row.names=FALSE)
+write.table(res_df[order(res_df$pvalue, decreasing=FALSE),], res_fn, quote=FALSE, row.names=FALSE, sep='\t')
 ```
 
 ```{r, eval=T, echo=F}
 # save normalized counts results
 res_ct_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_counts_normalized_by_DESeq2.txt")
-write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T)
+write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T, sep='\t')
 ```
 
 ```{r, eval=T, echo=F}

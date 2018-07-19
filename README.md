@@ -26,13 +26,13 @@ Several freely available software packages are used to perform most of these ste
 
 ## Workflow
 
-### Download SRA data
+### Download data from GEO/SRA
 
-Download RNA-Seq data from GEO and SRA using rnaseq_sra_download.py
+Download RNA-Seq data from SRA repository using rnaseq_sra_download.py. If a phenotype file is not provided, a raw phenotype file is generated from GEO. Ftp address corresponding to each sample in the phenotype file is obtained from SRA. LSF scripts with download commands are generated. Users can run download in parallel.
 
-> rnaseq_sra_download.py --geo_id <i>GEO_Accession</i> --path_start <i>output_path</i> --project_name <i>output_prefix</i> --template_dir <i>femplete_file_directory</i>
+> rnaseq_sra_download.py --geo_id <i>GEO_Accession</i> --path_start <i>output_path</i> --project_name <i>output_prefix</i> --template_dir <i>templete_file_directory</i>
 
-Output files
+Output files: 1. <i>project_name</i>_SRAdownload_RnaSeqReport.html; 2. <i>project_name</i>_sraFile.info 3. <i>GEO_Accession</i>_withoutQC.txt
 
 ### QC and Alignment
 

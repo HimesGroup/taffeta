@@ -1,43 +1,20 @@
 taffeta
 =======
 
-RNAseq/DGE analysis protocols.
+Reproducible analysis and validation of RNA-Seq data
 
-Authors: Maya Shumyatcher, Blanca Himes.
+Authors: Maya Shumyatcher, Mengyuan Kan, Blanca Himes.
 
-The goal of taffeta is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
-  * Perform preliminary QC 
+The goal of taffeta is to preform reproducible analysis and validation of RNA-Seq data, as a part of [RAVED pipeline](https://github.com/HimesGroup/raved):
+  * Download SRA .fastq data
+  * Perform preliminary QC
   * Align reads to a reference genome
   * Perform QC on aligned files
   * Create a report that can be used to verify that sequencing was successful and/or identify sample outliers
   * Perform differential expression of reads aligned to transcripts according to a given reference genome
   * Create a report that summarizes the differential expression results
 
-Several freely available software packages are used to perform most of these steps (see below). 
-
-### input files
-Before running the pipeline, characteristics of a set of fastq files for samples that are part of a project are described in a tab-delimited txt file containing the following fields:
-```
-					
-	sample_ID		| ID given to sample by customer
-	index			| Six digit sequence of the index for this library 
-	ercc_mix		| Mix of ERCC spike used for library construction (options: "1", "2", "-")
-	file_directory	        | Directory where sample's fastq files reside
-	project			| Name for project associated with sample
-	label			| Biological condition associated with the sample, provided by customer
-	ref_genome		| Rerence genome associated with sample. (options: "hg38", "hg19", "Zv9", "mm10", "rn6", "susScr3")
-	library_type	        | Type of library for sample (options: "PE", "SE", "DGE", "SPE", "SSE"
-				  corresponding to: "paired-end", "single-end", "digital gene expression", 
-				  "stranded paired-end", "stranded single-end")
-	lane			| Lane of sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-")
-	run		        | Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - 
-				  else "-" or "ncbi" if files were downloaded from GEO)
-	
-```
-
-The rigid file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 
-
-Results may be obtained at a gene or transcript level, depending on the set of scripts used.
+Several freely available software packages are used to perform most of these steps (see below).
 
 ### dependencies
 * STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are still available).
@@ -47,9 +24,20 @@ Results may be obtained at a gene or transcript level, depending on the set of s
 * The Python scripts make use of modules that include subprocess, os, argparse, sys.
 * To create reports, R and various libraries should be available, including DT, gplots, ggplot2, reshape2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Additionally, pandoc version 1.12.3 or higher should be available. If following the gene-based workflow, R package DESeq2 should be available. If following the workflow for transcript-based results, R package sleuth should be available. 
 
-### workflow
+## Workflow
 
-#### for gene-based results
+### Download SRA data
+
+Download RNA-Seq data from GEO and SRA using rnaseq_sra_download.py
+
+> rnaseq_sra_download.py --geo_id <i>GEO_Accession</i> --path_start <i>output_path</i> --project_name <i>output_prefix</i> --template_dir <i>femplete_file_directory</i>
+
+Output files
+
+### QC and Alignment
+
+
+
 
 Steps 4-5 are optional.
 

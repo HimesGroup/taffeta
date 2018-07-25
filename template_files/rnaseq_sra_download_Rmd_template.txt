@@ -22,7 +22,7 @@ library(pander)
 
 ### Obtain raw GEO phenotype file
 
-Raw sample information including SRA ID is obtained from GEO. If pheno_fn is specified, download samples based on SRA ID in the Sample column; otherwise, download samples based on the GEO raw phenotype file.
+Obtain raw sample information including SRA ID from GEO. If pheno_fn is specified, download samples based on SRA_ID column; otherwise, download samples based on the GEO raw phenotype file.
 
 ```{r geo_download, eval=T, echo=F, message=F, warning=F}
 if (!exists("pheno_fn")) {
@@ -53,7 +53,7 @@ if (!exists("pheno_fn")) {
 } else {
   if (!file.exists(pheno_fn)) {stop("Phenotype file specified does not exist: ", pheno_fn)}
   pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
-  files <- pheno.raw$Sample
+  files <- pheno.raw$SRA_ID
 }
 cat("Samples for download:", paste(files,collapse=", "),"\n")
 ```
@@ -92,7 +92,7 @@ write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=
 
 
 ```{r sra_download, eval=F, echo=F, message=F, warning=F}
-# Download fastq files
+# Download fastq files, disabled here
 if (!file.exists("SRAmetadb.sqlite")) {
   sqlfile <<- getSRAdbFile()
   sra_con <- dbConnect(SQLite(),sqlfile)
@@ -136,18 +136,22 @@ if (!exists("pheno_fn")) {
   cols=c("title","geo_accession", "characteristics_ch1.2", "characteristics_ch1.3", "characteristics_ch1","relation.1")
   pheno <- pheno.raw %>%
     dplyr::select(cols) %>%
-    dplyr::mutate(Sample=gsub(".*=","",pheno.raw$relation.1)) %>%
+    dplyr::mutate(SRA_ID=gsub(".*=","",pheno.raw$relation.1)) %>%
     dplyr::mutate(GEO_ID=geo_accession) %>%
     dplyr::mutate(Donor=gsub("cell line: ","",characteristics_ch1.3)) %>%
     dplyr::mutate(Tissue="ASM") %>%
     dplyr::mutate(Treatment=gsub("treatment: ","",characteristics_ch1)) %>%
-    dplyr::mutate(Treatment=gsub("Albuterol","Alb",Treatment)) %>%
+    dplyr::mutate(Treatment=gsub("Albuterol","alb",Treatment)) %>%
     dplyr::mutate(Treatment=gsub("Dexamethasone","dex",Treatment)) %>%
     dplyr::mutate(Treatment=gsub("Untreated","untreated",Treatment)) %>%
+    dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
     dplyr::mutate(library_type="PE") %>%
     dplyr::mutate(Protocol="TruSeq RNA Sample Prep Kit v2") %>%
     dplyr::mutate_if(is.character,as.factor) %>%
     dplyr::select((length(cols)+1):ncol(.)) # remove original columns
+  pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)
+  names(pheno)[names(pheno)%in%c("run")] <- c("Sample")
+  names(pheno)[names(pheno)%in%c("experiment")] <- c("SRA_ID")
   detach("package:dplyr")
   write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)
 }

@@ -60,7 +60,8 @@ def lsf_file(job_name, cmd, memory=36000):
     outp.write("\n")
     outp.close()
 
-def download_fastq(SRA_info, out_dir):
+
+def download_fastq(SRA_info, out_dir, path_start, fastqc):
     """
     Obtain ftp download link for samples in project_name + "_sraFile.info" from SRA
     Creates .lsf files for .fastq file download
@@ -86,17 +87,30 @@ def download_fastq(SRA_info, out_dir):
     # create .lsf file with download command
     for sample in SRA:
         fastq_names=map(lambda x: x.split('/')[-1] ,SRA[sample]) # exclude ftp path and obtain fastq file name
+
+        if fastqc: # create new directory under current sample name for raw fastqc results
+            fastqc_out=path_start+sample
+            if not os.path.exists(fastqc_out):
+                os.makedirs(fastqc_out)
+
         for i in range(len(fastq_names)):
             fastq_name=fastq_names[i]
             ftp=SRA[sample][i]
             if os.path.exists(out_dir+fastq_name):
-                print(out_dir+fastq_name+" already exists. Skip download.")
+                print(out_dir+fastq_name+" already exists. Skip download.") # if the fastq file already exists, skip download
+                if fastqc:
+                    download_cmd="fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
+                    lsf_file(sample+"_"+str(i+1), download_cmd) # create .lsf files for fastqc
             else:
                 download_cmd="cd "+out_dir+"\n"
                 download_cmd=download_cmd+"wget "+ ftp+"\n"
-                lsf_file(sample+"_"+str(i+1), download_cmd) # create .lsf files for each download ftp
+                if fastqc:
+                    download_cmd=download_cmd+"fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
 
-def main(geo_id, path_start, project_name, pheno_info, template_dir):
+                lsf_file(sample+"_"+str(i+1), download_cmd) # create .lsf files for download and/or fastqc
+            
+
+def main(geo_id, path_start, project_name, pheno_info, template_dir, fastqc):
 
     # Set up project and sample output directories
     if path_start == "./":
@@ -137,19 +151,21 @@ def main(geo_id, path_start, project_name, pheno_info, template_dir):
         sys.exit()
 
     # download .fastq file based on ftp address in generated project_name+sraFile.info file
-    download_fastq(SRA_info, out_dir)
+    # assign TURE to fastqc variable to do fastqc for raw .fastq files. Fastqc results are saved in a new directory under the current sample's name
+    download_fastq(SRA_info, out_dir, path_start, fastqc)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Download RNA-Seq rawr reads .fastq files from SRA.")
     parser.add_argument("--geo_id", type=str, help="GEO accession id")
     parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
     parser.add_argument("--project_name", type=str, help="Name of project that all samples correspond to.")
-    parser.add_argument("--pheno_info", help="Use user defined phenotype file to download the .fastq files of corresponding samples from SRA. The sample name in Sample column (1st column) should match their SRA IDs. If not defined, download samples based on GEO phenotype information.")
+    parser.add_argument("--pheno_info", help="Use user defined phenotype file to download the .fastq files of corresponding samples from SRA. The name in 'SRA_ID' column should match the sample id in SRA database. If not defined, download samples based on GEO phenotype field 'relation.1'.")
     parser.add_argument("--template_dir", default="./", type=str, help="The template RMD file rnaseq_sra_download_Rmd_template.txt is located.")
+    parser.add_argument("--fastqc", action='store_true', help="If specified, run fastqc for downloaded raw .fastq files.")
     args = parser.parse_args()
 
     if args.geo_id is None or args.project_name is None:
         parser.print_help()
         sys.exit()
 
-    main(args.geo_id, args.path_start, args.project_name, args.pheno_info, args.template_dir)
+    main(args.geo_id, args.path_start, args.project_name, args.pheno_info, args.template_dir, args.fastqc)

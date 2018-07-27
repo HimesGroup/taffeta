@@ -828,7 +828,7 @@ def make_rmd_title(path_start, project_name, aligner, ref_genome):
     # import author information
     author=userdef.author
 
-    rmd="---\ntitle: \'RNA-Seq Report of Sample QC and Alignment Summary Statistics for Project "+project_name+"'\n"
+    rmd="---\ntitle: 'RNA-Seq Report of Sample QC and Alignment Summary Statistics for "+project_name+"'\n"
     rmd=rmd+"author: "+author+"\n"
     rmd=rmd+"date: \"`r format(Sys.time(), '%d %B, %Y')`\"\n"
     rmd=rmd+"output: \n"

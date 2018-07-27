@@ -17,10 +17,10 @@ The goal of taffeta is to preform reproducible analysis and validation of RNA-Se
 Several freely available software packages are used to perform most of these steps (see below).
 
 ### dependencies
-* STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are still available).
+* STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are no longer available).
 * Programs that should be installed for QC: fastqc, trimmomatic, samtools, bamtools, picardtools.
 * Annotation files should be available: reference genome fasta, gtf, refFlat, and index files. We use ERCC spike-ins, so our reference files include ERCC mix transcripts. 
-* For adapter trimming, we include Ilumina and Nextflex sequences as used in the PCPGM lab.
+* For adapter trimming, we include Ilumina TruSeq single index and Illumina unique dual (UD) index adpter and primer sequences.
 * The Python scripts make use of modules that include subprocess, os, argparse, sys.
 * To create reports, R and various libraries should be available, including DT, gplots, ggplot2, reshape2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Additionally, pandoc version 1.12.3 or higher should be available. If following the gene-based workflow, R package DESeq2 should be available. If following the workflow for transcript-based results, R package sleuth should be available. 
 
@@ -28,11 +28,20 @@ Several freely available software packages are used to perform most of these ste
 
 ### Download data from GEO/SRA
 
-Download RNA-Seq data from SRA repository using rnaseq_sra_download.py. If a phenotype file is not provided, a raw phenotype file is generated from GEO. Ftp address corresponding to each sample in the phenotype file is obtained from SRA. LSF scripts with download commands are generated. Users can run download in parallel.
+Run script rnaseq_sra_download.py to download .fastq files from SRA. Users can provide a phenotype file with a SRA_ID column. Download samples corresponding to the SRA_ID. If a phenotype file is not provided, use phenotype information from GEO. SRA_ID is retrieved from the field relation.1. Corresponding ftp addresses are obtained from SRA sqilte database. Generate LSF scripts with download commands that can be processed in parallel. Specify --fastqc option to run FastQC for .fastq files downloaded.
 
-> rnaseq_sra_download.py --geo_id <i>GEO_Accession</i> --path_start <i>output_path</i> --project_name <i>output_prefix</i> --template_dir <i>templete_file_directory</i>
+> rnaseq_sra_download.py --geo_id <i>GEO_Accession</i> --path_start <i>output_path</i> --project_name <i>output_prefix</i> --template_dir <i>templete_file_directory</i> --fastqc
 
-Output files: 1. <i>project_name</i>_SRAdownload_RnaSeqReport.html; 2. <i>project_name</i>_sraFile.info 3. <i>GEO_Accession</i>_withoutQC.txt
+Output files: 1. <i>project_name</i>\_SRAdownload_RnaSeqReport.html; 2. <i>project_name</i>\_sraFile.info 3. <i>GEO_Accession</i>\_withoutQC.txt 4. FastQC results
+
+
+### User-tailored phentoype file
+
+The sample info file used in the following steps should be provided by users.
+Required columns: 'Sample' column with sample ID, 'Status' column with comparison states.
+Other columns: 'Treatment', 'Disease', 'Donor' (donor or cell line ID if in vitro treatment is used), 'Tissue', 'ERCC\_Mix' if ERCC spike-in sample is used, 'protocol' designating sample preparation kit information.
+'Index' column has index sequence if used for each sample. For samples downloaded from SRA, the index information may not be provided in GEO. We suggest users reviewing "Overrepresented sequences" category from fastqc results and add corresponding index sequence to each sample.
+Assign full paths for Read 1 and Read 2 (if available) .fastq files in R1 and R2 column. If multiple .fastq files obtained from sequencer, combine them into one file for Read 1 and Read 2 respectively.
 
 ### QC and Alignment
 

@@ -66,6 +66,8 @@ star_version="2.5.2b"
 samtools_version="1.8"
 bamtools_version="2.3.0"
 picard_version="1.96"
+htseq_version="0.6.0"
+deseq2_version="1.18.1"
 
 ###
 # Other information

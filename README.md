@@ -111,13 +111,12 @@ Various output files will be written for each sample in directories structured a
 Run **pipeline_scripts/rnaseq\_align\_and\_qc\_report.py** to create an HTML report of QC and alignment summary statistics for RNA-seq samples. Read in **template\_files/rnaseq\_align\_and\_qc\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
 > python rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
+
 > bsub < <i>project_name</i>_qc.lsf
 
 **Output files:**
 
 This script uses the many output files created in step of alignment and quantification, converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document.
-
-**Output files:**
 
 The report and accompanying files are contained in:
 
@@ -133,6 +132,7 @@ The RMD and corresponding HTML report files:
 Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.  Read in **template\_files/rnaseq\_de\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
 > rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i>
+
 > bsub < <i>project_name</i>_deseq2.lsf
 
 The "--comp" option specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.

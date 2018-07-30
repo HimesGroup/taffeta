@@ -84,6 +84,7 @@ Edit **pipeline_scripts/rnaseq_userdefine_variables.py** with a list user-define
 If perform adapter trimming, read in **template_files/rnaseq_adapter_primer_sequences.txt** from specified directory <i>template_dir</i> used as a reference list of index and primer sequences for various library preparation kits.
 
 > rnaseq\_align\_and\_qc.py --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --librar\_type PE --index\_type truseq\_single\_index --strand nonstrand --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
+
 > for i in *.lsf; do bsub < $i; done
 
 The "--aligner" option indicates aligner should be used (default: star).

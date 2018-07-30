@@ -26,13 +26,13 @@ Generate LSF scripts with download commands that can be processed in parallel. S
 * **Spesis-specific genome reference files:** reference genome fasta, gtf, refFlat, and index files. As our example uses ERCC spike-ins, the reference files include ERCC mix transcripts. 
 * **Adapter and primer sequences**: a list of is provided. For fastqc, replace . For trimming we provide Ilumina TruSeq single index and Illumina unique dual (UD) index adpter and primer sequences. Users can tailor this file by adding sequences from other protocols.
 * **Pipeline scripts:** the Python scripts make use of various modules including subprocess, os, argparse, sys.
-* **R markdown scripts for summary reporot:** Require various R libraries such as DT, gplots, ggplot2, reshape2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Note that the current RMD scripts require pandoc version 1.12.3 or higher to generate HTML report.
+* **R markdown scripts for summary reporot:** Require various R libraries such as DT, gplots, ggplot2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Note that the current RMD scripts require pandoc version 1.12.3 or higher to generate HTML report.
 
 ## Workflow
 
 ### Download data from GEO/SRA
 
-Run **pipeline_scripts/rnaseq\_sra\_download.py** to download .fastq files from SRA. Read in **template_files/rnaseq_sra_download_Rmd_template.txt** to create a RMD script. Ftp addresses for corresponding samples are obtained from SRA SQLite database using R package SRAdb.
+Run **pipeline_scripts/rnaseq\_sra\_download.py** to download .fastq files from SRA. Read in **template_files/rnaseq_sra_download_Rmd_template.txt** from specified directory <i>template_dir</i> to create a RMD script. Ftp addresses for corresponding samples are obtained from SRA SQLite database using R package SRAdb.
 
 > rnaseq\_sra\_download.py --geo\_id <i>GEO_Accession</i> --path\_start <i>output_path</i> --project\_name <i>output_prefix</i> --template\_dir <i>templete_file_directory</i> --fastqc
 
@@ -77,33 +77,47 @@ Most GEO phenotype data do not have index information. However, FastQC is able t
 
 ### Alignment, quantification and QC
 
-1) Run rnaseq\_align\_and\_qc.py to perform: 1) adapter trimming, 2) fastqc, 3) alignment, 4) quantification, 5) QC metrics 
+Run **pipeline_scripts/rnaseq_align_and_qc.py** to: 1) trim adapter and primer sequences if index information is available, 2) run FastQC for (un)trimmed .fastq files, 3) align reads and quantify reads mapped to genes/transcripts, and 5) obtain various QC metrics from .bam files.
 
-> rnaseq\_align\_and\_qc.py --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --index\_type truseq\_single\_index --strand nonstrand --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
+Edit **pipeline_scripts/rnaseq_userdefine_variables.py** with a list user-defined variables (e.g. paths of genome reference file, paths of bioinformatics tools, versions of bioinformatics tools), and save the file under an executable search path.
 
+If perform adapter trimming, read in **template_files/rnaseq_adapter_primer_sequences.txt** from specified directory <i>template_dir</i> used as a reference list of index and primer sequences for various library preparation kits.
+
+> rnaseq\_align\_and\_qc.py --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --librar\_type PE --index\_type truseq\_single\_index --strand nonstrand --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
 > for i in *.lsf; do bsub < $i; done
 
-The "--aligner star" option indicates that star should be used as the aligner (default is tophat). The "--ref\_genome hg38" option refers to using hg38 human genome reference. The "--library\_type PE" option refers to PE (paired-end) or SE (single-end) library. The "--index\_type truseq\_single\_index" option refers to index used in sample library preparation. The "--strand nonstrand" option refers to sequencing that captures both strands (nonstrand) or the 1st strand (reverse) or the 2nd strand (forward) of cDNA.
+The "--aligner" option indicates aligner should be used (default: star).
 
+The "--ref\_genome" option refers to using selected version of genome reference.
 
-Following execution of LSF scripts, various output files will be written for each sample in directories structured as:
+The "--library\_type" option refers to PE (paired-end) or SE (single-end) library.
 
->
- <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastqc <br>
- <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastqc <br>
- <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_fastqc <br>
- <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc <br>
- <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount <br>
- <i>path_start</i>/<i>sample_name</i>/<i>aligner</i>_out <br>
- <i>path_start</i>/<i>sample_name</i>/<i>quantification_tool</i>_out <br>
+The "--index\_type" option refers to index used in sample library preparation.
 
-2) Run rnaseq_align\_and\_qc\_report.py. Create an HTML report of QC and alignment summary statistics for RNA-seq samples.
+The "--strand nonstrand" option refers to sequencing that captures both strands (nonstrand) or the 1st strand (reverse) or the 2nd strand (forward) of cDNA.
+
+**Output files:**
+
+Various output files will be written for each sample in directories structured as:
+
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>aligner</i>_out <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>quantification_tool</i>_out <br>
+
+Run **pipeline_scripts/rnaseq\_align\_and\_qc\_report.py** to create an HTML report of QC and alignment summary statistics for RNA-seq samples. Read in **template\_files/rnaseq\_align\_and\_qc\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
 > python rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
-
 > bsub < <i>project_name</i>_qc.lsf
-	
-This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document (main template is rnaseq_align_and_qc_report_Rmd_template.txt) that is converted into an html report using pandoc and R package rmarkdown.
+
+**Output files:**
+
+This script uses the many output files created in step of alignment and quantification, converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document.
+
+**Output files:**
 
 The report and accompanying files are contained in:
 
@@ -116,15 +130,16 @@ The RMD and corresponding HTML report files:
 
 ### Differential expression (DE) analysis - DESeq2
 
-**Run rnaseq_de_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.
+Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.  Read in **template\_files/rnaseq\_de\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
-> rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i
-
+> rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i>
 > bsub < <i>project_name</i>_deseq2.lsf
 
-The "--comp <i>sample_comp_file.txt</i>" specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
+The "--comp" option specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
 
-This script creates an RMD document (main template is rnaseq_de_report_Rmd_template.txt) that uses the DESeq2 R package to load and process the HTSeq output file 2). The report and accompanying files are contained in:
+**Output files:**
+
+The DE results are contained in:
 
 > <i>project_name</i>/<i>project_name</i>_deseq2_out/
 

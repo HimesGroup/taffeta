@@ -100,14 +100,14 @@ def download_fastq(SRA_info, out_dir, path_start, fastqc):
                 print(out_dir+fastq_name+" already exists. Skip download.") # if the fastq file already exists, skip download
                 if fastqc:
                     download_cmd="fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
-                    lsf_file(sample+"_"+str(i+1), download_cmd) # create .lsf files for fastqc
+                    lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for fastqc
             else:
                 download_cmd="cd "+out_dir+"\n"
                 download_cmd=download_cmd+"wget "+ ftp+"\n"
                 if fastqc:
                     download_cmd=download_cmd+"fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
 
-                lsf_file(sample+"_"+str(i+1), download_cmd) # create .lsf files for download and/or fastqc
+                lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for download and/or fastqc
             
 
 def main(geo_id, path_start, project_name, pheno_info, template_dir, fastqc):

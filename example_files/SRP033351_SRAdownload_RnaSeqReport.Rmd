@@ -1,3 +1,24 @@
+---
+title: SRP033351SRA download
+author: 'Mengyuan Kan (mengykan@upenn.edu)'
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    depth: 3
+editor_options:
+chunk_output_type: console
+---
+
+Assign the variables for GEO ID (geo_id), data directory (out_dir), phenotype file if user defined (pheno_fn).
+
+```{r var, echo=T}
+out_dir <- '/home/mengykan/Projects/SRP033351/SRP033351_SRAdownload/'
+project_name <- 'SRP033351'
+geo_id <- 'GSE52778'
+```
+
+
 Install the prerequisite R packages if they do not exist
 * GEOquery 
 * SRAdb
@@ -177,3 +198,4 @@ pandoc.table(res, split.tables=Inf, caption="Sample size in different tissue and
 ```{r sessioninfo, echo=F}
 pander(sessionInfo())
 ```
+

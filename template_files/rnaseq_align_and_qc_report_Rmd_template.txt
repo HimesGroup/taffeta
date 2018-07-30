@@ -1,44 +1,13 @@
-
-```{r, eval=T, echo=F, message=F}
-metrics.data <- read.table(paste(project_name,"_rnaseqmetrics_hist.txt", sep=""), header=T)
-counts.data <- read.table(paste(project_name,"_counts.txt", sep=""), header=T, sep="\t")
-#ercc.data <- read.table(paste(project_name,"_ERCC.txt", sep=""), header=T, as.is=T)
-summary.data <- read.table(paste(project_name,"_rnaseqmetrics_summary.txt", sep=""), header=T, as.is=T, sep="\t")
-bamstats.data <- read.table(paste(project_name,"_bamstats_counts.txt", sep=""), header=T, as.is=T, sep="\t")
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
-	insert.summary.data <- read.table(paste(project_name,"_insertmetrics_summary.txt", sep=""), header=T, as.is=T, sep="\t")
-	insert.metrics.data <- data.frame(c(0:1))
-	names(insert.metrics.data) <- "Insert_Size"
-	for (i in c(1:length(sample.names))){
-		curr.hist.data <- read.table(paste(project_name,"_",sample.names[i],"_insertmetrics_hist.txt", sep=""), header=T, as.is=T, sep="\t")
-		insert.metrics.data <- merge(insert.metrics.data, curr.hist.data, all=TRUE)
-		}
-	}
-unique.counts.data <- read.table(paste(project_name,"_unique_counts.txt", sep=""), header=T, sep="\t")
-duplicates <- read.table(paste(project_name,"_duplicates.txt", sep=""), header=T, sep="\t", as.is=T)
-```
-
-
-```{r lib, eval=T, echo=F, message=F}
-#library(xtable)
-library(pander)
-#library(knitr)
-library(RColorBrewer)
-library(DT)
-library(ggplot2)
-library(reshape2)
-```
-
 For each sample, the following programs were run to generate the data necessary to create this report. Written as for unstranded paired-end data. For single-end reads, R2s and insert size metrics would be omitted. <br> 
 
-> java -Xmx1024m	TrimmomaticPE -phred33 [raw_sample_R1] [raw_sample_R2] [sample_R1] [sample_R1_unpaired] [sample_R2] [sample_R2_unpaired] HEADCROP:[bases to trim, if any] ILLUMINACLIP:[sample_primer_fasta]:2:30:10 MINLEN:50<br> <br>
+> java -Xmx1024m TrimmomaticPE -phred33 [raw_sample_R1] [raw_sample_R2] [sample_R1] [sample_R1_unpaired] [sample_R2] [sample_R2_unpaired] HEADCROP:[bases to trim, if any] ILLUMINACLIP:[sample_primer_fasta]:2:30:10 MINLEN:50<br> <br>
 > fastqc [sample_R1] [sample_R2] <br> <br>
 > cat [sample_R1/R2] | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' <br>
 
 
 The following STAR options were used: <br>
 
-> STAR-2.5.2b --genomeDir [ref_genome_index] --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn [sample_R1] [sample_R2] <br>
+> STAR --genomeDir [ref_genome_index] --runThreadN 12 --outReadsUnmapped Fastx --outMultimapperOrder Random --outSAMmultNmax 1 --outFilterIntronMotifs RemoveNoncanonical --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --readFilesIn [sample_R1] [sample_R2] <br>
 
 
 Using aligned output files accepted_hits.bam and unmapped.bam:<br>
@@ -53,6 +22,36 @@ Using aligned output files accepted_hits.bam and unmapped.bam:<br>
 > java -Xmx2g -jar CollectInsertSizeMetrics.jar HISTOGRAM_FILE=InsertSizeHist.pdf INPUT=accepted_hits.sorted.bam OUTPUT=InsertSizeMetrics <br>
 
 
+```{r, eval=T, echo=F, message=F}
+metrics.data <- read.table(paste(project_name,"_rnaseqmetrics_hist.txt", sep=""), header=T)
+counts.data <- read.table(paste(project_name,"_counts.txt", sep=""), header=T, sep="\t")
+#ercc.data <- read.table(paste(project_name,"_ERCC.txt", sep=""), header=T, as.is=T)
+summary.data <- read.table(paste(project_name,"_rnaseqmetrics_summary.txt", sep=""), header=T, as.is=T, sep="\t")
+bamstats.data <- read.table(paste(project_name,"_bamstats_counts.txt", sep=""), header=T, as.is=T, sep="\t")
+if (library.type %in% c("PE")) {
+	insert.summary.data <- read.table(paste(project_name,"_insertmetrics_summary.txt", sep=""), header=T, as.is=T, sep="\t")
+	insert.metrics.data <- data.frame(c(0:1))
+	names(insert.metrics.data) <- "Insert_Size"
+	for (i in c(1:length(sample.names))){
+		curr.hist.data <- read.table(paste(project_name,"_",sample.names[i],"_insertmetrics_hist.txt", sep=""), header=T, as.is=T, sep="\t")
+		insert.metrics.data <- merge(insert.metrics.data, curr.hist.data, all=TRUE)
+		}
+	}
+unique.counts.data <- read.table(paste(project_name,"_unique_counts.txt", sep=""), header=T, sep="\t")
+duplicates <- read.table(paste(project_name,"_duplicates.txt", sep=""), header=T, sep="\t", as.is=T)
+```
+
+
+```{r lib, echo=F, message=F, warnings=F}
+#library(xtable)
+library(pander)
+#library(knitr)
+library(RColorBrewer)
+library(DT)
+library(ggplot2)
+library(reshape2)
+```
+
 ## Summary Read Numbers 
 
 The number of raw reads correspond to those that passed Casava QC filters, were trimmed to remove adaptors by Trimmomatic, and were aligned by STAR to ref_genome+ERCC transcripts as reported in .info files. Unique read counts were obtained by using awk on trimmed fastq files. FastQC estimates of percentage of sequences remaining after deduplication were retrieved from fastqc_data.txt files. Bamtools statistics were based on sorted and indexed bam files. The mapped reads were those that mapped to reference and were output by STAR to accepted_hits.bam. The unmapped reads were output by STAR to unmapped.bam. Some reads may be mapped to multiple locations in the genome so that the number of total reads reported by bamstats may be greater than the number of raw reads. The Junction spanning reads are computed based on accepted_hits.bam CIGAR entries containing "N." Related text files that were saved:
@@ -65,7 +64,7 @@ cat(project_name, "_read_counts.txt\n\n", project_name, "_duplicates.txt\n\n", p
 ### Total Number of Raw Reads Summary
 
 ```{r, eval=T, echo=F, message=FALSE}
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	R1_dups = duplicates[1, seq(2, length(duplicates[1, ]), 2)]
 	unique.counts.data.2 <- cbind(unique.counts.data, t(R1_dups))
 	R2_dups = duplicates[1, seq(3, length(duplicates[1, ]), 2)] 
@@ -90,7 +89,7 @@ DT::datatable(unique.counts.data.2, rownames = FALSE, options = list(pageLength 
 
 ```{r, eval=T, echo=F, message=FALSE, warning=FALSE, fig.width=13, fig.height=10}
 par(mai=c(1.02,1,0.82,2.5))
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	unique.counts.only <- unique.counts.data[,c("Sample","R1_Percent_Unique","R2_Percent_Unique")]	
 	#if sample names start with a number, append "x" to names - else get an error.
 	if (substring(unique.counts.only$Sample[1], 1, 1) %in% c("0","1","2","3","4","5","6","7","8","9")) { # only need to test one sample name
@@ -132,7 +131,7 @@ if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
 ```{r, eval=T, echo=F, message=FALSE, fig.width=12, fig.height=10}
 color.list <- rep(brewer.pal(12,"Paired"), length(sample.names))
 par(mai=c(1.02,1,0.82,3)) #bottom, left, top, and right
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	for (i in seq(1, 2*length(sample.names), 2)){
 		  sample.index <- i+1
 		  if (i==1) {
@@ -161,7 +160,7 @@ if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
 #Total Number of Reads Summary 
 if (aligner == "tophat") {
 	total.read.data <- read.table(paste(project_name,"_read_counts.txt", sep=""), header=T, sep="\t")
-	if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+	if (library.type %in% c("PE")) {
 		total.read.data$Total_Raw_Reads <- total.read.data$R1_Raw_Reads + total.read.data$R2_Raw_Reads
 		total.read.data$Total_Aligned_Reads <- total.read.data$R1_Aligned_Reads + total.read.data$R2_Aligned_Reads
 		total.read.data$Pct_Aligned_Reads <- 100*total.read.data$Total_Aligned_Reads/total.read.data$Total_Raw_Reads
@@ -176,7 +175,7 @@ if (aligner == "tophat") {
 ### Bamtools Reads Summary
 
 ```{r, eval=T, echo=F, message=FALSE}
-if (library.type %in% c("PE", "SPE","SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	if (aligner == "tophat") {
 		bamstats.summary <- bamstats.data[c(2:4, 7:14), c(2:length(names(bamstats.data))), drop=FALSE]
 		bamstats.summary <- rbind(bamstats.summary, apply(bamstats.data[c(2,14),-1, drop=FALSE], 2, sum))
@@ -212,7 +211,7 @@ DT::datatable(bamstats.summary, options = list(pageLength = 25))
 #if use xtable: print(xtable(bamstats.percent.table, split.table = Inf), type = 'html')
 #need results="asis" for xtable to be output as table--else will be output as html code
 
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	bamstats.percent.table <- 100*bamstats.summary[c(1:10), , drop=FALSE] / rep(as.numeric(bamstats.summary[1, ]), each=10)
 	} else {
 	bamstats.percent.table <- 100*bamstats.summary[c(1:4), , drop=FALSE] / rep(as.numeric(bamstats.summary[1, ]), each=4)
@@ -224,7 +223,7 @@ DT::datatable(bamstats.percent.table, options = list(pageLength = 25))
 ### Percentage of Mapped/Unmapped Reads
 
 ```{r, eval=T, echo=F, message=FALSE}
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	mapped.percent.table <- 100*bamstats.summary[c(1,11), , drop=FALSE] / rep(as.numeric(bamstats.summary[12, ]), each=2)
 	} else {
 	mapped.percent.table <- 100*bamstats.summary[c(1,5), , drop=FALSE] / rep(as.numeric(bamstats.summary[6, ]), each=2)
@@ -360,7 +359,7 @@ legend("right", sample.names, fill=c, bty="n", border=c, cex=1.1, xpd=TRUE, inse
 
 ```{r setup, echo=FALSE}
 library(knitr)
-stranded <- if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {TRUE} else {FALSE}   #use this to replace all the if conditions in subsequent code chunks
+stranded <- if (library.type %in% c("PE")) {TRUE} else {FALSE}   #use this to replace all the if conditions in subsequent code chunks
 ```
 
 ```{r, eval = stranded, echo=FALSE}
@@ -373,14 +372,14 @@ asis_output("For paired-end data, the Picard Tools CollectInsertSizeMetrics func
 
 
 ```{r, eval=T, echo=F, message=FALSE, results='asis'}
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	cat(project_name, "_insertmetrics_summary.txt\n\n")
 	}
 ```
 
 ```{r, eval=T, echo=F, message=FALSE}
 # Insert Size Summary
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	insert.sum.data <- apply(insert.summary.data[c(1:7), c(2:length(names(insert.summary.data))), drop=FALSE], 2, as.numeric)
 	row.names(insert.sum.data) <- insert.summary.data[c(1:7), 1]
 	table.digits <- matrix(c(rep(0,4),rep(2,2),0), nrow=7, ncol=length(names(insert.summary.data)))
@@ -390,7 +389,7 @@ if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
 ```
 
 ```{r, eval=T, echo=F, message=FALSE, fig.width=12, fig.height=10}
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	par(mai=c(1.02,1,0.82,0.42))
 	barplot(insert.sum.data[1, , drop=FALSE], ylim=c(0, max(insert.sum.data[1, ])+100), col=c("red"), border=NA, main=project_name, xlab="Sample", ylab="Median Insert Size", names.arg=c(1:length(sample.names)), cex.axis=0.9)
 	}
@@ -398,7 +397,7 @@ if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
 
 ```{r, eval=T, echo=F, message=FALSE, fig.width=12, fig.height=10}
 par(mai=c(1.02,1,0.82,2)) #bottom, left, top, and right
-if (library.type %in% c("PE", "SPE", "SPE-PrepX")) {
+if (library.type %in% c("PE")) {
 	delta <- 1/(2*length(sample.names))
 	c <- rep(brewer.pal(12,"Paired"), length(sample.names))
 	y.max <- max(insert.metrics.data[ ,-1, drop=FALSE], na.rm=TRUE)
@@ -568,14 +567,14 @@ erccplot_func=function(conc,count,colname){
     p=p+annotate('text', 5, 0, label=paste0("R-sq =", round(r2,3))) +
       annotate('text', 5, -0.8, label=paste0("slope =", round(slope,3)))}
   print(p)
-  return(data.frame(r2=round(r2,3), slope=round(slope,3)))
+  return(data.frame(r2=r2, slope=slope))
 }
 ```
 
 ```{r, ercc_fit, eval=T, echo=F, message=F, results="asis", fig.height=4, fig.width=4} 
-if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
+if (exists("ercc.mixes") & ("1" %in% ercc.mixes | "2" %in% ercc.mixes)) {
 	sample.names <- sample.names.orig
-	if (!file.exists(ambion_file)) {stop("ERCC concentrationfile",ambion_file, " does not exist")}
+	if (!file.exists(ambion_file)) {stop("ERCC concentration file", ambion_file, " does not exist")}
 
 	# read in ambion file
 	ambion=read.table(ambion_file,header=T, as.is=T, sep='\t')
@@ -612,8 +611,112 @@ if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
 
 
 ```{r, ercc_fit_tb, eval=T, echo=F, message=F, results='asis'}
-if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
+if (exists("ercc.mixes") & ("1" %in% ercc.mixes | "2" %in% ercc.mixes)) {
 	try(HTML(print(xtable(ercc.fit.table, caption="ERCC Spike-in Dose Response Fit Details"), type="html", label="tab:nine", table.placement="tbp", caption.placement="top", floating=FALSE))) #added "try()" when doing pig_lung - else was getting thrown out of loop with 'Error: could not find function "HTML"'
 	DT::datatable(ercc.fit.table)
 }
+```
+
+
+## Principal Component Analysis (PCA) Plot
+
+```{r pca_func, echo=F}
+# rlog_func obtains rlog-transformed count matrix using DESeq2
+rlog_func <- function(coldata,countdata) {
+  library(DESeq2)
+  # match colnames in count data to phenotype data
+  names(countdata) <- gsub('count_','',names(countdata))
+  countdata <- countdata[,c('Gene',as.character(coldata$Sample))]
+  row.names(countdata) <- countdata$Gene
+  countdata$Gene <- NULL
+  #pre-filter low count genes before running the DESeq2 functions. Keep only genes (rows) that have at least 10 reads total.
+  # This helps to reduce the memory size of the dds data object, and we increase the speed of the transformation
+  keep <- rowSums(countdata)>=10
+  countdata <- countdata[keep,]
+  # Read in data
+  ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata, colData = coldata, design=~Status)
+  dds <- DESeq(ddsFullCountTable)
+  # Transform data using regularized logarithm
+  rld<- rlogTransformation(dds, blind=FALSE)
+  return(rld)
+}
+
+# The pcastat_func function computes principal components
+pcastat_func <- function(m, ntop=500) {
+  # calculate the variance for each gene
+  rv <- rowVars(m)
+  # select the ntop genes by variance
+  select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
+  m=m[select,]
+  # obtain original expression data
+  raw.data.pca <- na.omit(apply(m,2,function(x)replace(x,is.infinite(x),NA))) # replace infinite values to NAs and omit NAs
+  # As scale function divides by the variance, the probe with the expression sd=0 across samples must be removed.
+  sd <- apply(raw.data.pca,1,sd)
+  raw.data.pca <- raw.data.pca[!sd==0,]
+  # compute pcs
+  pca <- prcomp(t(raw.data.pca), retx = TRUE, center = TRUE, scale = TRUE)
+  pc <- data.frame(pca$x)
+  # compute variance explained by each PC
+  vars <- pca$sdev^2
+  pcs <- t(pc)
+  pvars <- vars*100.0/sum(vars) # proportion of variance (%) explained by each PC
+  cumsum_pvars <- cumsum(pvars) # Cumulative Proportion of Variance (%)
+  if (nrow(pcs)>10) {nres <- 10} else {nres=nrow(pcs)} # select top 10 PCs if number of PCs >10
+  res <- data.frame(rownames(pcs),pvars,cumsum_pvars)[1:nres,]
+  names(res) <- c("PC","Proportion of Variance (%)","Cumulative Proportion of Variance (%)")
+  return(list(tb=res,pc=pc))
+}
+
+# The pcaplot_func creates plots for pc1 and pc2
+pcaplot_func <- function(pc, group_var) { # group_var: column name for a specific group; legend: legend name
+  df <- data.frame(
+    PC1=pc$PC1,
+    PC2=pc$PC2,
+    group=coldata[,group_var]
+  )
+  ggplot(df,aes(PC1,PC2,color=group)) + geom_point() + theme_bw()
+}
+
+# The pca_func function generates multiple pca plots for scan date, disease, treatment, and Donor
+pca_func <- function(pc) {
+  group_vars=c("Disease", "Treatment", "Tissue", "Donor")
+  legends=c("Disease", "Treatment", "Tissue", "Donor")
+  idx_exist=c(1:length(group_vars))[group_vars%in%names(coldata)] # obtain index of existing variables
+  plot_list=list() # store plots in a list
+  for (i in idx_exist) {
+    group_var=group_vars[i]
+    legend=legends[i]
+    nlevel=nlevels(coldata[,group_var]) # levels of the variable
+    if (group_var=="ScanDate_Group"|(nlevel>=2&nlevel<=20)) {
+      plot_list[[group_var]]=pcaplot_func(pc, group_var=group_var)+scale_color_hue(name=legend)
+    }
+  }
+  return(plot_list)
+}
+```
+
+
+```{r align_pca, eval=T, echo=F, message=F, warning=F}
+if (aligner=="star") {
+  coldata <- read.table(sample_info_file, sep='\t', header=TRUE)
+  countdata <- read.table(count_data_file, sep='\t', header=TRUE, check.names=FALSE)
+  rld <- rlog_func(coldata,countdata)
+  pca_dat <- assay(rld)
+}
+```
+
+1. Compute PCs and variance explained by the first 10 PCs
+
+```{r pca_tb, eval=T, echo=F, message=F, warning=F, results="asis"}
+res_pca <- pcastat_func(m=pca_dat)
+pandoc.table(res_pca$tb,split.tables=Inf, caption="Variance explained")
+```
+
+2. PCA plots
+
+PCA plots are generated using the first two principle components colored by known factors (e.g. treatment/disease conditions, tissue, and donors), visualizing similarities between arrays and these similarities' correlation to batch effects.
+
+```{r pca_plot, eval=T, echo=F}
+plot_list=pca_func(pc=res_pca$pc)
+for (i in plot_list) {print(i)}
 ```

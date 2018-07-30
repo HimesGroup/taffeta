@@ -6,39 +6,43 @@ import os
 import re
 import fnmatch
 
-def make_de_rnw_html(rnw_template, project_name, path_start, gtf, ref_genome):
+def make_rmd_css(path_start):
     """
-    Creates Rnw report. The top of report is below and the rest concatenated from a separate text document (rnw_template).
-    Runs Sweave to create html document with R output (R2HTML library necessary for this)
+    create custom.css for rmarkdown
     """
-    out_dir = path_start+project_name+"_DE_Report/"
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    outp = open(out_dir+project_name+"_DE_RnaSeqReport.Rnw", "w")
-    outp.write("<HTML>\n")
-    outp.write("<Head>\n")
-    outp.write("<Title>\n")
-    outp.write("RNA-seq Differential Expression Report for "+project_name+"\n")
-    outp.write("</Title>\n")
-    outp.write("</Head>\n")
-    outp.write("<Body>\n\n")
-    outp.write("<<input.data,echo=F,results=hide>>=\n")
-    outp.write("library(cummeRbund)\n")
-    outp.write("curr.batch=\""+project_name+"\"\n")
-    outp.write("path.start=\""+path_start+"\"\n")
-    #cummerbund database can includes a reference genome and gtf file although these options are not necessary for report
-    outp.write("cuff_data=readCufflinks(dir=path.start, genome = \""+ref_genome+"\", gtfFile = \""+gtf+"\", rebuild=TRUE) \n")
-    outp.write("conditions=samples(genes(cuff_data)) \n")
-    #reports currently focus on selecting top DE results based on genes and plots are made for genes and isoforms.
-    #it is possible to make reports that include TSS and CDS results, but these are not routinely given to customers
-    outp.write("features=c(\"genes\") \n")
-    outp.write("all.features=c(\"genes\", \"isoforms\") \n")
-    #outp.write("all_features=c(\"genes\", \"isoforms\", \"TSS\", \"CDS\") \n")
-    outp.write("ref.genome=\""+ref_genome+"\"\n")
-    outp.write("@\n")
-    outp.write(rnw_template)
+
+    css_outp = open(path_start+"custom.css", "w")
+    css_outp.write("blockquote {\n")
+    css_outp.write("    padding: 10px 20px;\n")
+    css_outp.write("    margin: 0 0 20px;\n")
+    css_outp.write("    font-size: 14px;\n")
+    css_outp.write("    background-color: #eee;\n")
+    css_outp.write("    border-left: 5px solid #eee;\n")
+    css_outp.write("}\n\n")
+    css_outp.write(".main-container {\n")
+    css_outp.write("    max-width: 2000px !important;\n") # "!important" overrides other rules
+    css_outp.write("}\n")
+    css_outp.close()
+
+
+def lsf_file(job_name, cmd, memory=36000, thread=1):
+    """
+    Creates .lsf files
+    """
+
+    outp = open(job_name+".lsf",'w')
+    outp.write("#!/bin/bash\n")
+    outp.write("#BSUB -L /bin/bash\n")
+    outp.write("#BSUB -J "+job_name+"\n")
+    outp.write("#BSUB -q normal\n")
+    outp.write("#BSUB -o "+job_name+"_%J.out\n")
+    outp.write("#BSUB -e "+job_name+"_%J.screen\n")
+    outp.write("#BSUB -M "+str(memory)+"\n")
+    outp.write("#BSUB -n "+str(thread)+"\n")
+    outp.write(cmd)
+    outp.write("\n")
     outp.close()
-    lsf_cmd="cd "+out_dir+"; echo \"library(R2HTML); Sweave('"+project_name+"_DE_RnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore"
+
 
 def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file):
     """
@@ -75,52 +79,59 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     else:
         design="mixed"
 
+    # Create out directory
     out_dir = path_start+project_name+"_deseq2_out/"
-
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    css_outp = open(out_dir+"custom.css", "w") #style sheet so blockquotes and plots look good
-    css_outp.write("blockquote {\n")
-    css_outp.write("    padding: 10px 20px;\n")
-    css_outp.write("    margin: 0 0 20px;\n")
-    css_outp.write("    font-size: 14px;\n")
-    css_outp.write("    border-left: 5px solid #eee;\n")
-    css_outp.write("}\n\n")
-    css_outp.write(".main-container {\n")
-    css_outp.write("    max-width: 2000px !important;\n") # "!important" overrides other rules
-    css_outp.write("}\n")
-    css_outp.close()
+
+    ###
+    # Create RMD file for DESeq2
+    ###
+
+    # create custom.css for rmarkdown
+    make_rmd_css(out_dir)
+
     outp = open(out_dir+'/'+project_name+"_DESeq2_Report.Rmd", "w")
 
-    #write .Rmd file
-    outp.write("---\ntitle: \"Differential Expression Results for "+project_name+"\"\n")
-    outp.write("author: 'Mengyuan Kan (mengykan@upenn.edu)'\n")
+    import rnaseq_userdefine_variables as userdef # read in user-defined variable python script
+    # import software version
+    star_version=userdef.star_version
+    htseq_version=userdef.htseq_version
+    deseq2_version=userdef.deseq2_version
+    # import author information
+    author=userdef.author
+
+    # title
+    outp.write("---\ntitle: 'Differential Expression Results for "+project_name+"'\n")
+    outp.write("author: "+author+"\n")
     outp.write("date: \"`r format(Sys.time(), '%d %B, %Y')`\"\n")
     outp.write("output: \n")
     outp.write("  html_document:\n")
     outp.write("    css: custom.css\n")
     outp.write("    toc: true\n")
     outp.write("    toc_float: true\n---\n\n")
-    outp.write("Reads were aligned to the "+ref_genome+" assembly using STAR (v. 2.5.2b).  The following alignment QC report was produced:<br>\n\n")
+
+    # description
+    outp.write("Reads were aligned to the "+ref_genome+" assembly using STAR ("+star_version+").  The following alignment QC report was produced:<br>\n\n")
     outp.write("> "+project_name+"_QC_RnaSeqReport.html<br>\n\n")
-    outp.write("HTSeq (v.0.6.1) function htseq-count was used to count reads. Counts for all samples were concatenated into the following text file:<br>\n\n")
+    outp.write("HTSeq ("+htseq_version+") function htseq-count was used to count reads. Counts for all samples were concatenated into the following text file:<br>\n\n")
     outp.write("> "+project_name+"_htseq_gene.txt<br>\n\n")
-    outp.write("DESeq2 (v. 1.12.4) was used for differential gene expression analaysis, based on the HTSeq counts matrix and the phenotype file provided.  Normalized counts from DESeq2 are saved in the following text file:<br>\n\n")
+    outp.write("DESeq2 ("+deseq2_version+") was used for differential gene expression analaysis, based on the HTSeq counts matrix and the phenotype file provided.  Normalized counts from DESeq2 are saved in the following text file:<br>\n\n")
     outp.write("> "+project_name+"_counts_normalized_by_DESeq2.txt<br>\n\n")
     outp.write("Normalized counts are obtained from DESeq2 function estimateSizeFactors(), which divides counts by the geometric mean across samples; this function does not correct for read length. The normalization method is described in detail here: https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106<br>\n\n")
     outp.write("Differential gene expression analysis was done for all comparisons provided in the comparisons file.  The following design was used:<br>\n\n")
 
     if design=="unpaired":
-        outp.write("> design = ~ Label<br>\n\n")
+        outp.write("> design = ~ Status<br>\n\n")
     elif design=="paired":
         for control_var in control_vars:
-            outp.write("> design = ~ "+" + "+control_var+" + Label<br>\n\n")
+            outp.write("> design = ~ "+" + "+control_var+" + Status<br>\n\n")
     elif design=="mixed":
         outp.write("For unpaired comparisons:\n")
-        outp.write("> design = ~ Label<br>\n\n")
+        outp.write("> design = ~ Status<br>\n\n")
         outp.write("For paired comparisons:\n")
         for control_var in control_vars:
-            outp.write("> design = ~ "+" + "+control_var+" + Label<br>\n\n")
+            outp.write("> design = ~ "+" + "+control_var+" + Status<br>\n\n")
 
     outp.write("If desired, the design can be modified to include more independent variables. In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form:<br>\n\n")
     outp.write("> "+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt<br>\n\n")
@@ -138,14 +149,14 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     else:
 	print("Housekeeping genes only available for human, mouse and rat.")
 
-    #Read in phenofile; phenofile should contain columns"Sample" and "Label"; if desired, it can have other columns (e.g. "Individual" or "Cell_Line", etc.) & design can be modified accordingly
+    #Read in phenofile; phenofile should contain columns"Sample" and "Status"; if desired, it can have other columns (e.g. "Individual" or "Cell_Line", etc.) & design can be modified accordingly
     outp.write("coldata <- read.table('"+sample_info_file+"', sep='\\t', header=TRUE)\n")
     outp.write("coldata <- subset(coldata, QC_Pass==1)\n")
 
     #load counts from HTSeq output
     outp.write("countdata <- read.table(paste0(path.start, project_name,'_Alignment_QC_Report_star/', project_name, '_htseq_gene.txt'), sep='\\t', header=TRUE, check.names=FALSE)\n") # need check.names=FALSE -- else dashes in colnames converted to periods
     outp.write("names(countdata) <- gsub('count_','',names(countdata))\n") # remove "count_" from column names
-    outp.write("countdata <- countdata[,c('Gene',coldata$Sample)]\n\n") # subset counts with samples who passed QC
+    outp.write("countdata <- countdata[,c('Gene',as.character(coldata$Sample))]\n\n") # subset counts with samples who passed QC
     outp.write("row.names(countdata) <- countdata$Gene\n")
     outp.write("is_ensg <- if (substr(rownames(countdata)[1], 1, 4) == 'ENSG') {TRUE} else {FALSE}\n")
     outp.write("countdata$Gene <- sapply(strsplit(as.character(countdata$Gene), '\\\.'), '[[', 1) # remove .5 in transcript ENSG00000000005.5\n")
@@ -186,8 +197,8 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("\n# this part is only for getting normalized counts (this way all samples normalized together)\n")
 
 
-    outp.write("# unpaired design, testing for effect of Label\n")
-    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,2:(ncol(countdata)-1)], colData = coldata, design = ~ Label)\n")
+    outp.write("# unpaired design, testing for effect of Status\n")
+    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,2:(ncol(countdata)-1)], colData = coldata, design = ~ Status)\n")
 
     outp.write("dds <- DESeq(ddsFullCountTable)\n") 
     # not actually doing analysis here, so reference level does not matter.
@@ -195,7 +206,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("norm.counts <- merge(norm.counts, countdata[,c('Gene','gene_symbol')], by='row.names')\n")
     outp.write("norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column called 'Row.names'\n")
     outp.write("```\n\n")
-    outp.write("```{r normcount_save, eval=F, echo=F}\n")
+    outp.write("```{r normcount_save, eval=T, echo=F}\n")
     outp.write("write.table(norm.counts, paste0(project_name,'_counts_normalized_by_DESeq2.txt'), quote=FALSE, row.names=FALSE)\n")
     outp.write("```\n\n")
 
@@ -215,26 +226,26 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
         outp.write("```{r, eval=T, echo=F}\n")
         outp.write("case <- '"+case+"'\n")
         outp.write("ctrl <- '"+ctrl+"'\n")
-        #outp.write("res <- results(dds, contrast=c('Label','"+case+"','"+ctrl+"'))\n")
+        #outp.write("res <- results(dds, contrast=c('Status','"+case+"','"+ctrl+"'))\n")
         outp.write("```\n\n")
         outp.write("## "+case+" vs. "+ctrl+"\n")
         outp.write("\n")
         outp.write("### Samples in this comparison\n")
         outp.write("```{r, eval=T, echo=F, message=F}\n")
         outp.write("#conditions from file - select the portion of the info sheet relevant to the two conditions being tested\n")
-        outp.write("coldata_curr <- coldata[which(coldata$Label==case | coldata$Label==ctrl),]\n")
+        outp.write("coldata_curr <- coldata[which(coldata$Status==case | coldata$Status==ctrl),]\n")
 
 
         if design=="paired": # if there is a sample without a pair in this comparison, remove it from the comparison
             outp.write("#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.\n")
 	    outp.write("for (i in unique(coldata_curr$"+control_var+")) {\n")
-	    outp.write("	if (nrow(coldata_curr[which(coldata_curr$Label=='"+case+"' & coldata_curr$"+control_var+"==i),]) != nrow(coldata_curr[which(coldata_curr$Label=='"+ctrl+"' & coldata_curr$"+control_var+"==i),])) {\n")
+	    outp.write("	if (nrow(coldata_curr[which(coldata_curr$Status=='"+case+"' & coldata_curr$"+control_var+"==i),]) != nrow(coldata_curr[which(coldata_curr$Status=='"+ctrl+"' & coldata_curr$"+control_var+"==i),])) {\n")
 	    outp.write("		coldata_curr <- coldata_curr[-which(coldata_curr$"+control_var+"==i),]\n")
 	    outp.write("		cat('Samples with "+control_var+"==', i, 'were removed from the "+case+" vs. "+ctrl+" comparison because there was an unequal number of case and control samples')\n}\n}\n")
 
 
-        outp.write("coldata_curr <- coldata_curr[order(coldata_curr$Sample), ]\n")
-        outp.write("coldata_curr$Label <- factor(coldata_curr$Label, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)\n")
+        outp.write("coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]\n")
+        outp.write("coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)\n")
         outp.write("DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box\n")
         outp.write("rownames(coldata_curr) <- coldata_curr$Sample\n")
         outp.write("coldata_curr$Sample <- NULL\n")
@@ -246,7 +257,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
         outp.write("a <- colnames(countdata)\n")
         outp.write("b <- rownames(coldata_curr)\n")
         outp.write("countdata_curr <- countdata[,which(a %in% b)] # subset countdata and coldata\n")
-        outp.write("countdata_curr <- countdata_curr[ ,order(names(countdata_curr))] #columns of countdata & rows of coldata must be ordered in the same way\n")
+        outp.write("countdata_curr <- countdata_curr[ ,order(as.character(names(countdata_curr)))] #columns of countdata & rows of coldata must be ordered in the same way\n")
         outp.write("#pre-filter low count genes before running the DESeq2 functions. Keep only genes (rows) that have at least 10 reads total.\n")
         outp.write("keep <- rowSums(countdata_curr)>=10\n")
         outp.write("countdata_curr <- countdata_curr[keep,]\n")
@@ -254,11 +265,11 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
         outp.write("#in spedifying design, order matters: test for the effect of condition (the last factor), controlling for the effect of individual (first factor)\n")
 
         if design=="unpaired":
-            outp.write("# unpaired design, testing for effect of Label\n")
-	    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ Label)\n")
+            outp.write("# unpaired design, testing for effect of Status\n")
+	    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ Status)\n")
         elif design=="paired":
-	    outp.write("# paired design, testing for effect of Label while controlling for "+control_var+"\n")
-	    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ "+control_var+" + Label)\n")
+	    outp.write("# paired design, testing for effect of Status while controlling for "+control_var+"\n")
+	    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ "+control_var+" + Status)\n")
 
 	outp.writelines(rmd_template)
 	outp.write("\n")
@@ -275,7 +286,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("  curr_data <- curr_data[which.max(rowSums(curr_data)),]\n")
     outp.write("  gene_id <- gene_ids[which.max(rowSums(curr_data))]\n")
     outp.write("  curr_data <- data.frame(Sample=colnames(curr_data),Gene=rep(gene_id,ncol(curr_data)),gene_symbol=rep(gene_symbol,ncol(curr_data)),count=as.numeric(curr_data))\n")
-    outp.write("  curr_data <- merge(curr_data,coldata[which(coldata$Sample%in%curr_data$Sample),c('Sample','Label')],by='Sample')\n")
+    outp.write("  curr_data <- merge(curr_data,coldata[which(coldata$Sample%in%curr_data$Sample),c('Sample','Status')],by='Sample')\n")
     outp.write("  print(boxplot_func(df=curr_data))")
     outp.write("}\n```\n\n")
 
@@ -283,9 +294,11 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("pander(sessionInfo())\n")
     outp.write("```\n\n")
     outp.close()
-    #subprocess.call("cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore", shell=True)
-    lsf_cmd="cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore"
-    return lsf_cmd
+
+    # create .lsf file for HPC use
+    lsf_cmd="cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore\n"
+    lsf_file(project_name+"_deseq2", lsf_cmd)
+
 	
 def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file):
 	"""
@@ -295,17 +308,10 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	if not os.path.exists(out_dir):
 		os.makedirs(out_dir)
 	sleuth_dir = path_start+"/"+project_name+"/sleuth_out/"
-	css_outp = open(path_start+"custom.css", "w")
-	css_outp.write("blockquote {\n")
-	css_outp.write("    padding: 10px 20px;\n")
-	css_outp.write("    margin: 0 0 20px;\n")
-	css_outp.write("    font-size: 14px;\n")
-        css_outp.write("    border-left: 5px solid #eee;\n")
-	css_outp.write("}\n\n")
-	css_outp.write(".main-container {\n")
-  	css_outp.write("    max-width: 2000px !important;\n") # "!important" overrides other rules
-	css_outp.write("}\n")
-	css_outp.close()	
+
+        # create custom.css for rmarkdown
+        make_rmd_css(out_dir)
+
 	outp = open(out_dir+project_name+"_Sleuth_Report.Rmd", "w")
 	outp.write("---\ntitle: \"Sleuth results - based on Kallisto TPM\"\n")
 	outp.write("output: html_document \ntoc: true \ntoc_depth: 2 \n---\n")
@@ -329,8 +335,8 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 
 	#load info sheet 
 	outp.write("info_sheet <- read.table('"+sample_info_file+"', header = TRUE, stringsAsFactors=FALSE)\n") #outp.write("info_sheet <- read.table(paste0(path.start,'"+sample_info_file+"'), header = TRUE, stringsAsFactors=FALSE)\n")
-	#outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Label'))\n") #regular
-	outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Label','Day'))\n") #paired
+	#outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Status'))\n") #regular
+	outp.write("info_sheet <- subset(info_sheet, select=c('Sample','Status','Day'))\n") #paired
 	outp.write("colnames(info_sheet) <- c('run_accession', 'condition')\n")
 	outp.write("info_sheet <- info_sheet[order(info_sheet$condition),]\n")
         outp.write("info_sheet <- subset(info_sheet, QC_Pass==1)\n")
@@ -419,9 +425,10 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	outp.write("```\n")
 	outp.close()
 	#subprocess.call("cd "+out_dir+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_Sleuth_Report.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
-        lsf_cmd="cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_Sleuth_Report.Rmd')\" | R --no-save --no-restore"
-        return lsf_cmd
-	#subprocess.call("cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_Sleuth_Report.Rmd')\" | R --no-save --no-restore", shell=True)
+
+        # create .lsf file for HPC use
+        lsf_cmd="cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_Sleuth_Report.Rmd')\" | R --no-save --no-restore\n"
+        lsf_file(project_name+"_sleuth", lsf_cmd)
 
 def main(project_name, sample_info_file, de_package, path_start, comp_file, template_dir, ref_genome):
     if path_start == "./":
@@ -467,7 +474,7 @@ def main(project_name, sample_info_file, de_package, path_start, comp_file, temp
 
         rmd_in = open(template_dir+"rnaseq_deseq2_Rmd_template.txt", "r")
         rmd_template = rmd_in.readlines()
-	lsf_cmd = make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file)
+	make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file)
 
     if de_package == "sleuth":
 	# check if sleuth template file exists
@@ -477,36 +484,27 @@ def main(project_name, sample_info_file, de_package, path_start, comp_file, temp
 
         rmd_in = open(template_dir+"rnaseq_sleuth_Rmd_template.txt", "r")
 	rmd_template = rmd_in.readlines()
-	lsf_cmd = make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file)
-
-    #Make lsf file
-    job_name = project_name+"_"+de_package+"_Report"
-    outp = open(job_name+".lsf", "w")
-    outp.write("#!/bin/bash \n")
-    outp.write("#BSUB -L /bin/bash\n")
-    outp.write("#BSUB -J "+job_name+"\n")
-    outp.write("#BSUB -q normal \n")
-    outp.write("#BSUB -o "+job_name+"_%J.out\n")
-    outp.write("#BSUB -e "+job_name+"_%J.screen\n")
-    outp.write("#BSUB -M 36000\n")
-    outp.write("#BSUB -n 12\n")
-    outp.write(lsf_cmd)
-    outp.write("\n")
-    outp.close()
+	make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create HTML report of differential expression results for RNA-seq samples associated with a project.")
-    parser.add_argument("--path_start", default="./", type=str, help="Directory path to where project directory created by rnaseq_de.py is located (default=./)")
-    parser.add_argument("--de_package", default="deseq2", type=str, help="Should cummeRbund, DESeq2 or sleuth be used for diferential expression (DE) analysis?  If sleuth, request an interactive node with more memory using: bsub -Is -M 36000 bash"
-            "(options: sleuth, deseq2, cummerbund)")
-    parser.add_argument("--ref_genome", default="hg38", type=str, help="Specify reference genome (options: hg38, mm38, mm10, rn6)")
+    parser.add_argument("--project_name", type=str, help="Prefix name of project for all output files.")
+    parser.add_argument("--samples_in", help="A tab-delimited txt file containing sample information with full path. See example file: sample_info_file.txt, but add an additional QC_Pass column")
     parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, columns are Condition1, Condition0, Design. "
-            "Design: specify paired or unpaired. For paired design, specify condition to correct for, matching the column name in the 'coldata' file - e.g. paired:Cell_Line.")
+            "Design: specify paired or unpaired. For paired design, specify condition to correct for, matching the column name in the 'coldata' file - e.g. paired:Donor.")
+    parser.add_argument("--de_package", default="deseq2", type=str, help="Should be DESeq2 or sleuth be used for diferential expression (DE) analysis? If sleuth, a larger memory ~36 Mb is required."
+            "(options: deseq2, sleuth)")
+    parser.add_argument("--ref_genome", default="hg38", type=str, help="Specify reference genome (options: hg38, mm38, mm10, rn6)")
+    parser.add_argument("--path_start", default="./", type=str, help="Directory path to where project directory created by rnaseq_de.py is located (default=./)")
     parser.add_argument("--template_dir", default="./", type=str, help="directory to put template RMD file rnaseq_sleuth_Rmd_template.txt for QC report")
-    parser.add_argument("project_name", type=str, help="Prefix name of project for all output files.")
-    parser.add_argument("samples_in", help="A tab-delimited txt file containing sample information with full path. See example file: sample_info_file.txt, but add an additional QC_Pass column")
+
     args = parser.parse_args()
+
+    if args.comp is None or args.project_name is None or args.samples_in is None:
+        parser.print_help()
+        sys.exit()
+
     main(args.project_name, args.samples_in, args.de_package, args.path_start, args.comp, args.template_dir, args.ref_genome)
 
 

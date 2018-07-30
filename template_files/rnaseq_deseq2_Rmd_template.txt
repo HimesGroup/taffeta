@@ -23,10 +23,10 @@ res_ct_df <- as.data.frame(dds_count)
 res_ct_df$Gene <- rownames(res_ct_df)
 res_ct_df <- res_ct_df %>% gather(Sample, count, -Gene)
 
-# add gene symbol and sample Label for normalized counts
+# add gene symbol and sample Status for normalized counts
 res_ct_df <- merge(countdata[which(countdata$Gene%in%res_ct_df$Gene),c("Gene","gene_symbol")],res_ct_df,by="Gene")
-res_ct_df <- merge(res_ct_df,coldata[which(coldata$Sample%in%res_ct_df$Sample),c("Sample","Label")],by="Sample")
-res_ct_df$Label <- factor(res_ct_df$Label, levels = c(ctrl,case))
+res_ct_df <- merge(res_ct_df,coldata[which(coldata$Sample%in%res_ct_df$Sample),c("Sample","Status")],by="Sample")
+res_ct_df$Status <- factor(res_ct_df$Status, levels = c(ctrl,case))
 ```
 
 ```{r, eval=T, echo=F}
@@ -45,7 +45,7 @@ write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T, sep='\t')
 # assign colours to comparison status
 colour_status <- c("navy","red")
 names(colour_status) <- c(ctrl,case) # assign red to case and navy to control
-colour_status_list <- unlist(lapply(coldata_curr$Label,function(x){colour_status[x]}))
+colour_status_list <- unlist(lapply(coldata_curr$Status,function(x){colour_status[x]}))
 colours=c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F") # first 8 colour names derived from Dark2, and last 12 names from Set3
 ```
 
@@ -229,13 +229,28 @@ pcastat_func <- function(m, ntop=500) {
 }
 
 # The pcaplot_func creates plots for pc1 and pc2
-pcaplot_func <- function(pc, group_var) { # group_var: column name for a specific group; legend: legend name
+pcaplot_func <- function(pc, group_var) { # group_var: column name for a specific group
   df <- data.frame(
     PC1=pc$PC1,
     PC2=pc$PC2,
     group=coldata_curr[,group_var]
   )
   ggplot(df,aes(PC1,PC2,color=group)) + geom_point() + theme_bw()
+}
+
+# The pca_func function generates multiple pca plots for scan date, disease, treatment, and Donor
+pca_func <- function(pc) {
+  group_vars=c("Tissue", "Donor")
+  idx_exist=c(1:length(group_vars))[group_vars%in%names(coldata_curr)] # obtain index of existing variables
+  plot_list=list() # store plots in a list
+  for (i in idx_exist) {
+    group_var=group_vars[i]
+    nlevel=nlevels(coldata_curr[,group_var]) # levels of the variable
+    if (group_var=="ScanDate_Group"|(nlevel>=2&nlevel<=20)) {
+      plot_list[[group_var]]=pcaplot_func(pc, group_var=group_var)+scale_color_hue(name=group_var)
+    }
+  }
+  return(plot_list)
 }
 ```
 
@@ -246,11 +261,17 @@ res_pca <- pcastat_func(m=assay(rld))
 pandoc.table(res_pca$tb, split.tables=Inf, caption="Variance explained")
 ```
 
-PCA plots are generated using the first two principle components colored by known factors (e.g. comparison status, donors and scan dates), visualizing similarities between arrays and these similarities' correlation to batch effects.
+PCA plots are generated using the first two principle components colored by known factors (e.g. Status, Tissue, or Donor)
 
 ```{r, eval=T, echo=F, message=F, warning=F}
-pcaplot_func(pc=res_pca$pc,group_var="Label")+scale_color_manual("Status",values=colour_status,na.value="grey")
+pcaplot_func(pc=res_pca$pc,group_var="Status")+scale_color_manual("Status",values=colour_status,na.value="grey")
 ```
+
+```{r, eval=T, echo=F, message=F, warning=F}
+plot_list=pca_func(pc=res_pca$pc)
+for (i in plot_list) {print(i)}
+```
+
 
 ### Dispersion plot
 
@@ -277,7 +298,7 @@ Genes were ranked by pvalue.  Counts have been normalized by sequencing depth, w
 boxplot_func <- function(df) {
     gene_symbol=unique(df$gene_symbol)
     gene_id=unique(df$Gene)
-    ggplot(df, aes(x = Label, y = count, fill=Label)) +
+    ggplot(df, aes(x = Status, y = count, fill=Status)) +
     geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 
     stat_boxplot(geom ='errorbar', color="grey18") + 
     expand_limits(y=0) +
@@ -314,7 +335,7 @@ for (i in 1:topnum) {
 Boxplots for favorite genes
 
 ```{r, eval=T, echo=F, cache=FALSE, warning=F, message=F, fig.height=4, fig.width=4}
-fav_genes <- c('CISH', 'SOCS1', 'SOCS2', 'SOCS3', 'SOCS4', 'SOCS5', 'SOCS6', 'SOCS7', 'CEBPD')
+fav_genes <- c('ORMDL3', 'CRISPLD2', 'SOCS1', 'SOCS2', 'SOCS3', 'SOCS4', 'SOCS5', 'SOCS6','SOCS7', 'CEBPD', 'CISH', 'GUCY1A3', 'GUCY1B3', 'CCL5', 'CXCL10', 'CX3CL1', 'CCL13','IL6', 'IL8', 'HHIP', 'SPATS2L', 'CCR2', 'CCR4', 'SST', 'SSTR1', 'CCK','CCKAR','PDE8')
 for (i in fav_genes) {
   gene_symbol=i
   gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values

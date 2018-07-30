@@ -1,142 +1,168 @@
 taffeta
 =======
 
-RNAseq/DGE analysis protocols.
+Reproducible analysis and validation of RNA-Seq data
 
-Authors: Maya Shumyatcher, Blanca Himes.
+Authors: Maya Shumyatcher, Mengyuan Kan, Blanca Himes.
 
-The goal of taffeta is to take fastq files (sequenced with Illumina HiSeq or MiSeq) associated with a "project" and:
-  * Perform preliminary QC 
+## Overview
+
+The goal of taffeta is to preform reproducible analysis and validation of RNA-Seq data, as a part of [RAVED pipeline](https://github.com/HimesGroup/raved):
+  * Download SRA .fastq data
+  * Perform preliminary QC
   * Align reads to a reference genome
   * Perform QC on aligned files
   * Create a report that can be used to verify that sequencing was successful and/or identify sample outliers
   * Perform differential expression of reads aligned to transcripts according to a given reference genome
   * Create a report that summarizes the differential expression results
 
-Several freely available software packages are used to perform most of these steps (see below). 
+Generate LSF scripts in each step for HPC use.
 
-### input files
-Before running the pipeline, characteristics of a set of fastq files for samples that are part of a project are described in a tab-delimited txt file containing the following fields:
-```
-					
-	sample_ID		| ID given to sample by customer
-	index			| Six digit sequence of the index for this library 
-	ercc_mix		| Mix of ERCC spike used for library construction (options: "1", "2", "-")
-	file_directory	        | Directory where sample's fastq files reside
-	project			| Name for project associated with sample
-	label			| Biological condition associated with the sample, provided by customer
-	ref_genome		| Rerence genome associated with sample. (options: "hg38", "hg19", "Zv9", "mm10", "rn6", "susScr3")
-	library_type	        | Type of library for sample (options: "PE", "SE", "DGE", "SPE", "SSE"
-				  corresponding to: "paired-end", "single-end", "digital gene expression", 
-				  "stranded paired-end", "stranded single-end")
-	lane			| Lane of sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - else "-")
-	run		        | Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode - 
-				  else "-" or "ncbi" if files were downloaded from GEO)
-	
-```
+## Bioinformatic Tools
 
-The rigid file naming and directory structure are obviously only applicable to local use of the scripts. They are being included for the sake of transparency and may someday be replaced with a more generalizable workflow. The fastq files that are associated with the project are read from where they are saved after sequencing/Casava filters are applied and then local copies are created using <i>sample_name</i>_R1.fastq (and <i>sample_name</i>_R2.fastq for paired reads). 
+* **Alignment and quantification:** STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are no longer available).
+* **Differential expression (DE) analysis:** R packages DESeq2 and sleuth
+* **QC:** fastqc, trimmomatic, samtools, bamtools, picardtools.
+* **Spesis-specific genome reference files:** reference genome fasta, gtf, refFlat, and index files. As our example uses ERCC spike-ins, the reference files include ERCC mix transcripts. 
+* **Adapter and primer sequences**: a list of is provided. For fastqc, replace . For trimming we provide Ilumina TruSeq single index and Illumina unique dual (UD) index adpter and primer sequences. Users can tailor this file by adding sequences from other protocols.
+* **Pipeline scripts:** the Python scripts make use of various modules including subprocess, os, argparse, sys.
+* **R markdown scripts for summary reporot:** Require various R libraries such as DT, gplots, ggplot2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Note that the current RMD scripts require pandoc version 1.12.3 or higher to generate HTML report.
 
-Results may be obtained at a gene or transcript level, depending on the set of scripts used.
+## Workflow
 
-### dependencies
-* STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are still available).
-* Programs that should be installed for QC: fastqc, trimmomatic, samtools, bamtools, picardtools.
-* Annotation files should be available: reference genome fasta, gtf, refFlat, and index files. We use ERCC spike-ins, so our reference files include ERCC mix transcripts. 
-* For adapter trimming, we include Ilumina and Nextflex sequences as used in the PCPGM lab.
-* The Python scripts make use of modules that include subprocess, os, argparse, sys.
-* To create reports, R and various libraries should be available, including DT, gplots, ggplot2, reshape2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Additionally, pandoc version 1.12.3 or higher should be available. If following the gene-based workflow, R package DESeq2 should be available. If following the workflow for transcript-based results, R package sleuth should be available. 
+### Download data from GEO/SRA
 
-### workflow
+Run **pipeline_scripts/rnaseq\_sra\_download.py** to download .fastq files from SRA. Read in **template_files/rnaseq_sra_download_Rmd_template.txt** from specified directory <i>template_dir</i> to create a RMD script. Ftp addresses for corresponding samples are obtained from SRA SQLite database using R package SRAdb.
 
-#### for gene-based results
+> rnaseq\_sra\_download.py --geo\_id <i>GEO_Accession</i> --path\_start <i>output_path</i> --project\_name <i>output_prefix</i> --template\_dir <i>templete_file_directory</i> --fastqc
 
-Steps 4-5 are optional.
+> bsub < <i>project_name</i>_download.lsf
 
-If downloading data from GEO, start at "Step 0," else start at "Step 1." Additionally, if downloading data from GEO, the "Run" column in the sample info file should say "ncbi."
+The option *--pheno_info* refers to using user provided SRA ID for download which is included in the SRA_ID column in the provided phenotype file. If the phenotype file is not provided, use phenotype information from GEO. SRA_ID is retrieved from the field relation.1.
 
-0) Download RNA-Seq data from GEO for all runs within a project using get_sras.py:
+**Output files:** 
 
-> get_sras.py --path_start /project/bhimeslab <i>sample_info_file.txt</i> <i>GEO_Accession</i>
+Fastq files downloaded from SRA are saved in the following directory.
 
-1) Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project using rnaseq_align_and_qc.py:
+> <i>path_start</i>/<i>project_name</i>_SRAdownload/
 
-> python rnaseq_align_and_qc.py --discovery no --aligner star <i>sample_info_file.txt</i>
+Fastqc results of corresponding sample are saved in:
 
-The "--aligner star" option indicates that star should be used as the aligner (default is tophat). The "--discovery no" option refers to using --no-novel-juncs and --transcriptome-only options with tophat; while this option is not relevant if using star as the aligner, it must be specified in order for the script to run. Following execution of this script, various output files will be written for each sample in directories structured as:
-> 
- <i>batch_num</i>/<i>sample_name</i>/tophat_out <br>
- <i>batch_num</i>/<i>sample_name</i>/cufflinks_out <br>
- <i>batch_num</i>/<i>sample_name</i>/cufflinks_out_ERCC <br>
- <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastqc <br>
- <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastqc <br>
- <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R1_fastqc <br>
- <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc <br>
- <i>batch_num</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount <br>
- ...
+> <i>path_start</i>/<i>sample_name</i>/<i>fastq_name</i>_fastqc.zip
 
-Note that the adapter trimming step is skipped for datasets downloaded from GEO, since Illumina barcodes for each sample are not provided in GEO.
+The RMD and corresponding HTML report files:
 
-2) Create an HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project using rnaseq_align_and_qc_report.py:
+> <i>path_start</i>/<i>project_name</i>_SRAdownload/<i>project_name</i>__SRAdownload_RnaSeqReport.Rmd
+> <i>path_start</i>/<i>project_name</i>_SRAdownload/<i>project_name</i>__SRAdownload\_RnaSeqReport.html
 
-> module load pandoc/2.0.6 <br>
-> python rnaseq_align_and_qc_report.py --aligner star <i>project_name</i> <i>sample_info_file.txt</i>
-	
-This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document (main template is rnaseq_align_and_qc_report_Rmd_template.txt) that is converted into an html report using pandoc and R package rmarkdown. The report and accompanying files are contained in:
+GEO phenotype file generated by RMD reports:
 
-> <i>project_name</i>/<i>project_name</i>_Alignment_QC_Report/
+> <i>path_start</i>/<i>project_name</i>_SRAdownload/<i>GEO_Accession</i>_withoutQC.txt
 
-The report can be opened with the file:
+SRA information file generated by RMD reports:
 
-> <i>project_name</i>/<i>project_name</i>_Alignment_QC_Report/<i>project_name</i>_QC_RnaSeqReport.html
+> <i>path_start</i>/<i>project_name</i>_SRAdownload/<i>project_name</i>_sraFile.info
 
-Note that pandoc version 1.12.3 or higher is required in order to use the rmarkdown package from the command line.
+### User-tailored phentoype file
 
-3) Perform differential expression analysis and create an HTML report of differential expression summary statistics and plots for top differentially expressed genes according to all specified pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
+The sample info file used in the following steps should be provided by users.
 
-> module load pandoc/2.0.6 <br>
-> python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> --de_package deseq2 --comp <i>sample_comp_file.txt</i> --pheno <i>sample_pheno_file.txt</i> --design <i>[unpaired or paired:Condition]</i>
+**Required columns:**
 
-The "--de_package deseq2" option is needed in order to specify that differential expression analysis should be conducted with DESeq2 using the HTSeq output file created after running rnaseq_align_and_qc.py. A merged transcriptome can be created using these files (option --merge_transcriptme yes), but the default is to use the reference genome gtf file. Comparisons of interest must be specified in a tab-delimited text file with one comparison per line, where comparison conditions are separated by "_vs_", as in "case_vs_control." A phenotype file must be provided; this file must at minimum indicate a phenotype for each sample; it may also contain other information, such as batch or cell line, if these are of interest, as per experiment design. 
+* 'Sample' column containing sample ID
+* 'Status' column containing variables of comparison state
+* 'R1' and/or 'R2' columns containing full paths of .fastq files
 
-The differential expression analysis accommodates a paired and unpaired option; if "paired" is selected, additionally specify the condition to pair by - e.g. paired:Cell_Line - note that the condition (in this case Cell_Line) must be a column name in the phenotype file. If there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
+**Other columns:**
 
-This script creates an Rmd document (main template is rnaseq_de_report_Rmd_template.txt) that uses the DESeq2 R package to load and process the HTSeq output file 2). The report and accompanying files are contained in:
+'Treatment', 'Disease', 'Donor' (i.e. cell line ID if <i>in vitro</i> treatment is used), 'Tissue', 'ERCC\_Mix' (i.e. ERCC mix ID if ERCC spike-in sample is used), 'protocol' designating sample preparation kit information.
 
-> <i>project_name</i>/<i>project_name</i>_DE_Report/
+**'Index' column** contains index sequence for each sample. If provided, trim raw .fastq files based on corresponding adapter sequences.
 
-The report can be opened with the file:
+If use data from GEO, most GEO phenotype data do not have index information. However, FastQC is able to detect them as "Overrepresented sequences". Users can tailor the 'Index' column based on FastQC results. We provide a file with most updated adapter and primer sequences for FastQC detection.
 
-> <i>project_name</i>/<i>project_name</i>_DE_Report/<i>project_name</i>_DE_RnaSeqReport.html
-	
-4) Create bigwig files of raw reads to be visualized on, e.g., the UCSC genome browser using:
+An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
 
-> python make_bigwig_files.py <i>project_name</i> <i>sample_info_file.txt</i>
-	
-Requires the existence of a chromosome size file, which can be made using fetchChromSizes. Note that bigwig files 
+### Alignment, quantification and QC
 
-5) Create a report of differentially expressed results for a given set of genes of interest. 
+1) Run **pipeline_scripts/rnaseq_align_and_qc.py** to: 1) trim adapter and primer sequences if index information is available, 2) run FastQC for (un)trimmed .fastq files, 3) align reads and quantify reads mapped to genes/transcripts, and 5) obtain various QC metrics from .bam files.
 
-> python rnaseq_gene_subset_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> <i>gene_list_file.txt</i>
+Edit **pipeline_scripts/rnaseq_userdefine_variables.py** with a list user-defined variables (e.g. paths of genome reference file, paths of bioinformatics tools, versions of bioinformatics tools), and save the file under an executable search path.
 
-where the <i>gene_list_file.txt</i> contains "gene_id" names matching those of the cuffdiff output file, one per line.
+If perform adapter trimming, read in **template_files/rnaseq_adapter_primer_sequences.txt** from specified directory <i>template_dir</i> used as a reference list of index and primer sequences for various library preparation kits.
 
-#### for transcript-based results
+> rnaseq\_align\_and\_qc.py --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --librar\_type PE --index\_type truseq\_single\_index --strand nonstrand --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
 
-1) Write and execute an lsf job to perform read pseudoalignment and quantification for RNA-seq samples associated with a project using kallisto_analysis.py:
+> for i in *.lsf; do bsub < $i; done
 
-> kallisto_analysis.py --path_start <i>project_directory_location</i> <i>sample_info_file.txt</i>
+The "--aligner" option indicates aligner should be used (default: star).
 
-2) Write and execute an lsf job to perform differential expression analysis for RNA-seq samples associated with a project using sleuth_analysis.py:
+The "--ref\_genome" option refers to using selected version of genome reference.
 
-> sleuth_analysis.py --path_start <i>project_directory_location</i>  --comp <i>project_comparison_file</i> <i>project_name</i> <i>sample_info_file.txt</i>
+The "--library\_type" option refers to PE (paired-end) or SE (single-end) library.
 
-3) Create an HTML report of differential expression summary statistics and plots for top differentially expressed transcripts according to all specified pairwise conditions for RNA-seq samples associated with a project using rnaseq_de_report.py:
+The "--index\_type" option refers to index used in sample library preparation.
 
-> module load pandoc/2.0.6 <br>
-> python rnaseq_de_report.py <i>project_name</i> <i>sample_info_file.txt</i> --path_start <i>project_directory_location</i> --de sleuth --comp <i>project_comparison_file</i>
+The "--strand nonstrand" option refers to sequencing that captures both strands (nonstrand) or the 1st strand (reverse) or the 2nd strand (forward) of cDNA.
 
-	
+**Output files:**
+
+Various output files will be written for each sample in directories structured as:
+
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>aligner</i>_out <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>quantification_tool</i>_out <br>
+
+2) Run **pipeline_scripts/rnaseq\_align\_and\_qc\_report.py** to create an HTML report of QC and alignment summary statistics for RNA-seq samples. Read in **template\_files/rnaseq\_align\_and\_qc\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
+
+> python rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
+
+> bsub < <i>project_name</i>_qc.lsf
+
+**Output files:**
+
+This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document.
+
+The report and accompanying files are contained in:
+
+> <i>path_start</i>/<i>project_name</i>_Alignment_QC_Report/
+
+The RMD and corresponding HTML report files:
+
+> <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report/<i>project_name</i>_QC_RnaSeqReport.Rmd
+> <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report/<i>project_name</i>_QC_RnaSeqReport.html
+
+### Gene-based differential expression analysis - htseq-count/DESeq2
+
+Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.  Read in **template\_files/rnaseq\_de\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
+
+> rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i>
+
+> bsub < <i>project_name</i>_deseq2.lsf
+
+The "--sample_in" option specifies user provided phenotype file for DE analysis. The columns are the same as **example_files/sample_info_file.txt** but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
+
+The "--comp" option specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
+
+**Output files:**
+
+The DE results are contained in:
+
+> <i>project_name</i>/<i>project_name</i>_deseq2_out/
+
+The RMD and corresponding HTML report file:
+
+> <i>path_start</i>/<i>project_name</i>_deseq2_out/<i>project_name</i>_DESeq2_Report.Rmd
+> <i>path_start</i>/<i>project_name</i>_deseq2_out/<i>project_name</i>_DESeq2_Report.html
+
+### Transcript-based differential expression analysis - kallisto/sleuth
+
+Updating...
+
 ### acknowledgements
 This set of scripts was initially developed to analyze RNA-Seq and DGE data at the [Partners Personalized Medicine PPM](http://pcpgm.partners.org/). Barbara Klanderman is the molecular biologist who led the establishment of PPM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PPM wet lab staff. 
 

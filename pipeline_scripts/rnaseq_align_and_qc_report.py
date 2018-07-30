@@ -6,132 +6,111 @@ import os
 import re
 
 def get_sample_info(fin):
-	"""
-	Open tab-delimited txt file containing the following columns:
-	v0: sample_ID		| ID given to sample
-	v1: index			| Six digit sequence of the index for this library
-	v2: ercc_mix		| Mix of ERCC spike used for library construction (options: "1", "2", "-")
-	v3: file_directory	| Directory where sample's fastq files reside
-	v4: project			| Name for project associated with sample
-	v5: label			| Biological condition associated with the sample, provided by customer
-	v6: ref_genome		| Rerence genome associated with sample. (options: "hg38")
-	v7: library_type	| Type of library for sample (options: "PE", "SE", "DGE", "SPE", "SSE", "SPE-PrepX",
-							corresponding to: "paired-end", "single-end", "digital gene expression", "stranded paired-end",
-							"stranded single-end", "stranded paired-end from PrepX")
-	v8: lane			| Lane of sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode)
-	v9: run				| Run number on sequencer (needed with UPenn NGSC files that are named by sample/lane/barcode)
-	"""
-	f = open(fin,'r')
-	c = f.read().split('\n')[1:]
-	if '' in c:
-		c.remove('')
-	d = []
-	for x in c:
-		sample_id = x.split('\t')[0]
-		index = x.split('\t')[1]
-		ercc_mix = x.split('\t')[2]
-		top_dir = x.split('\t')[3]
-		if top_dir[-1] != "/":
-			top_dir = top_dir+"/"
-		project = x.split('\t')[4]
-		label = x.split('\t')[5]
-		ref_genome = x.split('\t')[6]
-		library_type = x.split('\t')[7]
-		lane = x.split('\t')[8]
-		run = x.split('\t')[9]
-		d.append([sample_id, index, ercc_mix, top_dir, project, label, ref_genome, library_type, lane, run])
-	return d
+    """
+    Read in information from phenotype file
+    Create a directory to store each column
+    """
+    f = open(fin,'r')
+    f = f.read().split('\n')
+    f = map(lambda x: x.rstrip(), f)
 
+    if '' in f:
+        f.remove('')
+    header = f[0].split('\t') # list
+    c = f[1:]
+    
+    # Obtain column index from file header
+    if "Sample" not in header:
+        print "Sample column is missing. Please check!"
+        sys.exit()
 
-#ERCC gtf file
-ERCC_only = "/project/bhimeslab/Reference/ERCC92.gtf"
+    d = {} # key: column name, value: column
 
-def get_genome_ref_files(genome, mask):
-	"""
-	Location of all reference files needed for a given genome.
-	The ERCC gtf files were appended separately to each species own gtf file
-	Current choice: "hg38"
-	"""
-	mask_gtf = "NA"
-	if genome == "hg38":
-		ref_index = "/project/bhimeslab/Reference/hg38/genome.ERCC"
-		fa = "/project/bhimeslab/Reference/hg38/genome.ERCC.fa"
-		gtf = "/project/bhimeslab/Reference/hg38/genes.gtf"
-		ref = "/project/bhimeslab/Reference/hg38/refFlat.txt"
-		ERCC_gtf = "/project/bhimeslab/Reference/hg38/genes.ERCC.gtf"
-		genome_dir = "/project/bhimeslab/Reference/hg38"
-		if mask == "rRNA":
-			mask_gtf = "/project/bhimeslab/Reference/hg38/rRNA_hg38.gtf"
-		elif mask == "globin":
-			mask_gtf = "/project/bhimeslab/Reference/hg38/globin_hg38.gtf"
-		elif mask == "rRNA_globin":
-		        mask_gtf = "/project/bhimeslab/Reference/hg38/rRNA_globin_hg38.gtf"
-		else:
-			print 'Unknown mask selected: ', mask
-	elif genome == "hg19":
-		ref_index = "/project/bhimeslab/Reference/hg19/genome.ERCC"
-		fa = "/project/bhimeslab/Reference/hg19/genome.ERCC.fa"
-		gtf = "/project/bhimeslab/Reference/hg19/genes.gtf"
-		ref = "/project/bhimeslab/Reference/hg19/refFlat.txt"
-		ERCC_gtf = "/project/bhimeslab/Reference/hg19/genes.ERCC.gtf"
-		genome_dir = "/project/bhimeslab/Reference/hg19"
-		print 'No mask files available. Do not have STAR indexes for hg19.'
-	elif genome == "mm38":
-		ref_index = "/project/bhimeslab/Reference/mm38/mm38_ERCC"
-		fa = "/project/bhimeslab/Reference/mm38/mm.GRCm38.genome.ERCC92.fa"
-		gtf = "/project/bhimeslab/Reference/mm38/mm.GRCm38.75.genes.gtf"
-		ref = "/project/bhimeslab/Reference/mm38/refFlat.txt"
-		ERCC_gtf = "/project/bhimeslab/Reference/mm38/mm.GRCm38.75.genes.ERCC.gtf"
-		genome_dir = "/project/bhimeslab/Reference/mm38"
-		print 'No mask files available. Do not have STAR indexes for mm38.'
-	elif genome == "mm10":
-		ref_index = "/project/bhimeslab/Reference/mm38/UCSC_mm10_ERCC"
-		fa = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genome.ERCC92.fa"
-		gtf = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genes.gtf"
-		ref = "/project/bhimeslab/Reference/mm38/refFlat_UCSC.txt"
-		ERCC_gtf = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genes.ERCC.gtf"
-		genome_dir = "/project/bhimeslab/Reference/mm38"
-		print 'No mask files available.'
-	elif genome == "rn6":
-		ref_index = "/project/bhimeslab/Reference/rn6/genome.ERCC"
-		fa = "/project/bhimeslab/Reference/rn6/genome.ERCC.fa"
-		gtf = "/project/bhimeslab/Reference/rn6/genes.gtf"
-		ref = "/project/bhimeslab/Reference/rn6/refFlat.txt"
-		ERCC_gtf = "/project/bhimeslab/Reference/rn6/genes.ERCC.gtf"
-		genome_dir = "/project/bhimeslab/Reference/rn6"
-		print 'No mask files available. Do not have STAR indexes for rn6.'
-	elif genome == "susScr3":
-		ref_index = "/project/bhimeslab/Reference/susScr3/genome.ERCC"
-		fa = "/project/bhimeslab/Reference/susScr3/Ensembl_susScr3_genome.ERCC92.fa"
-		gtf = "/project/bhimeslab/Reference/susScr3/genes.gtf"
-		ref = "/project/bhimeslab/Reference/susScr3/refFlat.txt"
-		ERCC_gtf = "/project/bhimeslab/Reference/susScr3/Ensembl_susScr3_genes.ERCC.gtf"
-		genome_dir = "/project/bhimeslab/Reference/susScr3"
-		print 'No mask files available. Do not have STAR indexes for susScr3.'
-	else:
-		print 'Unknown genome selected: ', genome
-	return(ref_index, fa, gtf, ref, ERCC_gtf, mask_gtf, genome_dir)
+    for i in range(len(header)):
+        colname=header[i]
+        d[colname]=map(lambda x: x.split('\t')[i],c)
 
+    return d
+
+def get_genome_ref_files(genome):
+    """
+    Location of all reference files needed for a given genome.
+    The ERCC gtf files were appended separately to each species own gtf file
+    Current choice: "hg38"
+    """
+
+    import rnaseq_userdefine_variables as userdef # read in reference file variables: improt reference genome files
+
+    if genome == "hg38":
+	fa = userdef.hg38_fa
+	gtf = userdef.hg38_gtf
+	ref = userdef.hg38_ref
+	ERCC_gtf = userdef.hg38_ERCC_gtf
+	star_index_dir = userdef.hg38_star_index_dir
+
+    elif genome == "hg19":
+	fa = userdef.hg19_fa
+	gtf = userdef.hg19_gtf
+	ref = userdef.hg19_ref
+	ERCC_gtf = userdef.hg19_ERCC_gtf
+	star_index_dir = userdef.hg19_star_index_dir
+
+    elif genome == "mm38":
+	fa = userdef.mm38_fa
+	gtf = userdef.mm38_gtf
+	ref = userdef.mm38_ref
+	ERCC_gtf = userdef.mm38_ERCC_gtf
+	star_index_dir = userdef.mm38_star_index_dir
+
+    elif genome == "mm10":
+	fa = userdef.mm10_fa
+	gtf = userdef.mm10_gtf
+	ref = userdef.mm10_ref
+	ERCC_gtf = userdef.mm10_ERCC_gtf
+	star_index_dir = userdef.mm10_star_index_dir
+
+    elif genome == "rn6":
+	fa = userdef.rn6_fa
+	gtf = userdef.rn6_gtf
+	ref = userdef.rn6_ref
+	ERCC_gtf = userdef.rn6_ERCC_gtf
+	star_index_dir = userdef.rn6_star_index_dir
+
+    elif genome == "susScr3":
+	fa = userdef.susScr3_fa
+	gtf = userdef.susScr3_gtf
+	ref = userdef.susScr3_ref
+	ERCC_gtf = userdef.susScr3_ERCC_gtf
+	star_index_dir = userdef.susScr3_star_index_dir
+
+    else:
+	print 'Unknown genome selected: ', genome
+	sys.exit()
+
+    # check if reference files exist
+    map(lambda x:check_exist, [fa, gtf, ref, ERCC_gtf, star_index_dir])
+
+    return(fa, gtf, ref, ERCC_gtf, star_index_dir)
 
 ###
 # Read in and process RnaSeqMetrics files
 ###
 
 def read_RnaSeqMetrics(fin):
-	"""
-	Read in output file created by Picardtools RnaSeqMetrics function 
-	Reformat metrics summary and histogram data into to be put into table/plot in Rmd report
-	"""
-	f = open(fin,'r')
-	c = f.read().split('\n\n')[1:]
-	metrics = c[0].split('\n')[1:]
-	hist = c[1].split('\n')[1:]
-	metrics_out, hist_out = [], []
-	for x in metrics:
-		metrics_out.append( x.split('\t') )
-	for x in hist:
-		hist_out.append( x.split('\t') )
-	return metrics_out, hist_out
+    """
+    Read in output file created by Picardtools RnaSeqMetrics function 
+    Reformat metrics summary and histogram data into to be put into table/plot in Rmd report
+    """
+    f = open(fin,'r')
+    c = f.read().split('\n\n')[1:]
+    metrics = c[0].split('\n')[1:]
+    hist = c[1].split('\n')[1:]
+    metrics_out, hist_out = [], []
+    for x in metrics:
+        metrics_out.append( x.split('\t') )
+    for x in hist:
+	hist_out.append( x.split('\t') )
+    return metrics_out, hist_out
 
 
 def make_RnaSeqMetrics_matrix(path_out, project_name, sample_names, sample_paths, aligner):
@@ -186,7 +165,7 @@ def read_InsertSizeMetrics(fin):
 
 def make_insertsize_matrix(path_out, project_name, sample_names, sample_paths, library_type, aligner):
 
-	if library_type in ["PE", "SPE", "SPE-PrepX"]:
+	if library_type in ["PE"]:
 		outp7 = open(path_out+project_name+"_insertmetrics_summary.txt", "w")
 		name7 = ["Type"]
 		for i in range(len(sample_names)):
@@ -321,7 +300,7 @@ def make_samidxstat_matrix(path_out, project_name, sample_names, sample_paths, r
 	    break
  
         ercc_raw, rna_out = read_samtools_stats(curr_path, ref_genome)
-        print "Read in samtools idxstat output for sample "+curr_name+": Done"
+        #print "Read in samtools idxstat output for sample "+curr_name+": Done"
         name1.append(curr_name)
 
 	if i == 0:
@@ -330,7 +309,7 @@ def make_samidxstat_matrix(path_out, project_name, sample_names, sample_paths, r
 	    for j in range(len(c)):
                 c[j] = c[j]+[rna_out[j][2]]
 
-        print "Append sample "+curr_name+" to matrix: Done"
+        #print "Append sample "+curr_name+" to matrix: Done"
 
     # output samtools idx stat file
     outp1 = open(path_out+project_name+"_counts.txt", "w")
@@ -395,7 +374,7 @@ def make_htseq_count_matrix(path_out, project_name, sample_names, sample_paths, 
 	    break
 
 	curr_htseq, ct_list = read_htseq_file(curr_path) # read in htseq outputs
-        print "Read in htseq output for sample "+sample_names[i]+": Done"
+        #print "Read in htseq output for sample "+sample_names[i]+": Done"
 
         # obtain count statistics
         ct_list=map(float, ct_list)
@@ -425,16 +404,17 @@ def make_htseq_count_matrix(path_out, project_name, sample_names, sample_paths, 
                     a[j] = a[j]+curr_htseq[j][1:]
 		else:
 		    print "Error, gene names don't match:", curr_name, a[j], curr_htseq[j]
-        print "Append sample "+curr_name+" to matrix: Done"
+        #print "Append sample "+curr_name+" to matrix: Done"
 
     # join count, tpm, fpkm in each line by tab
     a_str =map(lambda x:'\t'.join(x), a)
     # extract ercc
     ercc_out=filter(lambda x:'ERCC' in x, a_str)
 
-    # extract rRNA
-    rrna_list=rrna_extract(ref_genome)
-    rrna_out=map(lambda x:'\t'.join(x),(filter(lambda x:x[0] in rrna_list, a)))
+    # extract rRNA (hg38 only)
+    if ref_genome=="hg38":
+        rrna_list=rrna_extract()
+        rrna_out=map(lambda x:'\t'.join(x),(filter(lambda x:x[0] in rrna_list, a)))
 
     # filter out ERCC and rRNA from gene list
     gene_out=filter(lambda x:x not in ercc_out+rrna_out, a_str)
@@ -453,12 +433,13 @@ def make_htseq_count_matrix(path_out, project_name, sample_names, sample_paths, 
     outp2.close()
     print "Created ERCC htseq quantification matrix file "+path_out+project_name+"_htseq_ercc.txt"
 
-    # rRNA output file
-    outp3 = open(path_out+project_name+"_htseq_rrna.txt", "w")
-    outp3.write("\t".join(name1)+"\n")
-    outp3.write("\n".join(rrna_out))
-    outp3.close()
-    print "Created rRNA htseq quantification matrix file "+path_out+project_name+"_htseq_rrna.txt"
+    # rRNA output file (hg38 only)
+    if ref_genome=="hg38":
+        outp3 = open(path_out+project_name+"_htseq_rrna.txt", "w")
+        outp3.write("\t".join(name1)+"\n")
+        outp3.write("\n".join(rrna_out))
+        outp3.close()
+        print "Created rRNA htseq quantification matrix file "+path_out+project_name+"_htseq_rrna.txt"
 
     # output nofeature count statistics
     outp4 = open(path_out+project_name+"_htseq_nofeature.txt", "w")
@@ -466,18 +447,18 @@ def make_htseq_count_matrix(path_out, project_name, sample_names, sample_paths, 
     outp4.close()
     print "Created htseq no_feature count statistics file "+path_out+project_name+"_htseq_nofeature.txt"
 
-def rrna_extract(ref_genome):
+def rrna_extract():
     """
-    Extract rRNA gene_id from gtf
+    Extract hg38 rRNA gene_id from gtf
     Return as a list
     """
 
     # obtain rRNA reference genome
-    ref_index, fa, gtf, ref, ERCC_gtf, mask_gtf, genome_dir = get_genome_ref_files(ref_genome, "rRNA")
+    import rnaseq_userdefine_variables as userdef # read in user-defined variable python script: import hg38_rRNA_gtf
+    rrna_gtf=userdef.hg38_rRNA_gtf
 
     rrna=[]
-
-    with open(mask_gtf,'r') as f:
+    with open(rrna_gtf,'r') as f:
         for line in f:
             c=line.split(';')
             c=filter(lambda x:'gene_id' in x, c)[0]
@@ -527,7 +508,7 @@ def make_cufflinks_matrix(path_out, project_name, sample_names, sample_paths, su
 
     for i in range(len(sample_names)):
         curr_name = sample_names[i]
-	curr_path = sample_paths[i]+"/cufflinks_out"+suffix+"/genes.fpkm_tracking"
+	curr_path = sample_paths[i]+"cufflinks_out"+suffix+"/genes.fpkm_tracking"
 	if not os.path.exists(curr_path):
 	    print "Missing cufflinks ercc output file ", curr_path
 	    break
@@ -550,7 +531,7 @@ def make_cufflinks_matrix(path_out, project_name, sample_names, sample_paths, su
             for j in a:
                 a[j]=a[j]+curr_cufflinks[j]
 
-        print "Append sample "+curr_name+" to matrix: Done"
+        #print "Append sample "+curr_name+" to matrix: Done"
 
     # output cufflinks fpkm for all samples
     gene_out=[]
@@ -586,7 +567,7 @@ def read_tophat_logs(fin, library_type):
 	#c.remove('')
     #First entry is 'left_reads_in'; Second entry is 'left_reads_out'
     #For paired-end data, third entry is 'right_reads_in'; fourth entry is 'right_reads_out'
-    if library_type in ["PE", "SPE", "SPE-PrepX"]:
+    if library_type in ["PE"]:
 	read_numbers = map(lambda x: x.split('=')[1], c[2:4]+c[6:])
     else:
 	read_numbers = map(lambda x: x.split('=')[1], c[2:4])
@@ -594,7 +575,7 @@ def read_tophat_logs(fin, library_type):
 
 def make_tophat_readcount_matrix(path_out, project_name, sample_names, sample_paths, library_type):
     outp5 = open(path_out+project_name+"_read_counts.txt", "w")
-    if library_type in ["PE", "SPE", "SPE-PrepX"]:
+    if library_type in ["PE"]:
 	name5 = ["Sample", "R1_Raw_Reads", "R1_Aligned_Reads", "R2_Raw_Reads", "R2_Aligned_Reads"]
     else:
 	name5 = ["Sample", "Raw_Reads", "Aligned_Reads"]
@@ -640,7 +621,7 @@ def make_bamstats_matrix(path_out, project_name, sample_names, sample_paths, ali
 		curr_name = sample_names[i]
 		curr_path = sample_paths[i]
 		name6.append(curr_name)
-		bam_stats = read_bamtools_stats(curr_path+"/"+aligner+"_out/"+curr_name+"_accepted_hits.sorted.bamstats")
+		bam_stats = read_bamtools_stats(curr_path+aligner+"_out/"+curr_name+"_accepted_hits.sorted.bamstats")
 		if i == 0:
 			f = bam_stats
 		else:
@@ -667,7 +648,7 @@ def get_unique_reads(fin, library_type):
 		c.remove('')
 	#First row is R1. Second row is R2. 
 	read_numbers = map(lambda x: x.split(' '), c)
-	if library_type in ["PE", "SPE", "SPE-PrepX"]:
+	if library_type in ["PE"]:
 		read_numbers = read_numbers[0]+read_numbers[1]
 	else:
 		read_numbers = read_numbers[0]
@@ -675,7 +656,7 @@ def get_unique_reads(fin, library_type):
 
 def make_readcount_matrix(path_out, project_name, sample_names, sample_paths, library_type):
     outp9 = open(path_out+project_name+"_unique_counts.txt", "w")
-    if library_type in ["PE", "SPE", "SPE-PrepX"]:
+    if library_type in ["PE"]:
         name9 = ["Sample", "R1_Raw_Reads", "R1_Unique_Reads", "R1_Percent_Unique", "R2_Raw_Reads", "R2_Unique_Reads", "R2_Percent_Unique"]
     else:
 	name9 = ["Sample", "Raw_Reads", "Unique_Reads", "Percent_Unique"]
@@ -738,7 +719,7 @@ def make_duplicate_matrix(path_out, project_name, sample_names, sample_paths, li
 
 	curr_dup_R1 = read_fastq_data(fastqc1)
 
-	if library_type in ["PE", "SPE", "SPE-PrepX"]:
+	if library_type in ["PE"]:
 	    subprocess.call("cp "+curr_path+curr_name+"_R2_Trimmed_fastqc.zip "+path_out, shell=True)
 	    subprocess.call("unzip -o -q -d "+path_out+" "+path_out+curr_name+"_R2_Trimmed_fastqc.zip", shell=True)
 	    subprocess.call("rm  "+path_out+curr_name+"_R2_Trimmed_fastqc.zip", shell=True)
@@ -755,7 +736,7 @@ def make_duplicate_matrix(path_out, project_name, sample_names, sample_paths, li
 	    duplicates = curr_dup_R1
 	    for j in range(1, len(duplicates)):
                 duplicates[j] = [duplicates[j][0], duplicates[j][2]]
-	    if library_type in ["PE", "SPE", "SPE-PrepX"]:
+	    if library_type in ["PE"]:
                 duplicates[0].append(curr_dup_R2[0][1])
 		for j in range(1, len(duplicates)):
                     duplicates[j].append(curr_dup_R2[j][2])
@@ -763,7 +744,7 @@ def make_duplicate_matrix(path_out, project_name, sample_names, sample_paths, li
 	    duplicates[0].append(curr_dup_R1[0][1])
 	    for j in range(1, len(duplicates)):
 	        duplicates[j].append(curr_dup_R1[j][2])
-	    if library_type in ["PE", "SPE", "SPE-PrepX"]:
+	    if library_type in ["PE"]:
 	        duplicates[0].append(curr_dup_R2[0][1])
 		for j in range(1, len(duplicates)):
                     duplicates[j].append(curr_dup_R2[j][2])
@@ -812,11 +793,9 @@ def make_project_data_files(project_name, sample_names, sample_paths, path_out, 
 	#insertsizemetrics output on insert size statistics -- outp6
         make_insertsize_matrix(path_out, project_name, sample_names, sample_paths, library_type, aligner)
 
-def make_rmd_html(rmd_template, project_name, path_start, sample_names, ercc_mixes, ref_genome, library_type, aligner, template_dir):
+def make_rmd_css(path_start):
     """
-    Creates Rmd report. The top of report is below and the rest concatenated from a separate text document (rmd_template).
-    Runs rmarkdown to create html document
-    Also makes a custom css format file - improvement on rmarkdown defaults
+    create custom.css for rmarkdown
     """
 
     css_outp = open(path_start+"custom.css", "w")
@@ -831,81 +810,186 @@ def make_rmd_html(rmd_template, project_name, path_start, sample_names, ercc_mix
     css_outp.write("    max-width: 2000px !important;\n") # "!important" overrides other rules
     css_outp.write("}\n")
     css_outp.close()
-    outp = open(path_start+project_name+"_QC_RnaSeqReport.Rmd", "w")
-    outp.write("---\ntitle: \'RNA-Seq Report of Sample QC and Alignment Summary Statistics for Project "+project_name+"'\n")
-    outp.write("author: 'Blanca Himes (bhimes@upenn.edu)'\n")
-    outp.write("output: \n")
-    outp.write("  html_document:\n")
-    outp.write("    css: custom.css\n")
-    outp.write("    toc: true\n")
-    outp.write("    toc_float: true\n---\n\n")
-    outp.write("**Project:** "+project_name+"\n\n")
+
+
+def make_rmd_title(path_start, project_name, aligner, ref_genome):
+    """
+    Rmarkdown creation: Create title and major description
+    """
+
+    import rnaseq_userdefine_variables as userdef # read in user-defined variable python script
+    # import software version
+    trimmomatic_version=userdef.trimmomatic_version
+    fastqc_version=userdef.fastqc_version
+    star_version=userdef.star_version
+    samtools_version=userdef.samtools_version
+    bamtools_version=userdef.bamtools_version
+    picard_version=userdef.picard_version
+    # import author information
+    author=userdef.author
+
+    rmd="---\ntitle: 'RNA-Seq Report of Sample QC and Alignment Summary Statistics for "+project_name+"'\n"
+    rmd=rmd+"author: "+author+"\n"
+    rmd=rmd+"date: \"`r format(Sys.time(), '%d %B, %Y')`\"\n"
+    rmd=rmd+"output: \n"
+    rmd=rmd+"  html_document:\n"
+    rmd=rmd+"    css: custom.css\n"
+    rmd=rmd+"    toc: true\n"
+    rmd=rmd+"    toc_float: true\n---\n\n"
+
+    # Variable used
+    rmd=rmd+"**Project:** "+project_name+"\n\n"
     if aligner == "star":
-        align_abbrev = "STAR (v. 2.5.2b)"
-    else:
+        align_abbrev = "STAR ("+star_version+")"
+    elif aligner=="tophat":
 	align_abbrev = "Tophat"
-    outp.write("**Aligner:** "+align_abbrev+"\n\n")
+    rmd=rmd+"**Aligner:** "+align_abbrev+"\n\n"
     if ref_genome == "hg19":
-        outp.write("**Genome:** For human, the hg19 assembly was used. We estimate the number of rRNA reads as those mapped to chrM plus chrUn_gl000220, corresponding to 12S, 16S and 5.8S rRNA. The 'Other' category contains all other chr*_random and chrUn_* available. If using the 2014 updated version of the hg19 files, these categories are no longer present.\n")
+        rmd=rmd+"**Genome:** For human, the hg19 assembly was used. We estimate the number of rRNA reads as those mapped to chrM plus chrUn_gl000220, corresponding to 12S, 16S and 5.8S rRNA. The 'Other' category contains all other chr*_random and chrUn_* available. If using the 2014 updated version of the hg19 files, these categories are no longer present.\n"
     elif ref_genome == "hg38":
-        outp.write("**Genome:** For human, the hg38 assembly was used. We estimate the number of rRNA reads as those mapped to chrM plus chrUn_GL000220v1, corresponding to 12S, 16S and 5.8S rRNA. The 'Other' category contains all other chr*_random and chrUn_* available.\n")
+        rmd=rmd+"**Genome:** For human, the hg38 assembly was used. We estimate the number of rRNA reads as those mapped to chrM plus chrUn_GL000220v1, corresponding to 12S, 16S and 5.8S rRNA. The 'Other' category contains all other chr*_random and chrUn_* available.\n"
     elif ref_genome == "mm38":
-	outp.write("**Genome:** For mouse, the ENSEMBL GRCm38 assembly available in iGenomes was used.\n")
+	rmd=rmd+"**Genome:** For mouse, the ENSEMBL GRCm38 assembly available in iGenomes was used.\n"
     elif ref_genome == "mm10":
-	outp.write("**Genome:** For mouse, the UCSC mm10 assembly available in iGenomes was used.\n")
+	rmd=rmd+"**Genome:** For mouse, the UCSC mm10 assembly available in iGenomes was used.\n"
     elif ref_genome == "rn6":
-	outp.write("**Genome:** For rat, the rn6 assembly was used.\n")
+	rmd=rmd+"**Genome:** For rat, the rn6 assembly was used.\n"
     elif ref_genome == "susScr3":
-	outp.write("**Genome:** For pig, the susScr3 assembly was used.\n")
+	rmd=rmd+"**Genome:** For pig, the susScr3 assembly was used.\n"
     elif ref_genome == "Zv9":
-	outp.write("**Genome:** For zebrafish, the Zv9 assembly comprises a sequence length of 1.4 Gb in 26 chromosomes (labels 1-25 and MT) and 1,107 scaffolds (merged into label 'Other').\n")
-    outp.write("```{r vars, eval=T, echo=F, message=F, warning=F}\n")
-    outp.write("project_name=\""+project_name+"\"\n")
+	rmd=rmd+"**Genome:** For zebrafish, the Zv9 assembly comprises a sequence length of 1.4 Gb in 26 chromosomes (labels 1-25 and MT) and 1,107 scaffolds (merged into label 'Other').\n"
+    rmd=rmd+"\n\n"
+
+    # Bioinformatics tools
+    rmd=rmd+"**Informatics tools used:**\n\n"
+    rmd=rmd+"* Trimmomatic ("+trimmomatic_version+")\n"
+    rmd=rmd+"* FastQC ("+fastqc_version+")\n"
+    if aligner=="star":
+        rmd=rmd+"* STAR ("+star_version+")\n"
+    rmd=rmd+"* samtools ("+samtools_version+")\n"
+    rmd=rmd+"* bamtools ("+bamtools_version+")\n"
+    rmd=rmd+"* Picard Tools ("+picard_version+")\n"
+    rmd=rmd+"\n\n"
+
+    return rmd
+
+def make_rmd_var(path_start, project_name, ref_genome, library_type, aligner, sample_names, ercc_mixes, sample_info_file, template_dir):
+    """
+    Rmarkdown creation: Define variables and files
+    """
+
+    rmd="```{r vars, echo=F}\n"
+    rmd=rmd+"project_name=\""+project_name+"\"\n"
     if "./" in path_start:
-        outp.write("path.start=\""+path_start.lstrip("./")+"\"\n")
+        rmd=rmd+"path.start=\""+path_start.lstrip("./")+"\"\n"
     else:
-	outp.write("path.start=\""+path_start+"\"\n")
-    outp.write("ercc.mixes=c("+str(ercc_mixes)[1:-1]+")\n") # convert list to string
-    outp.write("sample.names.orig=c("+str(sample_names)[1:-1]+")\n") # create original sample names
-    outp.write("sample.names <- sample.names.orig\n")
-    outp.write("genome=\""+ref_genome+"\"\n")
-    outp.write("library.type=\""+library_type+"\"\n")
-    outp.write("aligner=\""+aligner+"\"\n")
-    outp.write("\n```\n\n")
+	rmd=rmd+"path.start=\""+path_start+"\"\n"
+
+    rmd=rmd+"sample.names.orig <- c("+str(sample_names)[1:-1]+")\n" # create original sample names
+    rmd=rmd+"sample.names <- sample.names.orig\n"
+    if ercc_mixes is not None:
+        rmd=rmd+"ercc.mixes=c("+str(ercc_mixes)[1:-1]+")\n" # convert list to string
+    rmd=rmd+"genome=\""+ref_genome+"\"\n"
+    rmd=rmd+"library.type=\""+library_type+"\"\n"
+    rmd=rmd+"aligner=\""+aligner+"\"\n"
+    rmd=rmd+"sample_info_file='"+sample_info_file+"'\n"
+    if aligner=="star":
+        rmd=rmd+"count_data_file='"+path_start+project_name+"_htseq_gene.txt'\n"
+    rmd=rmd+"```\n\n"
 
     # define files
-    outp.write("```{r files, eval=T, echo=F}\n")
-    if aligner=="tophat":
-        outp.write("ercc.data <- read.table('"+project_name+"_cufflinks_ercc.txt', sep='\\t', header=T, as.is=T)\n")
-    elif aligner=="star":
-        outp.write("ercc.data <- read.table('"+project_name+"_htseq_ercc.txt', sep='\\t', header=T, as.is=T)\n")
-    outp.write("ambion_file <- '"+template_dir+"ERCC_SpikeIn_Controls_Analysis.txt'\n")
-    outp.write("```\n\n")
+    rmd=rmd+"```{r files, eval=T, echo=F}\n"
+    if ercc_mixes is not None:
+        rmd=rmd+"ambion_file <- '"+template_dir+"ERCC_SpikeIn_Controls_Analysis.txt'\n"
+        if aligner=="tophat":
+            rmd=rmd+"ercc.data <- read.table('"+project_name+"_cufflinks_ercc.txt', sep='\\t', header=T, as.is=T)\n"
+        elif aligner=="star" and ercc_mixes is not None:
+            rmd=rmd+"ercc.data <- read.table('"+project_name+"_htseq_ercc.txt', sep='\\t', header=T, as.is=T)\n"    
+    rmd=rmd+"```\n\n"
 
-    outp.write(rmd_template)
+    return rmd
+
+
+
+def make_rmd_featurestat(project_name):
+    """
+    Rmarkdown creation: Obtain proportion of no feature counts from htseq-count results
+    Separate here because of the htseq-count-specific feature
+    """
+    rmd="\n"
+    rmd=rmd+"## HTSeq-count: No feature counts statistics\n\n"
+    rmd=rmd+"No feature count (per million reads) statistics from htseq-count quantification results\n\n"
+    rmd=rmd+"```{r nofeature, eval=T, echo=F, message=F, warning=F, results='asis'}\n"
+    rmd=rmd+"nofeature.data <- read.table('"+project_name+"_htseq_nofeature.txt', sep='\\t', header=T, as.is=T)\n"
+    rmd=rmd+"DT::datatable(nofeature.data)\n"
+    rmd=rmd+"```\n\n"
+    return rmd
+
+def lsf_file(job_name, cmd, memory=36000, thread=1):
+    """
+    Creates .lsf files
+    """
+
+    outp = open(job_name+".lsf",'w')
+    outp.write("#!/bin/bash\n")
+    outp.write("#BSUB -L /bin/bash\n")
+    outp.write("#BSUB -J "+job_name+"\n")
+    outp.write("#BSUB -q normal\n")
+    outp.write("#BSUB -o "+job_name+"_%J.out\n")
+    outp.write("#BSUB -e "+job_name+"_%J.screen\n")
+    outp.write("#BSUB -M "+str(memory)+"\n")
+    outp.write("#BSUB -n "+str(thread)+"\n")
+    outp.write(cmd)
+    outp.write("\n")
+    outp.close()
+
+def make_rmd_html(sample_info_file, project_name, path_start, sample_names, ercc_mixes, ref_genome, library_type, aligner, template_dir):
+    """
+    Creates Rmd report. The top of report is below and the rest concatenated from a separate text document (rmd_template).
+    Runs rmarkdown to create html document
+    Also makes a custom css format file - improvement on rmarkdown defaults
+    """
+    # create custom.css for rmarkdown
+    make_rmd_css(path_start)
+
+    # create contents for rmarkdown RMD file
+    rmd = ""
+
+    # create title and description
+    rmd_title =make_rmd_title(path_start, project_name, aligner, ref_genome)
+    rmd = rmd + rmd_title
+
+    # create varialbes
+    rmd_var = make_rmd_var(path_start, project_name, ref_genome, library_type, aligner, sample_names, ercc_mixes, sample_info_file, template_dir)
+    rmd = rmd + rmd_var
+
+    # read in contents in template Rmdfile
+    rmd_in = open(template_dir+"rnaseq_align_and_qc_report_Rmd_template.txt", "r")
+    rmd_template = rmd_in.read()
+    rmd = rmd + rmd_template
+    rmd = rmd + "\n\n"
 
     # output no feature count stat table if htseq-count is used
     if aligner=="star":
-        outp.write("\n")
-        outp.write("## HTSeq-count: No feature counts statistics\n\n")
-        outp.write("No feature count (per million reads) statistics from htseq-count quantification results\n\n")
-        outp.write("```{r nofeature, eval=T, echo=F, message=F, warning=F, results='asis'}\n")
-        outp.write("nofeature.data <- read.table('"+project_name+"_htseq_nofeature.txt', sep='\\t', header=T, as.is=T)\n")
-        outp.write("DT::datatable(nofeature.data)\n")
-        outp.write("```\n\n")
+       rmd_featurestat = make_rmd_featurestat(project_name)
+       rmd = rmd + rmd_featurestat
 
+    # write in project_name+"_QC_RnaSeqReport.Rmd" file
+    outp = open(path_start+project_name+"_QC_RnaSeqReport.Rmd", "w")
+    outp.write(rmd)
     # output session info
-    outp.write("```{r sessioninfo, eval=T, echo=F}\n")
+    outp.write("```{r sessioninfo, echo=F}\n")
     outp.write("pander(sessionInfo())\n")
     outp.write("```\n\n")
-
     outp.close()
+    print "Created file "+path_start+project_name+"_QC_RnaSeqReport.Rmd"
 
-    #subprocess.call("cd "+path_start+"; echo \"library(R2HTML); Sweave('"+project_name+"_QC_RnaSeqReport.Rnw', driver=RweaveHTML)\" | R --no-save --no-restore", shell=True)
-    #subprocess.call("cd "+path_start+"; echo \"library(knitr); library(markdown); knit2html('"+project_name+"_QC_RnaSeqReport.Rmd', force_v1 = TRUE, options = c('toc', markdown::markdownHTMLOptions(TRUE)))\" | R --no-save --no-restore", shell=True)
-    subprocess.call("cd "+path_start+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_QC_RnaSeqReport.Rmd')\" | R --no-save --no-restore", shell=True)
+    # create .lsf file. Run it on HPC becuase rlog for all sample counts in pca step is computationally demanding.
+    cmd="cd "+path_start+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_QC_RnaSeqReport.Rmd')\" | R --no-save --no-restore\n"
+    lsf_file(project_name+"_qc", cmd)
+    print "Created LSF script "+project_name+"_qc.lsf in current directory"
 
-def main(project_name, sample_info_file, path_start, aligner, template_dir):
+def main(project_name, sample_info_file, path_start, aligner, ref_genome, library_type, template_dir):
     """
     Creates html report describing summary and QC statistics for a set of aligned RNA-Seq samples associated with a project
     Report is based on multiple output files created by rnaseq_align_and_qc.py
@@ -922,7 +1006,7 @@ def main(project_name, sample_info_file, path_start, aligner, template_dir):
         path_start = os.getcwd()
     if path_start[-1] != "/":
 	path_start = path_start+"/"
-    new_dir = path_start+project_name+"/"+project_name+"_Alignment_QC_Report_"+aligner+"/"
+    new_dir = path_start+project_name+"_Alignment_QC_Report_"+aligner+"/"
     if not os.path.exists(new_dir):
 	os.makedirs(new_dir)
     if template_dir == "./":
@@ -935,25 +1019,17 @@ def main(project_name, sample_info_file, path_start, aligner, template_dir):
         print "Cannot find "+template_dir+"rnaseq_align_and_qc_report_Rmd_template.txt"
 	sys.exit()
 
-    #Get list of sample info. Fields: [curr_sample, index, ercc_mix, top_dir, project, label, ref_genome, library_type]
-    runs = get_sample_info(sample_info_file)
-    sample_names = map(lambda x: x[0], runs)
-    sample_paths = map(lambda x: path_start+x[4]+"/"+x[0]+"/", runs)
-    ercc_mixes = map(lambda x: x[2], runs)
-    ref_genome_list = map(lambda x: x[6], runs)
-    library_type_list = map(lambda x: x[7], runs)
-    #Check whether all samples are of same reference genome
-    if False in map(lambda y: y==ref_genome_list[0], ref_genome_list):
-        print "Make sure all samples in project are of the same reference genome"
-        sys.exit()
-    else:
-	ref_genome = ref_genome_list[0]
-    #Check whether all samples are of same reference genome
-    if False in map(lambda y: y==library_type_list[0], library_type_list):
-        print "Make sure all samples in project are of the same library type"
-	sys.exit()
-    else:
-	library_type = library_type_list[0]
+    #Get list of dictionary of sample information. Keys: [sample_id, ercc_mix, index]
+    info_dict = get_sample_info(sample_info_file)
+    sample_names = info_dict["Sample"]
+    sample_paths = map(lambda x: path_start+x+"/", sample_names)
+
+    if "ERCC_Mix" in info_dict:
+        ercc_mixes = info_dict["ERCC_Mix"]
+        # ERCC mix exists. Use ERCC concentration file
+        if not os.path.exists(template_dir+"ERCC_SpikeIn_Controls_Analysis.txt"):
+            print "ERCC spike-in used. Cannot find ERCC concentration file "+template_dir+"ERCC_SpikeIn_Controls_Analysis.txt"
+            sys.exit()
 
     # create stats files used for QC report
     make_project_data_files(project_name, sample_names, sample_paths, new_dir, ref_genome, library_type, aligner)
@@ -963,20 +1039,22 @@ def main(project_name, sample_info_file, path_start, aligner, template_dir):
         print "Cannot find rnaseq_align_and_qc_report_Rmd_template.txt"
 	sys.exit()
 
-    rmd_in = open(template_dir+"rnaseq_align_and_qc_report_Rmd_template.txt", "r")
-    rmd_template = rmd_in.read()
-    make_rmd_html(rmd_template, project_name, new_dir, sample_names, ercc_mixes, ref_genome, library_type, aligner, template_dir)
+    make_rmd_html(sample_info_file, project_name, new_dir, sample_names, ercc_mixes, ref_genome, library_type, aligner, template_dir)
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Create HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project.")
-	parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
-	parser.add_argument("--aligner", default="tophat", type=str, help="Should TopHat or STAR be used as aligner?"
-		"(options: tophat, star)")
-        parser.add_argument("--template_dir", default="./", type=str, help="directory to put template RMD file rnaseq_align_and_qc_report_Rmd_template.txt for QC report")
-	parser.add_argument("project_name", type=str, help="Name of project that all samples correspond to.")
-	parser.add_argument("samples_in", help="A tab-delimited txt file containing sample information. See example file: sample_info_file.txt")
-	args = parser.parse_args()
-	main(args.project_name, args.samples_in, args.path_start, args.aligner, args.template_dir)
-	
-	
+    parser = argparse.ArgumentParser(description="Create HTML report of QC and alignment summary statistics for RNA-seq samples associated with a project.")
+    parser.add_argument("--project_name", type=str, help="Prefix name of for output directory and files")
+    parser.add_argument("--samples_in", help="A tab-delimited txt file containing sample information with full path. See example file: sample_info_file.txt")
+    parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
+    parser.add_argument("--aligner", default="star", type=str, help="Should TopHat or STAR be used as aligner (options: star)")
+    parser.add_argument("--ref_genome", default="hg38", type=str, help="Specify reference genome (options: hg38, hg19, mm38, mm10, rn6, susScr3)")
+    parser.add_argument("--library_type", default="PE", type=str, help="Specify library type (options: PE (paired-end), SE (single-end))")
+    parser.add_argument("--template_dir", default="./", type=str, help="directory to put template RMD file rnaseq_align_and_qc_report_Rmd_template.txt for QC report")
+    args = parser.parse_args()
+
+    if args.project_name is None or args.samples_in is None:
+        parser.print_help()
+        sys.exit()
+
+    main(args.project_name, args.samples_in, args.path_start, args.aligner, args.ref_genome, args.library_type, args.template_dir)	

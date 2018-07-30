@@ -484,7 +484,7 @@ def main(sample_info_file, project_name, aligner, ref_genome, library_type, inde
         ###
         # Create .lsf files
         ###
-        lsf_file(curr_sample, cmd)
+        lsf_file(curr_sample+"_align", cmd)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Write and execute an lsf job to perform QC and read alignment for RNA-seq samples associated with a project.")

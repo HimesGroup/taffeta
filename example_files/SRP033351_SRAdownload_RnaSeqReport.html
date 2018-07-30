@@ -1444,20 +1444,19 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <div id="user-tailored-phenotype-file" class="section level3">
 <h3>User tailored phenotype file</h3>
 <p>This step is only used for tailoring raw phenotype file from GEO.</p>
-<p>Raw phenotypic variables are not informative (e.g. description, characteristics_ch1 and source_name_ch1) and not created in a consice way. Select useful phenotype variables and manually modify them using a standard format including the following columns, Sample, GEO_ID, Donor (required column for treatment comparison), Disease, Treatment, and any other information if provided such as Age, Gender, ERCC spike-in, Sequencing index, Sample preparation kit. <strong>This step requires mannual inspection.</strong></p>
+<p>Raw phenotypic variables are not informative (e.g. description, characteristics_ch1 and source_name_ch1) and not created in a consice way. Select useful phenotype variables and manually modify them using a standard format including the following columns: Sample, GEO_ID, Donor (required column for treatment comparison), Disease, Treatment, and any other information if provided such as Age, Gender, ERCC spike-in, Sequencing index, Sample preparation kit. <strong>This step requires mannual inspection.</strong> The example codes for this section are based on phenotype data from GSE52778 (SRA study ID: SRP033351).</p>
 <p>Show the summary of phenotype variables and the sample size for different groups</p>
 <table>
 <caption>Show the first 5 rows of the modified phenotype file</caption>
 <colgroup>
-<col width="9%"></col>
 <col width="10%"></col>
-<col width="10%"></col>
-<col width="7%"></col>
-<col width="7%"></col>
+<col width="11%"></col>
+<col width="11%"></col>
 <col width="9%"></col>
 <col width="8%"></col>
-<col width="11%"></col>
-<col width="24%"></col>
+<col width="10%"></col>
+<col width="9%"></col>
+<col width="27%"></col>
 </colgroup>
 <thead>
 <tr class="header">
@@ -1468,7 +1467,6 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <th align="center">Tissue</th>
 <th align="center">Treatment</th>
 <th align="center">ERCC_Mix</th>
-<th align="center">library_type</th>
 <th align="center">Protocol</th>
 </tr>
 </thead>
@@ -1481,7 +1479,6 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">ASM</td>
 <td align="center">untreated</td>
 <td align="center">-</td>
-<td align="center">PE</td>
 <td align="center">TruSeq_RNA_Sample_Prep_Kit_v2</td>
 </tr>
 <tr class="even">
@@ -1492,7 +1489,6 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">ASM</td>
 <td align="center">dex</td>
 <td align="center">-</td>
-<td align="center">PE</td>
 <td align="center">TruSeq_RNA_Sample_Prep_Kit_v2</td>
 </tr>
 <tr class="odd">
@@ -1503,7 +1499,6 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">ASM</td>
 <td align="center">alb</td>
 <td align="center">-</td>
-<td align="center">PE</td>
 <td align="center">TruSeq_RNA_Sample_Prep_Kit_v2</td>
 </tr>
 <tr class="even">
@@ -1514,7 +1509,6 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">ASM</td>
 <td align="center">alb_dex</td>
 <td align="center">-</td>
-<td align="center">PE</td>
 <td align="center">TruSeq_RNA_Sample_Prep_Kit_v2</td>
 </tr>
 <tr class="odd">
@@ -1525,7 +1519,6 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">ASM</td>
 <td align="center">untreated</td>
 <td align="center">-</td>
-<td align="center">PE</td>
 <td align="center">TruSeq_RNA_Sample_Prep_Kit_v2</td>
 </tr>
 </tbody>

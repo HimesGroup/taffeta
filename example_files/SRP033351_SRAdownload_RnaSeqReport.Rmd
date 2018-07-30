@@ -166,7 +166,6 @@ if (!exists("pheno_fn")) {
     dplyr::mutate(Treatment=gsub("Dexamethasone","dex",Treatment)) %>%
     dplyr::mutate(Treatment=gsub("Untreated","untreated",Treatment)) %>%
     dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
-    dplyr::mutate(library_type="PE") %>%
     dplyr::mutate(Protocol="TruSeq_RNA_Sample_Prep_Kit_v2") %>%
     dplyr::mutate_if(is.character,as.factor) %>%
     dplyr::select((length(cols)+1):ncol(.)) # remove original columns

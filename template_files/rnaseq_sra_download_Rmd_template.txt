@@ -128,7 +128,7 @@ for (x in names(pheno.raw)) {
 
 This step is only used for tailoring raw phenotype file from GEO.
 
-Raw phenotypic variables are not informative (e.g. description, characteristics_ch1 and source_name_ch1) and not created in a consice way.  Select useful phenotype variables and manually modify them using a standard format including the following columns, Sample, GEO_ID, Donor (required column for treatment comparison), Disease, Treatment, and any other information if provided such as Age, Gender, ERCC spike-in, Sequencing index, Sample preparation kit. **This step requires mannual inspection.**
+Raw phenotypic variables are not informative (e.g. description, characteristics_ch1 and source_name_ch1) and not created in a consice way. Select useful phenotype variables and manually modify them using a standard format including the following columns: Sample, GEO_ID, Donor (required column for treatment comparison), Disease, Treatment, and any other information if provided such as Age, Gender, ERCC spike-in, Sequencing index, Sample preparation kit. **This step requires mannual inspection.** The example codes for this section are based on phenotype data from GSE52778 (SRA study ID: SRP033351).
 
 ```{r pheno, eval=T, echo=F, message=F, warning=F}
 if (!exists("pheno_fn")) {
@@ -145,7 +145,6 @@ if (!exists("pheno_fn")) {
     dplyr::mutate(Treatment=gsub("Dexamethasone","dex",Treatment)) %>%
     dplyr::mutate(Treatment=gsub("Untreated","untreated",Treatment)) %>%
     dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
-    dplyr::mutate(library_type="PE") %>%
     dplyr::mutate(Protocol="TruSeq_RNA_Sample_Prep_Kit_v2") %>%
     dplyr::mutate_if(is.character,as.factor) %>%
     dplyr::select((length(cols)+1):ncol(.)) # remove original columns

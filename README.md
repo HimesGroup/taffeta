@@ -21,7 +21,7 @@ Generate LSF scripts with download commands that can be processed in parallel. S
 ## Bioinformatic Tools
 
 * **Alignment and quantification:** STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are no longer available).
-* **DE analysis:** R packages DESeq2 and sleuth
+* **Differential expression (DE) analysis:** R packages DESeq2 and sleuth
 * **QC:** fastqc, trimmomatic, samtools, bamtools, picardtools.
 * **Spesis-specific genome reference files:** reference genome fasta, gtf, refFlat, and index files. As our example uses ERCC spike-ins, the reference files include ERCC mix transcripts. 
 * **Adapter and primer sequences**: a list of is provided. For fastqc, replace . For trimming we provide Ilumina TruSeq single index and Illumina unique dual (UD) index adpter and primer sequences. Users can tailor this file by adding sequences from other protocols.
@@ -81,11 +81,11 @@ The sample info file used in the following steps should be provided by users.
 
 If use data from GEO, most GEO phenotype data do not have index information. However, FastQC is able to detect them as "Overrepresented sequences". Users can tailor the 'Index' column based on FastQC results. We provide a file with most updated adapter and primer sequences for FastQC detection.
 
-An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings. The order of of the columns can be changed.
+An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
 
 ### Alignment, quantification and QC
 
-Run **pipeline_scripts/rnaseq_align_and_qc.py** to: 1) trim adapter and primer sequences if index information is available, 2) run FastQC for (un)trimmed .fastq files, 3) align reads and quantify reads mapped to genes/transcripts, and 5) obtain various QC metrics from .bam files.
+1) Run **pipeline_scripts/rnaseq_align_and_qc.py** to: 1) trim adapter and primer sequences if index information is available, 2) run FastQC for (un)trimmed .fastq files, 3) align reads and quantify reads mapped to genes/transcripts, and 5) obtain various QC metrics from .bam files.
 
 Edit **pipeline_scripts/rnaseq_userdefine_variables.py** with a list user-defined variables (e.g. paths of genome reference file, paths of bioinformatics tools, versions of bioinformatics tools), and save the file under an executable search path.
 
@@ -117,7 +117,7 @@ Various output files will be written for each sample in directories structured a
 > <i>path_start</i>/<i>sample_name</i>/<i>aligner</i>_out <br>
 > <i>path_start</i>/<i>sample_name</i>/<i>quantification_tool</i>_out <br>
 
-Run **pipeline_scripts/rnaseq\_align\_and\_qc\_report.py** to create an HTML report of QC and alignment summary statistics for RNA-seq samples. Read in **template\_files/rnaseq\_align\_and\_qc\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
+2) Run **pipeline_scripts/rnaseq\_align\_and\_qc\_report.py** to create an HTML report of QC and alignment summary statistics for RNA-seq samples. Read in **template\_files/rnaseq\_align\_and\_qc\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
 > python rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
 
@@ -125,7 +125,7 @@ Run **pipeline_scripts/rnaseq\_align\_and\_qc\_report.py** to create an HTML rep
 
 **Output files:**
 
-This script uses the many output files created in step of alignment and quantification, converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document.
+This script uses the many output files created in step 1), converts these sample-specific files into matrices that include data for all samples, and then creates an Rmd document.
 
 The report and accompanying files are contained in:
 
@@ -136,13 +136,15 @@ The RMD and corresponding HTML report files:
 > <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report/<i>project_name</i>_QC_RnaSeqReport.Rmd
 > <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report/<i>project_name</i>_QC_RnaSeqReport.html
 
-### Differential expression (DE) analysis - DESeq2
+### Gene-based differential expression analysis - htseq-count/DESeq2
 
 Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.  Read in **template\_files/rnaseq\_de\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
 > rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i>
 
 > bsub < <i>project_name</i>_deseq2.lsf
+
+The "--sample_in" option specifies user provided phenotype file for DE analysis. The columns are the same as **example_files/sample_info_file.txt" but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
 
 The "--comp" option specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
 
@@ -156,7 +158,11 @@ The RMD and corresponding HTML report file:
 
 > <i>path_start</i>/<i>project_name</i>_deseq2_out/<i>project_name</i>_DESeq2_Report.Rmd
 > <i>path_start</i>/<i>project_name</i>_deseq2_out/<i>project_name</i>_DESeq2_Report.html
-	
+
+### Transcript-based differential expression analysis - kallisto/sleuth
+
+Updating...
+
 ### acknowledgements
 This set of scripts was initially developed to analyze RNA-Seq and DGE data at the [Partners Personalized Medicine PPM](http://pcpgm.partners.org/). Barbara Klanderman is the molecular biologist who led the establishment of PPM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PPM wet lab staff. 
 

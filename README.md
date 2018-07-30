@@ -16,7 +16,7 @@ The goal of taffeta is to preform reproducible analysis and validation of RNA-Se
   * Perform differential expression of reads aligned to transcripts according to a given reference genome
   * Create a report that summarizes the differential expression results
 
-Generate LSF scripts with download commands that can be processed in parallel. Specify --fastqc option to run FastQC for .fastq files downloaded.
+Generate LSF scripts in each step for HPC use.
 
 ## Bioinformatic Tools
 
@@ -144,7 +144,7 @@ Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and creat
 
 > bsub < <i>project_name</i>_deseq2.lsf
 
-The "--sample_in" option specifies user provided phenotype file for DE analysis. The columns are the same as **example_files/sample_info_file.txt" but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
+The "--sample_in" option specifies user provided phenotype file for DE analysis. The columns are the same as **example_files/sample_info_file.txt** but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
 
 The "--comp" option specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
 

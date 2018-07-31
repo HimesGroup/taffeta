@@ -111,7 +111,9 @@ The list is based on the following resources: [illumina adapter sequences](https
 
 If users provide new sequences, add the new index type in the 1st column 'Type' and specify it in "--index\_type".
 
-The "--strand nonstrand" option refers to sequencing that captures both strands (nonstrand) or the 1st strand (reverse) or the 2nd strand (forward) of cDNA.
+The "--strand" option refers to sequencing that captures both strands (nonstrand) or the 1st synthesized strand (reverse) or the 2nd synthesized strand (forward) of cDNA. If the 2nd strand is synthesized using dUTP, this strand will extinct during PCA amplification, thus only 1st (reverse) strand will be sequenced.
+
+Read sample preparation protocal carefully. Reads not in the specified strand will be discarded. Double check proprotion of reads mapped to no feature category in QC report. If a lot of reads are mapped to 'no feature', the strand option setting is likely incorrect.
 
 **Output files:**
 

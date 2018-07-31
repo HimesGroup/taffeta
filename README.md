@@ -160,8 +160,8 @@ Find the example comp file here **example\_files/SRP033351\_comp\_file.txt**.
 The pairwise DE results and normalized counts for all samples and samples from pairwise comparisons are contained in:
 
 > <i>project_name</i>/<i>project_name</i>_deseq2_out/
-> <i>project_name</i>_<i>Condition1</i>_vs_<i>Condition2</i>_full_DESeq2_results.txt
-> <i>project_name</i>_<i>Condition1</i>_vs_<i>Condition2</i>_counts_normalized_by_DESeq2.txt
+> <i>project_name</i>_<i>Condition1</i>\_vs\_<i>Condition2</i>\_full_DESeq2_results.txt
+> <i>project_name</i>_<i>Condition1</i>\_vs\_<i>Condition2</i>\_counts_normalized_by_DESeq2.txt
 > <i>project_name</i>_counts_normalized_by_DESeq2.txt
 
 The RMD and corresponding HTML report file:

@@ -103,9 +103,12 @@ The "--ref\_genome" option refers to using selected version of genome reference.
 
 The "--library\_type" option refers to PE (paired-end) or SE (single-end) library.
 
-The "--index\_type" option refers to index used in sample library preparation. The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt** are: truseq\_single\_index (TruSeq Single Indexes), illumina\_ud\_sys1 (Illumina UD indexes for NovaSeq, MiSeq, HiSeq 2000/2500), illumina\_ud\_sys2 (Illumina UD indexed for MiniSeq, NextSeq, HiSeq 3000/4000). 
+The "--index\_type" option refers to index used in sample library preparation. The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt** are: truseq\_single\_index (TruSeq Single Indexes), illumina\_ud\_sys1 (Illumina UD indexes for NovaSeq, MiSeq, HiSeq 2000/2500), illumina\_ud\_sys2 (Illumina UD indexed for MiniSeq, NextSeq, HiSeq 3000/4000).
+
 **template_files/rnaseq_adapter_primer_sequences.txt** contains four columns (i.e. Type, Index, Description, Sequence). Sequences in the Index column is used to match those in Index column in sample info file. This column naming is rigid.
+
 The list is based on the following resources: [illumina adapter sequences](https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf)
+
 If users provide new sequences, add the new index type in the 1st column 'Type' and specify it in "--index\_type".
 
 The "--strand nonstrand" option refers to sequencing that captures both strands (nonstrand) or the 1st strand (reverse) or the 2nd strand (forward) of cDNA.

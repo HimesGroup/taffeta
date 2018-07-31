@@ -1,0 +1,1307 @@
+---
+title: 'Differential Expression Results for SRP033351'
+author: Mengyuan Kan (mengykan@upenn.edu)
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    css: custom.css
+    toc: true
+    toc_float: true
+---
+
+Reads were aligned to the hg38 assembly using STAR (2.5.2b).  The following alignment QC report was produced:<br>
+
+> SRP033351_QC_RnaSeqReport.html<br>
+
+HTSeq (0.6.0) function htseq-count was used to count reads. Counts for all samples were concatenated into the following text file:<br>
+
+> SRP033351_htseq_gene.txt<br>
+
+DESeq2 (1.18.1) was used for differential gene expression analaysis, based on the HTSeq counts matrix and the phenotype file provided.  Normalized counts from DESeq2 are saved in the following text file:<br>
+
+> SRP033351_counts_normalized_by_DESeq2.txt<br>
+
+Normalized counts are obtained from DESeq2 function estimateSizeFactors(), which divides counts by the geometric mean across samples; this function does not correct for read length. The normalization method is described in detail here: https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106<br>
+
+Differential gene expression analysis was done for all comparisons provided in the comparisons file.  The following design was used:<br>
+
+> design = ~  + Donor + Status<br>
+
+If desired, the design can be modified to include more independent variables. In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form:<br>
+
+> SRP033351_CASE_vs_CONTROL_DESeq2_results.txt<br>
+
+where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br>
+
+
+
+```{r lib, echo=F, message=F, warning=F}
+library(gplots)
+library(reshape2)
+library(RColorBrewer)
+library(plyr)
+library(lattice)
+library(genefilter)
+library(ggplot2)
+library(viridis)
+library(DESeq2)
+library(DT)
+library(tidyr)
+library(biomaRt)
+library(pander)
+options(width = 1000)
+```
+
+
+
+```{r vars, eval=T, echo=F}
+project_name="SRP033351"
+path.start='/home/mengykan/Projects/SRP033351/'
+housekeeping_genes <- c('ACTB','GAPDH','B2M','RPL19','GABARAP')
+coldata <- read.table('/home/mengykan/Projects/SRP033351/files/SRP033351_Info_Sheet_index_withQC.txt', sep='\t', header=TRUE)
+coldata <- subset(coldata, QC_Pass==1)
+countdata <- read.table(paste0(path.start, project_name,'_Alignment_QC_Report_star/', project_name, '_htseq_gene.txt'), sep='\t', header=TRUE, check.names=FALSE)
+names(countdata) <- gsub('count_','',names(countdata))
+countdata <- countdata[,c('Gene',as.character(coldata$Sample))]
+
+row.names(countdata) <- countdata$Gene
+is_ensg <- if (substr(rownames(countdata)[1], 1, 4) == 'ENSG') {TRUE} else {FALSE}
+countdata$Gene <- sapply(strsplit(as.character(countdata$Gene), '\\.'), '[[', 1) # remove .5 in transcript ENSG00000000005.5
+mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')
+genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'hgnc_symbol'), values=countdata$Gene, mart=mart) # 30 duplicates transcripts from ensembles. They are microRNA and SRP RNAs. Just use the unique transcripts.
+genes <- genes[!duplicated(genes$ensembl_gene_id),]
+if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}
+if (is_ensg) {countdata <- rename(countdata, c('hgnc_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}
+if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}
+
+```
+
+
+```{r normcount, eval=T, echo=F, message=F, warnings=F, results="hide"}
+
+# this part is only for getting normalized counts (this way all samples normalized together)
+# unpaired design, testing for effect of Status
+ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata[,2:(ncol(countdata)-1)], colData = coldata, design = ~ Status)
+dds <- DESeq(ddsFullCountTable)
+norm.counts <- counts(dds, normalized=TRUE)
+norm.counts <- merge(norm.counts, countdata[,c('Gene','gene_symbol')], by='row.names')
+norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column called 'Row.names'
+```
+
+```{r normcount_save, eval=T, echo=F}
+write.table(norm.counts, paste0(project_name,'_counts_normalized_by_DESeq2.txt'), quote=FALSE, row.names=FALSE)
+```
+
+```{r, eval=T, echo=F}
+case <- 'healthy_alb'
+ctrl <- 'healthy_untreated'
+```
+
+## healthy_alb vs. healthy_untreated
+
+### Samples in this comparison
+```{r, eval=T, echo=F, message=F}
+#conditions from file - select the portion of the info sheet relevant to the two conditions being tested
+coldata_curr <- coldata[which(coldata$Status==case | coldata$Status==ctrl),]
+#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.
+for (i in unique(coldata_curr$Donor)) {
+	if (nrow(coldata_curr[which(coldata_curr$Status=='healthy_alb' & coldata_curr$Donor==i),]) != nrow(coldata_curr[which(coldata_curr$Status=='healthy_untreated' & coldata_curr$Donor==i),])) {
+		coldata_curr <- coldata_curr[-which(coldata_curr$Donor==i),]
+		cat('Samples with Donor==', i, 'were removed from the healthy_alb vs. healthy_untreated comparison because there was an unequal number of case and control samples')
+}
+}
+coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]
+coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)
+DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
+rownames(coldata_curr) <- coldata_curr$Sample
+coldata_curr$Sample <- NULL
+```
+
+### DE analysis
+```{r, eval=T, echo=F, message=F}
+#select the portion of the HTSeq output matrix relevant to the two conditions being tested
+a <- colnames(countdata)
+b <- rownames(coldata_curr)
+countdata_curr <- countdata[,which(a %in% b)] # subset countdata and coldata
+countdata_curr <- countdata_curr[ ,order(as.character(names(countdata_curr)))] #columns of countdata & rows of coldata must be ordered in the same way
+#pre-filter low count genes before running the DESeq2 functions. Keep only genes (rows) that have at least 10 reads total.
+keep <- rowSums(countdata_curr)>=10
+countdata_curr <- countdata_curr[keep,]
+#combine HTSeq counts and info from info sheet
+#in spedifying design, order matters: test for the effect of condition (the last factor), controlling for the effect of individual (first factor)
+# paired design, testing for effect of Status while controlling for Donor
+ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ Donor + Status)
+
+# DESeq analysis
+dds <- DESeq(ddsFullCountTable)
+# obtain normalized counts
+dds_count <- counts(dds, normalize=T)
+
+# output results
+res <- results(dds)
+res$gene_id <- row.names(res) 
+  
+#rlog transformations - used later in heatmaps and PCA plot
+#in transformations, blind=FALSE means tells it to use the design info
+#using blind=TRUE just uses the data with no background info, which leads to PCA & heatmap clustering by rat more than by test conditions... whereas the design controls for this
+rld<- rlogTransformation(dds, blind=FALSE)
+
+# add gene symbols for DE results
+res_df <- as.data.frame(res)
+res_df <- merge(countdata[which(countdata$Gene%in%res_df$gene_id),c("Gene","gene_symbol")],res_df,by.x="Gene",by.y="gene_id")
+res_df <- res_df[order(res_df$pvalue, decreasing=FALSE),]
+
+# gather counts in one column
+res_ct_df <- as.data.frame(dds_count)
+res_ct_df$Gene <- rownames(res_ct_df)
+res_ct_df <- res_ct_df %>% gather(Sample, count, -Gene)
+
+# add gene symbol and sample Status for normalized counts
+res_ct_df <- merge(countdata[which(countdata$Gene%in%res_ct_df$Gene),c("Gene","gene_symbol")],res_ct_df,by="Gene")
+res_ct_df <- merge(res_ct_df,coldata[which(coldata$Sample%in%res_ct_df$Sample),c("Sample","Status")],by="Sample")
+res_ct_df$Status <- factor(res_ct_df$Status, levels = c(ctrl,case))
+```
+
+```{r, eval=T, echo=F}
+#save down ALL DESeq2 results in the directory... this is not really going into the report so much as for reference
+res_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_full_DESeq2_results.txt")
+write.table(res_df[order(res_df$pvalue, decreasing=FALSE),], res_fn, quote=FALSE, row.names=FALSE, sep='\t')
+```
+
+```{r, eval=T, echo=F}
+# save normalized counts results
+res_ct_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_counts_normalized_by_DESeq2.txt")
+write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T, sep='\t')
+```
+
+```{r, eval=T, echo=F}
+# assign colours to comparison status
+colour_status <- c("navy","red")
+names(colour_status) <- c(ctrl,case) # assign red to case and navy to control
+colour_status_list <- unlist(lapply(coldata_curr$Status,function(x){colour_status[x]}))
+colours=c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F") # first 8 colour names derived from Dark2, and last 12 names from Set3
+```
+
+
+### Top 50 genes by p-value
+```{r, eval=T, echo=F}
+#output table for report
+#select top 50 by pvalue
+#then round to 2 decimal points for output table
+res_df_outp <- head(res_df[order(res_df$pvalue, decreasing=FALSE),], 50)
+res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")] <- round(res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")], 2)   
+res_df_outp[,c("pvalue")] <- formatC(res_df_outp[,c("pvalue")], format = "e", digits = 2) # do this in 2 steps, else get "Error in is.finite(x) : default method not implemented for type 'list'"
+res_df_outp[,c("padj")] <- formatC(res_df_outp[,c("padj")], format = "e", digits = 2) 
+DT::datatable(res_df_outp, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+```
+
+### Description of DESEq2 output 
+
+```{r, eval=T, echo=F}
+info_table <- as.data.frame(mcols(res, use.names=TRUE))
+info_table$`Output Column` <- rownames(info_table)
+info_table <- info_table[1:6, c("Output Column", "description")]
+colnames(info_table) <- c("Output Column", "Description")
+info_table$Description <- paste0(info_table$Description, ", computed by DESeq2")
+info_table <- rbind(c("gene_symbol", "Official Gene Symbol, obtained using biomaRt if first column has Ensembl Gene IDs - else same as first column"), info_table)
+info_table <- rbind(c("Gene", "Official Gene Symbol or Ensembl Gene ID, depending on reference files used for alignment"), info_table)
+
+DT::datatable(info_table, rownames = FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-left', targets = "_all"))))
+```
+
+### Volcano plots
+
+Volcano plot (probes with a q-value <0.05 are present in red)
+
+```{r, echo=F}
+# The volplot_func function generates volcano plots
+volplot_func <- function(df,qval_column,title) {
+  if (missing(title)) {title=""}
+  # get qvalue column
+  qval <- df[,qval_column]
+  if (all(is.na(qval))) {message("The batch and status are highly confounded. Batch effect is not adjusted.")} else {         
+    df <- df[!is.na(qval),] # remove NA values
+    qval <- df[,qval_column]
+    if (min(df[,qval_column])>=0.05) {
+      df$sig <- "black" # assign colors to DE and non-DE genes
+    } else {
+      # assign colors to DE and non-DE genes
+      df$sig <- rep(NA,nrow(df))
+      df$sig[qval<0.05] <- "red"
+      df$sig[qval>=0.05] <- "black"
+    }
+    df$sig <- as.factor(df$sig)
+    color <- levels(df$sig)
+    # log10 transformed q values
+    df$logqval <- -log10(qval)
+    diffgenes <- df$Gene[qval<0.05] #Create list of all DEG's
+    #cat(length(diffgenes), "differentially expressed genes have been identified based on", qval_column)
+    print(
+    ggplot(df, aes(x = log2FoldChange, y = logqval, color=sig)) + geom_point() +
+      theme_bw() +
+      labs(title=title,x="log2FoldChange",y=paste0("-log10(",qval_column,")")) +
+      scale_color_manual(values=color) +
+      theme(legend.position="none")
+    )
+  }
+}
+```
+
+
+```{r, eval=T, echo=F, fig.height=4, fig.width=4}
+for (qval in c("pvalue","padj")) {volplot_func(df=res_df, qval_column=qval)}
+```
+
+### MA plot
+
+```{r, eval=T, echo=F}
+plotMA(dds,ylim=c(-2,2))
+```
+
+### Distribution of adjusted p-values
+
+```{r, eval=T, echo=F}
+hist(res$padj, main=" ", xlab="adjusted p-value", breaks=50, col="deepskyblue4", xaxp  = c(0, 1, 20))
+```
+
+### Dendrogram based on regularized log transformed data
+
+```{r, echo=F}
+# The dist2 estimates distance between samples
+dist2 <- function (x,fun = function(a, b) mean(abs(a - b), na.rm = TRUE),diagonal = 0) {
+  if (!(is.numeric(diagonal) && (length(diagonal) == 1)))
+    stop("'diagonal' must be a numeric scalar.")
+
+  if (missing(fun)) {
+    res = apply(x, 2, function(w) colMeans(abs(x-w), na.rm=TRUE))
+  } else {
+    res = matrix(diagonal, ncol = ncol(x), nrow = ncol(x))
+    if (ncol(x) >= 2) {
+      for (j in 2:ncol(x))
+        for (i in 1:(j - 1))
+          res[i, j] = res[j, i] = fun(x[, i], x[, j])
+    } # if
+  } # else
+  colnames(res) = rownames(res) = colnames(x)
+  return(res)
+}
+
+distplot_func <- function(m) {
+  dend = as.dendrogram(hclust(as.dist(m), method = "single"))
+  ord = order.dendrogram(dend)
+  array_name=colnames(m)
+  heatmap.2(m,Rowv=dend,Colv=dend,
+    col=viridis(256, option="B"),ColSideColors=colour_status_list,RowSideColors=colour_status_list,
+    labCol=array_name,labRow=array_name,
+    trace="none",
+    margins=c(12,20), # (bottom margin, left margin)
+    cexRow = 1,cexCol = 1,
+    keysize=1.5,key.title=NA,key.xlab="Dist2",key.ylab="Counts")
+  legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.6)
+}
+```
+
+```{r, eval=T, echo=F, fig.height=10, fig.width=12}
+distplot_func(m=dist2(assay(rld)))
+```
+
+### Heatmaps for 30 genes with highest counts
+
+Genes were ranked by adjusted p-values.
+
+```{r, echo=F}
+# The heatmap_topgene_func function for top gene heatmap plots
+heatmap_topgene_func <- function(tb, topnum=30, main="") {
+  m=assay(rld)
+  top.mat <- m[rownames(m)%in%tb[1:topnum,"Gene"],] # plot heatmap for top genes
+  array_name <- colnames(m)
+  gene_symbol=tb[1:topnum,"gene_symbol"]
+  heatmap.2(na.omit(top.mat), col=viridis(256, option="B"),
+    ColSideColors=colour_status_list, # use predefined colour_status_list, assign colors to status
+    labCol=array_name, labRow=gene_symbol, # take out gene probe id
+    trace="none",
+    margins=c(12,20), # (bottom margin, left margin)
+    cexRow=1,cexCol=1,
+    keysize=1.5,key.title=NA,key.xlab="Regularized log transformation",key.ylab="Counts",
+    main=main)
+  legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.8) # use predifined colour_status
+}
+```
+
+```{r , eval=T, echo=F, fig.height=10, fig.width=12}
+heatmap_topgene_func(tb=res_df, topnum=30, main="")
+```
+
+### Principal Component Analysis (PCA) Plot
+
+```{r, echo=F, warning=F, message=F}
+# The pcastat_func function computes principal components
+pcastat_func <- function(m, ntop=500) {
+  # calculate the variance for each gene
+  rv <- rowVars(m)
+  # select the ntop genes by variance
+  select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
+  m=m[select,]
+  # obtain original expression data
+  raw.data.pca <- na.omit(apply(m,2,function(x)replace(x,is.infinite(x),NA))) # replace infinite values to NAs and omit NAs
+  # As scale function divides by the variance, the probe with the expression sd=0 across samples must be removed.
+  sd <- apply(raw.data.pca,1,sd)
+  raw.data.pca <- raw.data.pca[!sd==0,]
+  # compute pcs
+  pca <- prcomp(t(raw.data.pca), retx = TRUE, center = TRUE, scale = TRUE)
+  pc <- data.frame(pca$x)
+  # compute variance explained by each PC
+  vars <- pca$sdev^2
+  pcs <- t(pc)
+  pvars <- vars*100.0/sum(vars) # proportion of variance (%) explained by each PC
+  cumsum_pvars <- cumsum(pvars) # Cumulative Proportion of Variance (%)
+  if (nrow(pcs)>10) {nres <- 10} else {nres=nrow(pcs)} # select top 10 PCs if number of PCs >10
+  res <- data.frame(rownames(pcs),pvars,cumsum_pvars)[1:nres,]
+  names(res) <- c("PC","Proportion of Variance (%)","Cumulative Proportion of Variance (%)")
+  return(list(tb=res,pc=pc))
+}
+
+# The pcaplot_func creates plots for pc1 and pc2
+pcaplot_func <- function(pc, group_var) { # group_var: column name for a specific group
+  df <- data.frame(
+    PC1=pc$PC1,
+    PC2=pc$PC2,
+    group=coldata_curr[,group_var]
+  )
+  ggplot(df,aes(PC1,PC2,color=group)) + geom_point() + theme_bw()
+}
+
+# The pca_func function generates multiple pca plots for scan date, disease, treatment, and Donor
+pca_func <- function(pc) {
+  group_vars=c("Tissue", "Donor")
+  idx_exist=c(1:length(group_vars))[group_vars%in%names(coldata_curr)] # obtain index of existing variables
+  plot_list=list() # store plots in a list
+  for (i in idx_exist) {
+    group_var=group_vars[i]
+    nlevel=nlevels(coldata_curr[,group_var]) # levels of the variable
+    if (group_var=="ScanDate_Group"|(nlevel>=2&nlevel<=20)) {
+      plot_list[[group_var]]=pcaplot_func(pc, group_var=group_var)+scale_color_hue(name=group_var)
+    }
+  }
+  return(plot_list)
+}
+```
+
+Compute PCs and variance explained by the first 10 PCs
+
+```{r, eval=T, echo=F, warning=F, message=F, results="asis"}
+res_pca <- pcastat_func(m=assay(rld))
+pandoc.table(res_pca$tb, split.tables=Inf, caption="Variance explained")
+```
+
+PCA plots are generated using the first two principle components colored by known factors (e.g. Status, Tissue, or Donor)
+
+```{r, eval=T, echo=F, message=F, warning=F}
+pcaplot_func(pc=res_pca$pc,group_var="Status")+scale_color_manual("Status",values=colour_status,na.value="grey")
+```
+
+```{r, eval=T, echo=F, message=F, warning=F}
+plot_list=pca_func(pc=res_pca$pc)
+for (i in plot_list) {print(i)}
+```
+
+
+### Dispersion plot
+
+```{r, eval=T, echo=F}
+plotDispEsts(dds)
+
+```
+
+### Plot of the maximum Cook's distance per gene over the rank of the Wald statistics for the condition
+
+```{r, eval=T, echo=F}
+W <- res$stat
+maxCooks <- apply(assays(dds)[['cooks']],1,max)
+idx <- !is.na(W)
+plot(rank(W[idx]), maxCooks[idx], xlab='rank of Wald statistic', ylab='maximum Cooks distance per gene', ylim=c(0,5), cex=.4, col=rgb(0,0,0,.3))
+
+```
+
+### Boxplots for top 20 differentially expressed genes
+
+Genes were ranked by pvalue.  Counts have been normalized by sequencing depth, with pseudocount of 0.5 added to allow for log scale plotting, using DESeq2 function plotCounts().
+
+```{r, echo=F}
+boxplot_func <- function(df) {
+    gene_symbol=unique(df$gene_symbol)
+    gene_id=unique(df$Gene)
+    ggplot(df, aes(x = Status, y = count, fill=Status)) +
+    geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 
+    stat_boxplot(geom ='errorbar', color="grey18") + 
+    expand_limits(y=0) +
+    geom_jitter(size=2, width=0.2) + 
+    guides(fill=FALSE) +
+    theme_bw() +  
+    labs(title=paste0(gene_id, " ", gene_symbol)) +
+    #labs(x="condition") +
+    labs(y="Normalized counts") +
+    theme(text = element_text(size=9), 
+          strip.text.x = element_text(size = 10),
+	  axis.text.x = element_text(size=12),
+          #axis.text.x = element_text(angle = 90, hjust = 1, size=12),
+          axis.text.y = element_text(size=9),
+          plot.title = element_text(size=12),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size=12))
+}
+```
+
+```{r, eval=T, echo=F, message=F, cache=F, warning=F, fig.height=4, fig.width=4}
+topnum=20
+for (i in 1:topnum) {
+  gene_id <- res_df[i,"Gene"]
+  gene_symbol <- res_df[i,"gene_symbol"]
+  curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
+  print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+}
+
+```
+
+### Favorite genes
+
+Boxplots for favorite genes
+
+```{r, eval=T, echo=F, cache=FALSE, warning=F, message=F, fig.height=4, fig.width=4}
+fav_genes <- c('ORMDL3', 'CRISPLD2', 'SOCS1', 'SOCS2', 'SOCS3', 'SOCS4', 'SOCS5', 'SOCS6','SOCS7', 'CEBPD', 'CISH', 'GUCY1A3', 'GUCY1B3', 'CCL5', 'CXCL10', 'CX3CL1', 'CCL13','IL6', 'IL8', 'HHIP', 'SPATS2L', 'CCR2', 'CCR4', 'SST', 'SSTR1', 'CCK','CCKAR','PDE8')
+for (i in fav_genes) {
+  gene_symbol=i
+  gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values
+  curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
+  print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+}
+```
+
+Differential expression results for favorite genes
+
+```{r, eval=T, echo=F, message=F}
+fav_tb=data.frame()
+for (i in fav_genes) {
+  gene_symbol=i
+  curr_data <- res_df[which(res_df$gene_symbol==gene_symbol),][1,] # choose Ensembl gene with smallest p-values
+  fav_tb=rbind(fav_tb, curr_data)
+}
+DT::datatable(fav_tb, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+```
+
+
+```{r, eval=T, echo=F}
+case <- 'healthy_dex'
+ctrl <- 'healthy_untreated'
+```
+
+## healthy_dex vs. healthy_untreated
+
+### Samples in this comparison
+```{r, eval=T, echo=F, message=F}
+#conditions from file - select the portion of the info sheet relevant to the two conditions being tested
+coldata_curr <- coldata[which(coldata$Status==case | coldata$Status==ctrl),]
+#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.
+for (i in unique(coldata_curr$Donor)) {
+	if (nrow(coldata_curr[which(coldata_curr$Status=='healthy_dex' & coldata_curr$Donor==i),]) != nrow(coldata_curr[which(coldata_curr$Status=='healthy_untreated' & coldata_curr$Donor==i),])) {
+		coldata_curr <- coldata_curr[-which(coldata_curr$Donor==i),]
+		cat('Samples with Donor==', i, 'were removed from the healthy_dex vs. healthy_untreated comparison because there was an unequal number of case and control samples')
+}
+}
+coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]
+coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)
+DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
+rownames(coldata_curr) <- coldata_curr$Sample
+coldata_curr$Sample <- NULL
+```
+
+### DE analysis
+```{r, eval=T, echo=F, message=F}
+#select the portion of the HTSeq output matrix relevant to the two conditions being tested
+a <- colnames(countdata)
+b <- rownames(coldata_curr)
+countdata_curr <- countdata[,which(a %in% b)] # subset countdata and coldata
+countdata_curr <- countdata_curr[ ,order(as.character(names(countdata_curr)))] #columns of countdata & rows of coldata must be ordered in the same way
+#pre-filter low count genes before running the DESeq2 functions. Keep only genes (rows) that have at least 10 reads total.
+keep <- rowSums(countdata_curr)>=10
+countdata_curr <- countdata_curr[keep,]
+#combine HTSeq counts and info from info sheet
+#in spedifying design, order matters: test for the effect of condition (the last factor), controlling for the effect of individual (first factor)
+# paired design, testing for effect of Status while controlling for Donor
+ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ Donor + Status)
+
+# DESeq analysis
+dds <- DESeq(ddsFullCountTable)
+# obtain normalized counts
+dds_count <- counts(dds, normalize=T)
+
+# output results
+res <- results(dds)
+res$gene_id <- row.names(res) 
+  
+#rlog transformations - used later in heatmaps and PCA plot
+#in transformations, blind=FALSE means tells it to use the design info
+#using blind=TRUE just uses the data with no background info, which leads to PCA & heatmap clustering by rat more than by test conditions... whereas the design controls for this
+rld<- rlogTransformation(dds, blind=FALSE)
+
+# add gene symbols for DE results
+res_df <- as.data.frame(res)
+res_df <- merge(countdata[which(countdata$Gene%in%res_df$gene_id),c("Gene","gene_symbol")],res_df,by.x="Gene",by.y="gene_id")
+res_df <- res_df[order(res_df$pvalue, decreasing=FALSE),]
+
+# gather counts in one column
+res_ct_df <- as.data.frame(dds_count)
+res_ct_df$Gene <- rownames(res_ct_df)
+res_ct_df <- res_ct_df %>% gather(Sample, count, -Gene)
+
+# add gene symbol and sample Status for normalized counts
+res_ct_df <- merge(countdata[which(countdata$Gene%in%res_ct_df$Gene),c("Gene","gene_symbol")],res_ct_df,by="Gene")
+res_ct_df <- merge(res_ct_df,coldata[which(coldata$Sample%in%res_ct_df$Sample),c("Sample","Status")],by="Sample")
+res_ct_df$Status <- factor(res_ct_df$Status, levels = c(ctrl,case))
+```
+
+```{r, eval=T, echo=F}
+#save down ALL DESeq2 results in the directory... this is not really going into the report so much as for reference
+res_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_full_DESeq2_results.txt")
+write.table(res_df[order(res_df$pvalue, decreasing=FALSE),], res_fn, quote=FALSE, row.names=FALSE, sep='\t')
+```
+
+```{r, eval=T, echo=F}
+# save normalized counts results
+res_ct_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_counts_normalized_by_DESeq2.txt")
+write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T, sep='\t')
+```
+
+```{r, eval=T, echo=F}
+# assign colours to comparison status
+colour_status <- c("navy","red")
+names(colour_status) <- c(ctrl,case) # assign red to case and navy to control
+colour_status_list <- unlist(lapply(coldata_curr$Status,function(x){colour_status[x]}))
+colours=c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F") # first 8 colour names derived from Dark2, and last 12 names from Set3
+```
+
+
+### Top 50 genes by p-value
+```{r, eval=T, echo=F}
+#output table for report
+#select top 50 by pvalue
+#then round to 2 decimal points for output table
+res_df_outp <- head(res_df[order(res_df$pvalue, decreasing=FALSE),], 50)
+res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")] <- round(res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")], 2)   
+res_df_outp[,c("pvalue")] <- formatC(res_df_outp[,c("pvalue")], format = "e", digits = 2) # do this in 2 steps, else get "Error in is.finite(x) : default method not implemented for type 'list'"
+res_df_outp[,c("padj")] <- formatC(res_df_outp[,c("padj")], format = "e", digits = 2) 
+DT::datatable(res_df_outp, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+```
+
+### Description of DESEq2 output 
+
+```{r, eval=T, echo=F}
+info_table <- as.data.frame(mcols(res, use.names=TRUE))
+info_table$`Output Column` <- rownames(info_table)
+info_table <- info_table[1:6, c("Output Column", "description")]
+colnames(info_table) <- c("Output Column", "Description")
+info_table$Description <- paste0(info_table$Description, ", computed by DESeq2")
+info_table <- rbind(c("gene_symbol", "Official Gene Symbol, obtained using biomaRt if first column has Ensembl Gene IDs - else same as first column"), info_table)
+info_table <- rbind(c("Gene", "Official Gene Symbol or Ensembl Gene ID, depending on reference files used for alignment"), info_table)
+
+DT::datatable(info_table, rownames = FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-left', targets = "_all"))))
+```
+
+### Volcano plots
+
+Volcano plot (probes with a q-value <0.05 are present in red)
+
+```{r, echo=F}
+# The volplot_func function generates volcano plots
+volplot_func <- function(df,qval_column,title) {
+  if (missing(title)) {title=""}
+  # get qvalue column
+  qval <- df[,qval_column]
+  if (all(is.na(qval))) {message("The batch and status are highly confounded. Batch effect is not adjusted.")} else {         
+    df <- df[!is.na(qval),] # remove NA values
+    qval <- df[,qval_column]
+    if (min(df[,qval_column])>=0.05) {
+      df$sig <- "black" # assign colors to DE and non-DE genes
+    } else {
+      # assign colors to DE and non-DE genes
+      df$sig <- rep(NA,nrow(df))
+      df$sig[qval<0.05] <- "red"
+      df$sig[qval>=0.05] <- "black"
+    }
+    df$sig <- as.factor(df$sig)
+    color <- levels(df$sig)
+    # log10 transformed q values
+    df$logqval <- -log10(qval)
+    diffgenes <- df$Gene[qval<0.05] #Create list of all DEG's
+    #cat(length(diffgenes), "differentially expressed genes have been identified based on", qval_column)
+    print(
+    ggplot(df, aes(x = log2FoldChange, y = logqval, color=sig)) + geom_point() +
+      theme_bw() +
+      labs(title=title,x="log2FoldChange",y=paste0("-log10(",qval_column,")")) +
+      scale_color_manual(values=color) +
+      theme(legend.position="none")
+    )
+  }
+}
+```
+
+
+```{r, eval=T, echo=F, fig.height=4, fig.width=4}
+for (qval in c("pvalue","padj")) {volplot_func(df=res_df, qval_column=qval)}
+```
+
+### MA plot
+
+```{r, eval=T, echo=F}
+plotMA(dds,ylim=c(-2,2))
+```
+
+### Distribution of adjusted p-values
+
+```{r, eval=T, echo=F}
+hist(res$padj, main=" ", xlab="adjusted p-value", breaks=50, col="deepskyblue4", xaxp  = c(0, 1, 20))
+```
+
+### Dendrogram based on regularized log transformed data
+
+```{r, echo=F}
+# The dist2 estimates distance between samples
+dist2 <- function (x,fun = function(a, b) mean(abs(a - b), na.rm = TRUE),diagonal = 0) {
+  if (!(is.numeric(diagonal) && (length(diagonal) == 1)))
+    stop("'diagonal' must be a numeric scalar.")
+
+  if (missing(fun)) {
+    res = apply(x, 2, function(w) colMeans(abs(x-w), na.rm=TRUE))
+  } else {
+    res = matrix(diagonal, ncol = ncol(x), nrow = ncol(x))
+    if (ncol(x) >= 2) {
+      for (j in 2:ncol(x))
+        for (i in 1:(j - 1))
+          res[i, j] = res[j, i] = fun(x[, i], x[, j])
+    } # if
+  } # else
+  colnames(res) = rownames(res) = colnames(x)
+  return(res)
+}
+
+distplot_func <- function(m) {
+  dend = as.dendrogram(hclust(as.dist(m), method = "single"))
+  ord = order.dendrogram(dend)
+  array_name=colnames(m)
+  heatmap.2(m,Rowv=dend,Colv=dend,
+    col=viridis(256, option="B"),ColSideColors=colour_status_list,RowSideColors=colour_status_list,
+    labCol=array_name,labRow=array_name,
+    trace="none",
+    margins=c(12,20), # (bottom margin, left margin)
+    cexRow = 1,cexCol = 1,
+    keysize=1.5,key.title=NA,key.xlab="Dist2",key.ylab="Counts")
+  legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.6)
+}
+```
+
+```{r, eval=T, echo=F, fig.height=10, fig.width=12}
+distplot_func(m=dist2(assay(rld)))
+```
+
+### Heatmaps for 30 genes with highest counts
+
+Genes were ranked by adjusted p-values.
+
+```{r, echo=F}
+# The heatmap_topgene_func function for top gene heatmap plots
+heatmap_topgene_func <- function(tb, topnum=30, main="") {
+  m=assay(rld)
+  top.mat <- m[rownames(m)%in%tb[1:topnum,"Gene"],] # plot heatmap for top genes
+  array_name <- colnames(m)
+  gene_symbol=tb[1:topnum,"gene_symbol"]
+  heatmap.2(na.omit(top.mat), col=viridis(256, option="B"),
+    ColSideColors=colour_status_list, # use predefined colour_status_list, assign colors to status
+    labCol=array_name, labRow=gene_symbol, # take out gene probe id
+    trace="none",
+    margins=c(12,20), # (bottom margin, left margin)
+    cexRow=1,cexCol=1,
+    keysize=1.5,key.title=NA,key.xlab="Regularized log transformation",key.ylab="Counts",
+    main=main)
+  legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.8) # use predifined colour_status
+}
+```
+
+```{r , eval=T, echo=F, fig.height=10, fig.width=12}
+heatmap_topgene_func(tb=res_df, topnum=30, main="")
+```
+
+### Principal Component Analysis (PCA) Plot
+
+```{r, echo=F, warning=F, message=F}
+# The pcastat_func function computes principal components
+pcastat_func <- function(m, ntop=500) {
+  # calculate the variance for each gene
+  rv <- rowVars(m)
+  # select the ntop genes by variance
+  select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
+  m=m[select,]
+  # obtain original expression data
+  raw.data.pca <- na.omit(apply(m,2,function(x)replace(x,is.infinite(x),NA))) # replace infinite values to NAs and omit NAs
+  # As scale function divides by the variance, the probe with the expression sd=0 across samples must be removed.
+  sd <- apply(raw.data.pca,1,sd)
+  raw.data.pca <- raw.data.pca[!sd==0,]
+  # compute pcs
+  pca <- prcomp(t(raw.data.pca), retx = TRUE, center = TRUE, scale = TRUE)
+  pc <- data.frame(pca$x)
+  # compute variance explained by each PC
+  vars <- pca$sdev^2
+  pcs <- t(pc)
+  pvars <- vars*100.0/sum(vars) # proportion of variance (%) explained by each PC
+  cumsum_pvars <- cumsum(pvars) # Cumulative Proportion of Variance (%)
+  if (nrow(pcs)>10) {nres <- 10} else {nres=nrow(pcs)} # select top 10 PCs if number of PCs >10
+  res <- data.frame(rownames(pcs),pvars,cumsum_pvars)[1:nres,]
+  names(res) <- c("PC","Proportion of Variance (%)","Cumulative Proportion of Variance (%)")
+  return(list(tb=res,pc=pc))
+}
+
+# The pcaplot_func creates plots for pc1 and pc2
+pcaplot_func <- function(pc, group_var) { # group_var: column name for a specific group
+  df <- data.frame(
+    PC1=pc$PC1,
+    PC2=pc$PC2,
+    group=coldata_curr[,group_var]
+  )
+  ggplot(df,aes(PC1,PC2,color=group)) + geom_point() + theme_bw()
+}
+
+# The pca_func function generates multiple pca plots for scan date, disease, treatment, and Donor
+pca_func <- function(pc) {
+  group_vars=c("Tissue", "Donor")
+  idx_exist=c(1:length(group_vars))[group_vars%in%names(coldata_curr)] # obtain index of existing variables
+  plot_list=list() # store plots in a list
+  for (i in idx_exist) {
+    group_var=group_vars[i]
+    nlevel=nlevels(coldata_curr[,group_var]) # levels of the variable
+    if (group_var=="ScanDate_Group"|(nlevel>=2&nlevel<=20)) {
+      plot_list[[group_var]]=pcaplot_func(pc, group_var=group_var)+scale_color_hue(name=group_var)
+    }
+  }
+  return(plot_list)
+}
+```
+
+Compute PCs and variance explained by the first 10 PCs
+
+```{r, eval=T, echo=F, warning=F, message=F, results="asis"}
+res_pca <- pcastat_func(m=assay(rld))
+pandoc.table(res_pca$tb, split.tables=Inf, caption="Variance explained")
+```
+
+PCA plots are generated using the first two principle components colored by known factors (e.g. Status, Tissue, or Donor)
+
+```{r, eval=T, echo=F, message=F, warning=F}
+pcaplot_func(pc=res_pca$pc,group_var="Status")+scale_color_manual("Status",values=colour_status,na.value="grey")
+```
+
+```{r, eval=T, echo=F, message=F, warning=F}
+plot_list=pca_func(pc=res_pca$pc)
+for (i in plot_list) {print(i)}
+```
+
+
+### Dispersion plot
+
+```{r, eval=T, echo=F}
+plotDispEsts(dds)
+
+```
+
+### Plot of the maximum Cook's distance per gene over the rank of the Wald statistics for the condition
+
+```{r, eval=T, echo=F}
+W <- res$stat
+maxCooks <- apply(assays(dds)[['cooks']],1,max)
+idx <- !is.na(W)
+plot(rank(W[idx]), maxCooks[idx], xlab='rank of Wald statistic', ylab='maximum Cooks distance per gene', ylim=c(0,5), cex=.4, col=rgb(0,0,0,.3))
+
+```
+
+### Boxplots for top 20 differentially expressed genes
+
+Genes were ranked by pvalue.  Counts have been normalized by sequencing depth, with pseudocount of 0.5 added to allow for log scale plotting, using DESeq2 function plotCounts().
+
+```{r, echo=F}
+boxplot_func <- function(df) {
+    gene_symbol=unique(df$gene_symbol)
+    gene_id=unique(df$Gene)
+    ggplot(df, aes(x = Status, y = count, fill=Status)) +
+    geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 
+    stat_boxplot(geom ='errorbar', color="grey18") + 
+    expand_limits(y=0) +
+    geom_jitter(size=2, width=0.2) + 
+    guides(fill=FALSE) +
+    theme_bw() +  
+    labs(title=paste0(gene_id, " ", gene_symbol)) +
+    #labs(x="condition") +
+    labs(y="Normalized counts") +
+    theme(text = element_text(size=9), 
+          strip.text.x = element_text(size = 10),
+	  axis.text.x = element_text(size=12),
+          #axis.text.x = element_text(angle = 90, hjust = 1, size=12),
+          axis.text.y = element_text(size=9),
+          plot.title = element_text(size=12),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size=12))
+}
+```
+
+```{r, eval=T, echo=F, message=F, cache=F, warning=F, fig.height=4, fig.width=4}
+topnum=20
+for (i in 1:topnum) {
+  gene_id <- res_df[i,"Gene"]
+  gene_symbol <- res_df[i,"gene_symbol"]
+  curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
+  print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+}
+
+```
+
+### Favorite genes
+
+Boxplots for favorite genes
+
+```{r, eval=T, echo=F, cache=FALSE, warning=F, message=F, fig.height=4, fig.width=4}
+fav_genes <- c('ORMDL3', 'CRISPLD2', 'SOCS1', 'SOCS2', 'SOCS3', 'SOCS4', 'SOCS5', 'SOCS6','SOCS7', 'CEBPD', 'CISH', 'GUCY1A3', 'GUCY1B3', 'CCL5', 'CXCL10', 'CX3CL1', 'CCL13','IL6', 'IL8', 'HHIP', 'SPATS2L', 'CCR2', 'CCR4', 'SST', 'SSTR1', 'CCK','CCKAR','PDE8')
+for (i in fav_genes) {
+  gene_symbol=i
+  gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values
+  curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
+  print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+}
+```
+
+Differential expression results for favorite genes
+
+```{r, eval=T, echo=F, message=F}
+fav_tb=data.frame()
+for (i in fav_genes) {
+  gene_symbol=i
+  curr_data <- res_df[which(res_df$gene_symbol==gene_symbol),][1,] # choose Ensembl gene with smallest p-values
+  fav_tb=rbind(fav_tb, curr_data)
+}
+DT::datatable(fav_tb, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+```
+
+
+```{r, eval=T, echo=F}
+case <- 'healthy_alb_dex'
+ctrl <- 'healthy_untreated'
+```
+
+## healthy_alb_dex vs. healthy_untreated
+
+### Samples in this comparison
+```{r, eval=T, echo=F, message=F}
+#conditions from file - select the portion of the info sheet relevant to the two conditions being tested
+coldata_curr <- coldata[which(coldata$Status==case | coldata$Status==ctrl),]
+#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.
+for (i in unique(coldata_curr$Donor)) {
+	if (nrow(coldata_curr[which(coldata_curr$Status=='healthy_alb_dex' & coldata_curr$Donor==i),]) != nrow(coldata_curr[which(coldata_curr$Status=='healthy_untreated' & coldata_curr$Donor==i),])) {
+		coldata_curr <- coldata_curr[-which(coldata_curr$Donor==i),]
+		cat('Samples with Donor==', i, 'were removed from the healthy_alb_dex vs. healthy_untreated comparison because there was an unequal number of case and control samples')
+}
+}
+coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]
+coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)
+DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
+rownames(coldata_curr) <- coldata_curr$Sample
+coldata_curr$Sample <- NULL
+```
+
+### DE analysis
+```{r, eval=T, echo=F, message=F}
+#select the portion of the HTSeq output matrix relevant to the two conditions being tested
+a <- colnames(countdata)
+b <- rownames(coldata_curr)
+countdata_curr <- countdata[,which(a %in% b)] # subset countdata and coldata
+countdata_curr <- countdata_curr[ ,order(as.character(names(countdata_curr)))] #columns of countdata & rows of coldata must be ordered in the same way
+#pre-filter low count genes before running the DESeq2 functions. Keep only genes (rows) that have at least 10 reads total.
+keep <- rowSums(countdata_curr)>=10
+countdata_curr <- countdata_curr[keep,]
+#combine HTSeq counts and info from info sheet
+#in spedifying design, order matters: test for the effect of condition (the last factor), controlling for the effect of individual (first factor)
+# paired design, testing for effect of Status while controlling for Donor
+ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ Donor + Status)
+
+# DESeq analysis
+dds <- DESeq(ddsFullCountTable)
+# obtain normalized counts
+dds_count <- counts(dds, normalize=T)
+
+# output results
+res <- results(dds)
+res$gene_id <- row.names(res) 
+  
+#rlog transformations - used later in heatmaps and PCA plot
+#in transformations, blind=FALSE means tells it to use the design info
+#using blind=TRUE just uses the data with no background info, which leads to PCA & heatmap clustering by rat more than by test conditions... whereas the design controls for this
+rld<- rlogTransformation(dds, blind=FALSE)
+
+# add gene symbols for DE results
+res_df <- as.data.frame(res)
+res_df <- merge(countdata[which(countdata$Gene%in%res_df$gene_id),c("Gene","gene_symbol")],res_df,by.x="Gene",by.y="gene_id")
+res_df <- res_df[order(res_df$pvalue, decreasing=FALSE),]
+
+# gather counts in one column
+res_ct_df <- as.data.frame(dds_count)
+res_ct_df$Gene <- rownames(res_ct_df)
+res_ct_df <- res_ct_df %>% gather(Sample, count, -Gene)
+
+# add gene symbol and sample Status for normalized counts
+res_ct_df <- merge(countdata[which(countdata$Gene%in%res_ct_df$Gene),c("Gene","gene_symbol")],res_ct_df,by="Gene")
+res_ct_df <- merge(res_ct_df,coldata[which(coldata$Sample%in%res_ct_df$Sample),c("Sample","Status")],by="Sample")
+res_ct_df$Status <- factor(res_ct_df$Status, levels = c(ctrl,case))
+```
+
+```{r, eval=T, echo=F}
+#save down ALL DESeq2 results in the directory... this is not really going into the report so much as for reference
+res_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_full_DESeq2_results.txt")
+write.table(res_df[order(res_df$pvalue, decreasing=FALSE),], res_fn, quote=FALSE, row.names=FALSE, sep='\t')
+```
+
+```{r, eval=T, echo=F}
+# save normalized counts results
+res_ct_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_counts_normalized_by_DESeq2.txt")
+write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T, sep='\t')
+```
+
+```{r, eval=T, echo=F}
+# assign colours to comparison status
+colour_status <- c("navy","red")
+names(colour_status) <- c(ctrl,case) # assign red to case and navy to control
+colour_status_list <- unlist(lapply(coldata_curr$Status,function(x){colour_status[x]}))
+colours=c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F") # first 8 colour names derived from Dark2, and last 12 names from Set3
+```
+
+
+### Top 50 genes by p-value
+```{r, eval=T, echo=F}
+#output table for report
+#select top 50 by pvalue
+#then round to 2 decimal points for output table
+res_df_outp <- head(res_df[order(res_df$pvalue, decreasing=FALSE),], 50)
+res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")] <- round(res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")], 2)   
+res_df_outp[,c("pvalue")] <- formatC(res_df_outp[,c("pvalue")], format = "e", digits = 2) # do this in 2 steps, else get "Error in is.finite(x) : default method not implemented for type 'list'"
+res_df_outp[,c("padj")] <- formatC(res_df_outp[,c("padj")], format = "e", digits = 2) 
+DT::datatable(res_df_outp, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+```
+
+### Description of DESEq2 output 
+
+```{r, eval=T, echo=F}
+info_table <- as.data.frame(mcols(res, use.names=TRUE))
+info_table$`Output Column` <- rownames(info_table)
+info_table <- info_table[1:6, c("Output Column", "description")]
+colnames(info_table) <- c("Output Column", "Description")
+info_table$Description <- paste0(info_table$Description, ", computed by DESeq2")
+info_table <- rbind(c("gene_symbol", "Official Gene Symbol, obtained using biomaRt if first column has Ensembl Gene IDs - else same as first column"), info_table)
+info_table <- rbind(c("Gene", "Official Gene Symbol or Ensembl Gene ID, depending on reference files used for alignment"), info_table)
+
+DT::datatable(info_table, rownames = FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-left', targets = "_all"))))
+```
+
+### Volcano plots
+
+Volcano plot (probes with a q-value <0.05 are present in red)
+
+```{r, echo=F}
+# The volplot_func function generates volcano plots
+volplot_func <- function(df,qval_column,title) {
+  if (missing(title)) {title=""}
+  # get qvalue column
+  qval <- df[,qval_column]
+  if (all(is.na(qval))) {message("The batch and status are highly confounded. Batch effect is not adjusted.")} else {         
+    df <- df[!is.na(qval),] # remove NA values
+    qval <- df[,qval_column]
+    if (min(df[,qval_column])>=0.05) {
+      df$sig <- "black" # assign colors to DE and non-DE genes
+    } else {
+      # assign colors to DE and non-DE genes
+      df$sig <- rep(NA,nrow(df))
+      df$sig[qval<0.05] <- "red"
+      df$sig[qval>=0.05] <- "black"
+    }
+    df$sig <- as.factor(df$sig)
+    color <- levels(df$sig)
+    # log10 transformed q values
+    df$logqval <- -log10(qval)
+    diffgenes <- df$Gene[qval<0.05] #Create list of all DEG's
+    #cat(length(diffgenes), "differentially expressed genes have been identified based on", qval_column)
+    print(
+    ggplot(df, aes(x = log2FoldChange, y = logqval, color=sig)) + geom_point() +
+      theme_bw() +
+      labs(title=title,x="log2FoldChange",y=paste0("-log10(",qval_column,")")) +
+      scale_color_manual(values=color) +
+      theme(legend.position="none")
+    )
+  }
+}
+```
+
+
+```{r, eval=T, echo=F, fig.height=4, fig.width=4}
+for (qval in c("pvalue","padj")) {volplot_func(df=res_df, qval_column=qval)}
+```
+
+### MA plot
+
+```{r, eval=T, echo=F}
+plotMA(dds,ylim=c(-2,2))
+```
+
+### Distribution of adjusted p-values
+
+```{r, eval=T, echo=F}
+hist(res$padj, main=" ", xlab="adjusted p-value", breaks=50, col="deepskyblue4", xaxp  = c(0, 1, 20))
+```
+
+### Dendrogram based on regularized log transformed data
+
+```{r, echo=F}
+# The dist2 estimates distance between samples
+dist2 <- function (x,fun = function(a, b) mean(abs(a - b), na.rm = TRUE),diagonal = 0) {
+  if (!(is.numeric(diagonal) && (length(diagonal) == 1)))
+    stop("'diagonal' must be a numeric scalar.")
+
+  if (missing(fun)) {
+    res = apply(x, 2, function(w) colMeans(abs(x-w), na.rm=TRUE))
+  } else {
+    res = matrix(diagonal, ncol = ncol(x), nrow = ncol(x))
+    if (ncol(x) >= 2) {
+      for (j in 2:ncol(x))
+        for (i in 1:(j - 1))
+          res[i, j] = res[j, i] = fun(x[, i], x[, j])
+    } # if
+  } # else
+  colnames(res) = rownames(res) = colnames(x)
+  return(res)
+}
+
+distplot_func <- function(m) {
+  dend = as.dendrogram(hclust(as.dist(m), method = "single"))
+  ord = order.dendrogram(dend)
+  array_name=colnames(m)
+  heatmap.2(m,Rowv=dend,Colv=dend,
+    col=viridis(256, option="B"),ColSideColors=colour_status_list,RowSideColors=colour_status_list,
+    labCol=array_name,labRow=array_name,
+    trace="none",
+    margins=c(12,20), # (bottom margin, left margin)
+    cexRow = 1,cexCol = 1,
+    keysize=1.5,key.title=NA,key.xlab="Dist2",key.ylab="Counts")
+  legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.6)
+}
+```
+
+```{r, eval=T, echo=F, fig.height=10, fig.width=12}
+distplot_func(m=dist2(assay(rld)))
+```
+
+### Heatmaps for 30 genes with highest counts
+
+Genes were ranked by adjusted p-values.
+
+```{r, echo=F}
+# The heatmap_topgene_func function for top gene heatmap plots
+heatmap_topgene_func <- function(tb, topnum=30, main="") {
+  m=assay(rld)
+  top.mat <- m[rownames(m)%in%tb[1:topnum,"Gene"],] # plot heatmap for top genes
+  array_name <- colnames(m)
+  gene_symbol=tb[1:topnum,"gene_symbol"]
+  heatmap.2(na.omit(top.mat), col=viridis(256, option="B"),
+    ColSideColors=colour_status_list, # use predefined colour_status_list, assign colors to status
+    labCol=array_name, labRow=gene_symbol, # take out gene probe id
+    trace="none",
+    margins=c(12,20), # (bottom margin, left margin)
+    cexRow=1,cexCol=1,
+    keysize=1.5,key.title=NA,key.xlab="Regularized log transformation",key.ylab="Counts",
+    main=main)
+  legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.8) # use predifined colour_status
+}
+```
+
+```{r , eval=T, echo=F, fig.height=10, fig.width=12}
+heatmap_topgene_func(tb=res_df, topnum=30, main="")
+```
+
+### Principal Component Analysis (PCA) Plot
+
+```{r, echo=F, warning=F, message=F}
+# The pcastat_func function computes principal components
+pcastat_func <- function(m, ntop=500) {
+  # calculate the variance for each gene
+  rv <- rowVars(m)
+  # select the ntop genes by variance
+  select <- order(rv, decreasing=TRUE)[seq_len(min(ntop, length(rv)))]
+  m=m[select,]
+  # obtain original expression data
+  raw.data.pca <- na.omit(apply(m,2,function(x)replace(x,is.infinite(x),NA))) # replace infinite values to NAs and omit NAs
+  # As scale function divides by the variance, the probe with the expression sd=0 across samples must be removed.
+  sd <- apply(raw.data.pca,1,sd)
+  raw.data.pca <- raw.data.pca[!sd==0,]
+  # compute pcs
+  pca <- prcomp(t(raw.data.pca), retx = TRUE, center = TRUE, scale = TRUE)
+  pc <- data.frame(pca$x)
+  # compute variance explained by each PC
+  vars <- pca$sdev^2
+  pcs <- t(pc)
+  pvars <- vars*100.0/sum(vars) # proportion of variance (%) explained by each PC
+  cumsum_pvars <- cumsum(pvars) # Cumulative Proportion of Variance (%)
+  if (nrow(pcs)>10) {nres <- 10} else {nres=nrow(pcs)} # select top 10 PCs if number of PCs >10
+  res <- data.frame(rownames(pcs),pvars,cumsum_pvars)[1:nres,]
+  names(res) <- c("PC","Proportion of Variance (%)","Cumulative Proportion of Variance (%)")
+  return(list(tb=res,pc=pc))
+}
+
+# The pcaplot_func creates plots for pc1 and pc2
+pcaplot_func <- function(pc, group_var) { # group_var: column name for a specific group
+  df <- data.frame(
+    PC1=pc$PC1,
+    PC2=pc$PC2,
+    group=coldata_curr[,group_var]
+  )
+  ggplot(df,aes(PC1,PC2,color=group)) + geom_point() + theme_bw()
+}
+
+# The pca_func function generates multiple pca plots for scan date, disease, treatment, and Donor
+pca_func <- function(pc) {
+  group_vars=c("Tissue", "Donor")
+  idx_exist=c(1:length(group_vars))[group_vars%in%names(coldata_curr)] # obtain index of existing variables
+  plot_list=list() # store plots in a list
+  for (i in idx_exist) {
+    group_var=group_vars[i]
+    nlevel=nlevels(coldata_curr[,group_var]) # levels of the variable
+    if (group_var=="ScanDate_Group"|(nlevel>=2&nlevel<=20)) {
+      plot_list[[group_var]]=pcaplot_func(pc, group_var=group_var)+scale_color_hue(name=group_var)
+    }
+  }
+  return(plot_list)
+}
+```
+
+Compute PCs and variance explained by the first 10 PCs
+
+```{r, eval=T, echo=F, warning=F, message=F, results="asis"}
+res_pca <- pcastat_func(m=assay(rld))
+pandoc.table(res_pca$tb, split.tables=Inf, caption="Variance explained")
+```
+
+PCA plots are generated using the first two principle components colored by known factors (e.g. Status, Tissue, or Donor)
+
+```{r, eval=T, echo=F, message=F, warning=F}
+pcaplot_func(pc=res_pca$pc,group_var="Status")+scale_color_manual("Status",values=colour_status,na.value="grey")
+```
+
+```{r, eval=T, echo=F, message=F, warning=F}
+plot_list=pca_func(pc=res_pca$pc)
+for (i in plot_list) {print(i)}
+```
+
+
+### Dispersion plot
+
+```{r, eval=T, echo=F}
+plotDispEsts(dds)
+
+```
+
+### Plot of the maximum Cook's distance per gene over the rank of the Wald statistics for the condition
+
+```{r, eval=T, echo=F}
+W <- res$stat
+maxCooks <- apply(assays(dds)[['cooks']],1,max)
+idx <- !is.na(W)
+plot(rank(W[idx]), maxCooks[idx], xlab='rank of Wald statistic', ylab='maximum Cooks distance per gene', ylim=c(0,5), cex=.4, col=rgb(0,0,0,.3))
+
+```
+
+### Boxplots for top 20 differentially expressed genes
+
+Genes were ranked by pvalue.  Counts have been normalized by sequencing depth, with pseudocount of 0.5 added to allow for log scale plotting, using DESeq2 function plotCounts().
+
+```{r, echo=F}
+boxplot_func <- function(df) {
+    gene_symbol=unique(df$gene_symbol)
+    gene_id=unique(df$Gene)
+    ggplot(df, aes(x = Status, y = count, fill=Status)) +
+    geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 
+    stat_boxplot(geom ='errorbar', color="grey18") + 
+    expand_limits(y=0) +
+    geom_jitter(size=2, width=0.2) + 
+    guides(fill=FALSE) +
+    theme_bw() +  
+    labs(title=paste0(gene_id, " ", gene_symbol)) +
+    #labs(x="condition") +
+    labs(y="Normalized counts") +
+    theme(text = element_text(size=9), 
+          strip.text.x = element_text(size = 10),
+	  axis.text.x = element_text(size=12),
+          #axis.text.x = element_text(angle = 90, hjust = 1, size=12),
+          axis.text.y = element_text(size=9),
+          plot.title = element_text(size=12),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size=12))
+}
+```
+
+```{r, eval=T, echo=F, message=F, cache=F, warning=F, fig.height=4, fig.width=4}
+topnum=20
+for (i in 1:topnum) {
+  gene_id <- res_df[i,"Gene"]
+  gene_symbol <- res_df[i,"gene_symbol"]
+  curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
+  print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+}
+
+```
+
+### Favorite genes
+
+Boxplots for favorite genes
+
+```{r, eval=T, echo=F, cache=FALSE, warning=F, message=F, fig.height=4, fig.width=4}
+fav_genes <- c('ORMDL3', 'CRISPLD2', 'SOCS1', 'SOCS2', 'SOCS3', 'SOCS4', 'SOCS5', 'SOCS6','SOCS7', 'CEBPD', 'CISH', 'GUCY1A3', 'GUCY1B3', 'CCL5', 'CXCL10', 'CX3CL1', 'CCL13','IL6', 'IL8', 'HHIP', 'SPATS2L', 'CCR2', 'CCR4', 'SST', 'SSTR1', 'CCK','CCKAR','PDE8')
+for (i in fav_genes) {
+  gene_symbol=i
+  gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values
+  curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
+  print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+}
+```
+
+Differential expression results for favorite genes
+
+```{r, eval=T, echo=F, message=F}
+fav_tb=data.frame()
+for (i in fav_genes) {
+  gene_symbol=i
+  curr_data <- res_df[which(res_df$gene_symbol==gene_symbol),][1,] # choose Ensembl gene with smallest p-values
+  fav_tb=rbind(fav_tb, curr_data)
+}
+DT::datatable(fav_tb, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+```
+
+
+## Housekeeping genes
+Counts have been normalized by estimated size factors using DESeq2 function counts to obtain the count matrix.
+
+```{r, eval=T, echo=F, cache=F, warning=F, message=F}
+for (i in housekeeping_genes) {
+  gene_symbol <- i
+  gene_ids <- norm.counts[which(norm.counts$gene_symbol==i),'Gene']
+  curr_data <- norm.counts[which(norm.counts$gene_symbol==i),names(norm.counts)[names(norm.counts)%in%coldata$Sample]] # choose Ensembl gene with the most counts
+  curr_data <- curr_data[which.max(rowSums(curr_data)),]
+  gene_id <- gene_ids[which.max(rowSums(curr_data))]
+  curr_data <- data.frame(Sample=colnames(curr_data),Gene=rep(gene_id,ncol(curr_data)),gene_symbol=rep(gene_symbol,ncol(curr_data)),count=as.numeric(curr_data))
+  curr_data <- merge(curr_data,coldata[which(coldata$Sample%in%curr_data$Sample),c('Sample','Status')],by='Sample')
+  print(boxplot_func(df=curr_data))}
+```
+
+```{r session_info, eval=T, echo=F}
+pander(sessionInfo())
+```
+

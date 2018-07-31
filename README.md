@@ -40,6 +40,8 @@ Run **pipeline_scripts/rnaseq\_sra\_download.py** to download .fastq files from 
 
 The option *--pheno_info* refers to using user provided SRA ID for download which is included in the SRA_ID column in the provided phenotype file. If the phenotype file is not provided, use phenotype information from GEO. SRA_ID is retrieved from the field relation.1.
 
+The option *--fastqc* refers to running FastQC for downloaded .fastq files.
+
 **Output files:** 
 
 Fastq files downloaded from SRA are saved in the following directory.
@@ -81,7 +83,7 @@ The sample info file used in the following steps should be provided by users.
 
 If use data from GEO, most GEO phenotype data do not have index information. However, FastQC is able to detect them as "Overrepresented sequences". Users can tailor the 'Index' column based on FastQC results. We provide a file with most updated adapter and primer sequences for FastQC detection.
 
-An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
+An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC\_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
 
 ### Alignment, quantification and QC
 
@@ -101,7 +103,13 @@ The "--ref\_genome" option refers to using selected version of genome reference.
 
 The "--library\_type" option refers to PE (paired-end) or SE (single-end) library.
 
-The "--index\_type" option refers to index used in sample library preparation.
+The "--index\_type" option refers to index used in sample library preparation. The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt** are: truseq\_single\_index (TruSeq Single Indexes), illumina\_ud\_sys1 (Illumina UD indexes for NovaSeq, MiSeq, HiSeq 2000/2500), illumina\_ud\_sys2 (Illumina UD indexed for MiniSeq, NextSeq, HiSeq 3000/4000).
+
+**template_files/rnaseq_adapter_primer_sequences.txt** contains four columns (i.e. Type, Index, Description, Sequence). Sequences in the Index column is used to match those in Index column in sample info file. This column naming is rigid.
+
+The list is based on the following resources: [illumina adapter sequences](https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf)
+
+If users provide new sequences, add the new index type in the 1st column 'Type' and specify it in "--index\_type".
 
 The "--strand nonstrand" option refers to sequencing that captures both strands (nonstrand) or the 1st strand (reverse) or the 2nd strand (forward) of cDNA.
 
@@ -109,10 +117,10 @@ The "--strand nonstrand" option refers to sequencing that captures both strands 
 
 Various output files will be written for each sample in directories structured as:
 
-> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastqc <br>
-> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastqc <br>
-> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_fastqc <br>
-> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_fastqc <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed.fastq <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed.fastq <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R1_Trimmed\_fastqc.zip <br>
+> <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_R2_Trimmed\_fastqc.zip <br>
 > <i>path_start</i>/<i>sample_name</i>/<i>sample_name</i>_ReadCount <br>
 > <i>path_start</i>/<i>sample_name</i>/<i>aligner</i>_out <br>
 > <i>path_start</i>/<i>sample_name</i>/<i>quantification_tool</i>_out <br>
@@ -129,12 +137,12 @@ This script uses the many output files created in step 1), converts these sample
 
 The report and accompanying files are contained in:
 
-> <i>path_start</i>/<i>project_name</i>_Alignment_QC_Report/
+> <i>path_start</i>/<i>project_name</i>_Alignment_QC_Report_<i>aligner</i>/
 
 The RMD and corresponding HTML report files:
 
-> <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report/<i>project_name</i>_QC_RnaSeqReport.Rmd
-> <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report/<i>project_name</i>_QC_RnaSeqReport.html
+> <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report_<i>aligner</i>/<i>project_name</i>_QC_RnaSeqReport.Rmd
+> <i>path_start</i>/<i>project_name</i>_Alignment_QC\_Report_<i>aligner</i>/<i>project_name</i>_QC_RnaSeqReport.html
 
 ### Gene-based differential expression analysis - htseq-count/DESeq2
 
@@ -144,15 +152,20 @@ Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and creat
 
 > bsub < <i>project_name</i>_deseq2.lsf
 
-The "--sample_in" option specifies user provided phenotype file for DE analysis. The columns are the same as **example_files/sample_info_file.txt** but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
+The "--sample_in" option specifies user provided phenotype file for DE analysis. The columns are the same as **example\_files/sample\_info\_file.txt** but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
 
 The "--comp" option specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
 
+Find the example comp file here **example\_files/SRP033351\_comp\_file.txt**.
+
 **Output files:**
 
-The DE results are contained in:
+The pairwise DE results and normalized counts for all samples and samples from pairwise comparisons are contained in:
 
 > <i>project_name</i>/<i>project_name</i>_deseq2_out/
+> <i>project_name</i>_<i>Condition1</i>\_vs\_<i>Condition2</i>\_full_DESeq2_results.txt
+> <i>project_name</i>_<i>Condition1</i>\_vs\_<i>Condition2</i>\_counts_normalized_by_DESeq2.txt
+> <i>project_name</i>_counts_normalized_by_DESeq2.txt
 
 The RMD and corresponding HTML report file:
 

@@ -83,7 +83,7 @@ The sample info file used in the following steps should be provided by users.
 
 If use data from GEO, most GEO phenotype data do not have index information. However, FastQC is able to detect them as "Overrepresented sequences". Users can tailor the 'Index' column based on FastQC results. We provide a file with most updated adapter and primer sequences for FastQC detection.
 
-An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
+An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC\_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
 
 ### Alignment, quantification and QC
 
@@ -105,7 +105,7 @@ The "--library\_type" option refers to PE (paired-end) or SE (single-end) librar
 
 The "--index\_type" option refers to index used in sample library preparation. The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt** are: truseq\_single\_index (TruSeq Single Indexes), illumina\_ud\_sys1 (Illumina UD indexes for NovaSeq, MiSeq, HiSeq 2000/2500), illumina\_ud\_sys2 (Illumina UD indexed for MiniSeq, NextSeq, HiSeq 3000/4000). 
 **template_files/rnaseq_adapter_primer_sequences.txt** contains four columns (i.e. Type, Index, Description, Sequence). Sequences in the Index column is used to match those in Index column in sample info file. This column naming is rigid.
-The list is based on the following resources: (illumina adapter sequences)[https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf@]
+The list is based on the following resources: [illumina adapter sequences](https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf)
 If users provide new sequences, add the new index type in the 1st column 'Type' and specify it in "--index\_type".
 
 The "--strand nonstrand" option refers to sequencing that captures both strands (nonstrand) or the 1st strand (reverse) or the 2nd strand (forward) of cDNA.

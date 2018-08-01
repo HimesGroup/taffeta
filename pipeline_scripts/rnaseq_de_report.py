@@ -100,6 +100,8 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     deseq2_version=userdef.deseq2_version
     # import author information
     author=userdef.author
+    # import favorite genes
+    fav_gene=userdef.fav_gene
 
     # title
     outp.write("---\ntitle: 'Differential Expression Results for "+project_name+"'\n")
@@ -144,10 +146,15 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("path.start='"+path_start+"'\n")
     if ref_genome=="hg38":
         outp.write("housekeeping_genes <- c('ACTB','GAPDH','B2M','RPL19','GABARAP')\n")
+        outp.write("house_list=list() # create an empty list to save results of house-keeping genes\n")
     elif ref_genome=="mm38" or ref_genome=="mm10" or ref_genome=="rn6":
 	outp.write("housekeeping_genes <- c('Actb','Gapdh','B2m','Rpl19','Gabarap')\n") #also had added 'Hprt','Gnb2l1','Rpl32' for mouse_macrophages
+        outp.write("house_list=list() # create an empty list to save results of house-keeping genes\n")
     else:
 	print("Housekeeping genes only available for human, mouse and rat.")
+
+    # user-defined favorite genes
+    outp.write("fav_genes <- c('"+"', '".join(fav_gene)+"')\n")
 
     #Read in phenofile; phenofile should contain columns"Sample" and "Status"; if desired, it can have other columns (e.g. "Individual" or "Cell_Line", etc.) & design can be modified accordingly
     outp.write("coldata <- read.table('"+sample_info_file+"', sep='\\t', header=TRUE)\n")
@@ -276,18 +283,27 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
     #Housekeeping gene expression barplots - once per report
     outp.write("## Housekeeping genes\n")
-    outp.write("Counts have been normalized by estimated size factors using DESeq2 function counts to obtain the count matrix.\n")
+    outp.write("Counts have been normalized by estimated size factors using DESeq2. Obtain the count matrix using function DESeq2::counts.\n\n")
+    outp.write("The table shows p-values of house-keeping genes for each comparison. Generally, house-keeping gene expressions do not change significantly in different conditions.\n")
     outp.write("\n")
     outp.write("```{r, eval=T, echo=F, cache=F, warning=F, message=F}\n")
-    outp.write("for (i in housekeeping_genes) {\n")
-    outp.write("  gene_symbol <- i\n")
-    outp.write("  gene_ids <- norm.counts[which(norm.counts$gene_symbol==i),'Gene']\n")
-    outp.write("  curr_data <- norm.counts[which(norm.counts$gene_symbol==i),names(norm.counts)[names(norm.counts)%in%coldata$Sample]] # choose Ensembl gene with the most counts\n")
-    outp.write("  curr_data <- curr_data[which.max(rowSums(curr_data)),]\n")
-    outp.write("  gene_id <- gene_ids[which.max(rowSums(curr_data))]\n")
-    outp.write("  curr_data <- data.frame(Sample=colnames(curr_data),Gene=rep(gene_id,ncol(curr_data)),gene_symbol=rep(gene_symbol,ncol(curr_data)),count=as.numeric(curr_data))\n")
-    outp.write("  curr_data <- merge(curr_data,coldata[which(coldata$Sample%in%curr_data$Sample),c('Sample','Status')],by='Sample')\n")
-    outp.write("  print(boxplot_func(df=curr_data))")
+    outp.write("if (exists(\"housekeeping_genes\")) {\n")
+    outp.write("  sel_ids=as.character() # save selected Ensembl ID for house-keeping genes\n")
+    outp.write("  for (i in housekeeping_genes) {\n")
+    outp.write("    gene_symbol <- i\n")
+    outp.write("    gene_ids <- norm.counts[which(norm.counts$gene_symbol==i),'Gene']\n")
+    outp.write("    curr_data <- norm.counts[which(norm.counts$gene_symbol==i),names(norm.counts)[names(norm.counts)%in%coldata$Sample]]\n")
+    outp.write("    curr_data <- curr_data[which.max(rowSums(curr_data)),]\n")
+    outp.write("    gene_id <- gene_ids[which.max(rowSums(curr_data))] # choose Ensembl gene with the most counts\n")
+    outp.write("    sel_ids <- c(sel_ids, gene_id)\n")
+    outp.write("    curr_data <- data.frame(Sample=colnames(curr_data),Gene=rep(gene_id,ncol(curr_data)),gene_symbol=rep(gene_symbol,ncol(curr_data)),count=as.numeric(curr_data))\n")
+    outp.write("    curr_data <- merge(curr_data,coldata[which(coldata$Sample%in%curr_data$Sample),c('Sample','Status')],by='Sample')\n")
+    outp.write("    print(boxplot_func(df=curr_data))")
+    outp.write("  }\n")
+    outp.write("  dat <- do.call(rbind,lapply(1:length(house_list),function(x){dat=house_list[[x]];dat$Comparison=names(house_list)[x];dat[which(dat$Gene%in%sel_ids),c('gene_symbol','pvalue','Comparison')]})) # obtain all p-value for house-keeping genes\n")
+    outp.write("  dat[,c('pvalue')] <- formatC(dat[,c('pvalue')], format = \"e\", digits = 2)\n")
+    outp.write("  dat <- dat %>% spread(gene_symbol, pvalue)\n")
+    outp.write("  DT::datatable(dat, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = \"_all\"))))\n")    
     outp.write("}\n```\n\n")
 
     outp.write("```{r session_info, eval=T, echo=F}\n")
@@ -328,8 +344,10 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 	outp.write("kallisto_output <- data.frame()\n")
 	if ref_genome=="hg38":
 		outp.write("housekeeping_genes <- c('ACTB','GAPDH','B2M','RPL19','GABARAP')\n")
+                outp.write("house_list=list() # create an empty list to save results of house-keeping genes\n")
 	elif ref_genome=="mm38" or ref_genome=="mm10" or ref_genome=="rn6":
 		outp.write("housekeeping_genes <- c('Actb','Gapdh','B2m','Rpl19','Gabarap')\n")
+                outp.write("house_list=list() # create an empty list to save results of house-keeping genes\n")
 	else:
 		print("Housekeeping genes only available for hg38, mm38, rn6.")
 

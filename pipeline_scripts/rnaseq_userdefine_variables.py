@@ -66,8 +66,14 @@ star_version="2.5.2b"
 samtools_version="1.8"
 bamtools_version="2.3.0"
 picard_version="1.96"
-htseq_version="0.6.0"
+htseq_version="0.6.1"
 deseq2_version="1.18.1"
+
+###
+# Genes of interest
+###
+
+fav_gene=["CRISPLD2","ORMDL3"]
 
 ###
 # Other information

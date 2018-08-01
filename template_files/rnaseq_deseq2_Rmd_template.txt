@@ -49,6 +49,13 @@ colour_status_list <- unlist(lapply(coldata_curr$Status,function(x){colour_statu
 colours=c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F") # first 8 colour names derived from Dark2, and last 12 names from Set3
 ```
 
+```{r, eval=T, echo=F}
+if (exists("housekeeping_genes")) {
+  comp=paste0(case,"_vs_",ctrl)
+  # save padj for house-keeping genes if defined
+  house_list[[comp]]=res_df[which(res_df$gene_symbol%in%housekeeping_genes),]
+}
+```
 
 ### Top 50 genes by p-value
 ```{r, eval=T, echo=F}
@@ -332,27 +339,32 @@ for (i in 1:topnum) {
 
 ### Favorite genes
 
-Boxplots for favorite genes
+Boxplots for user-defined favorite genes if they exist, and show DE results
 
 ```{r, eval=T, echo=F, cache=FALSE, warning=F, message=F, fig.height=4, fig.width=4}
-fav_genes <- c('ORMDL3', 'CRISPLD2', 'SOCS1', 'SOCS2', 'SOCS3', 'SOCS4', 'SOCS5', 'SOCS6','SOCS7', 'CEBPD', 'CISH', 'GUCY1A3', 'GUCY1B3', 'CCL5', 'CXCL10', 'CX3CL1', 'CCL13','IL6', 'IL8', 'HHIP', 'SPATS2L', 'CCR2', 'CCR4', 'SST', 'SSTR1', 'CCK','CCKAR','PDE8')
-for (i in fav_genes) {
-  gene_symbol=i
-  gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values
-  curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
-  print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+fav_genes=fav_genes[fav_genes%in%as.character(res_df$gene_symbol)] # select favorite genes within the current results
+if (length(fav_genes)==0) {cat("None of user-defined genes are found in current DE results.\n")} else {
+  for (i in fav_genes) {
+    gene_symbol=i
+    gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values
+    curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
+    print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
+  }
 }
 ```
 
-Differential expression results for favorite genes
-
 ```{r, eval=T, echo=F, message=F}
-fav_tb=data.frame()
-for (i in fav_genes) {
-  gene_symbol=i
-  curr_data <- res_df[which(res_df$gene_symbol==gene_symbol),][1,] # choose Ensembl gene with smallest p-values
-  fav_tb=rbind(fav_tb, curr_data)
+if (length(fav_genes)>0) {
+  fav_tb=data.frame()
+  for (i in fav_genes) {
+    gene_symbol=i
+    curr_data <- res_df[which(res_df$gene_symbol==gene_symbol),][1,] # choose Ensembl gene with smallest p-values
+    fav_tb=rbind(fav_tb, curr_data)
+  }
+  fav_tb[,c("baseMean", "log2FoldChange", "lfcSE", "stat")] <- round(fav_tb[,c("baseMean", "log2FoldChange", "lfcSE", "stat")], 2)   
+  fav_tb[,c("pvalue")] <- formatC(fav_tb[,c("pvalue")], format = "e", digits = 2) # do this in 2 steps, else get "Error in is.finite(x) : default method not implemented for type 'list'"
+  fav_tb[,c("padj")] <- formatC(fav_tb[,c("padj")], format = "e", digits = 2) 
+  DT::datatable(fav_tb, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
 }
-DT::datatable(fav_tb, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
 ```
 

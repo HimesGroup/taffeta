@@ -129,6 +129,8 @@ Various output files will be written for each sample in directories structured a
 
 2) Run **pipeline_scripts/rnaseq\_align\_and\_qc\_report.py** to create an HTML report of QC and alignment summary statistics for RNA-seq samples. Read in **template\_files/rnaseq\_align\_and\_qc\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
+If ERCC_Mix column exists in phenotype file, it will report the concordance between ERCC spike-in transcript-level read counts and its molecular concentrations. Read in ERCC molecular concentration file **template_files/ERCC_SpikeIn_Controls_Analysis.txt** from specified directory <i>template_dir</i> which can be downloaded [here](https://assets.thermofisher.com/TFS-Assets/LSG/manuals/cms_095046.txt).
+
 > python rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
 
 > bsub < <i>project_name</i>_qc.lsf

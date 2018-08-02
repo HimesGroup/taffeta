@@ -246,7 +246,7 @@ def trim_and_fastqc(curr_sample, curr_index, out_dir, R1, R2, R1_trim, R2_trim):
 
     #Get total number of reads, unique reads, % unique reads from trimmed file(s).
     if ".gz" in R1_trim: # for gzip .fastq file
-    cmd=cmd+"zcat "+R1_trim+" | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' > "+out_dir+curr_sample+"_ReadCount\n"
+        cmd=cmd+"zcat "+R1_trim+" | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' > "+out_dir+curr_sample+"_ReadCount\n"
     else:
         cmd=cmd+"cat "+R1_trim+" | awk '((NR-2)%4==0){read=$1;total++;count[read]++}END{for(read in count){if(count[read]==1){unique++}};print total,unique,unique*100/total}' > "+out_dir+curr_sample+"_ReadCount\n"
     if R2_trim!="":

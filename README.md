@@ -24,7 +24,7 @@ Generate LSF scripts in each step for HPC use.
 * **Differential expression (DE) analysis:** R packages DESeq2 and sleuth
 * **QC:** fastqc, trimmomatic, samtools, bamtools, picardtools.
 * **Spesis-specific genome reference files:** reference genome fasta, gtf, refFlat, and index files. As our example uses ERCC spike-ins, the reference files include ERCC mix transcripts. 
-* **Adapter and primer sequences**: a list of is provided. For fastqc, replace . For trimming we provide Ilumina TruSeq single index and Illumina unique dual (UD) index adpter and primer sequences. Users can tailor this file by adding sequences from other protocols.
+* **Adapter and primer sequences**: a list of is provided. For fastqc, replace . For trimming we provide adapter and primer sequences for the following types: Ilumina TruSeq single index, Illumina unique dual (UD) index adpter and PrepX. Users can tailor this file by adding sequences from other protocols.
 * **Pipeline scripts:** the Python scripts make use of various modules including subprocess, os, argparse, sys.
 * **R markdown scripts for summary reporot:** Require various R libraries such as DT, gplots, ggplot2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Note that the current RMD scripts require pandoc version 1.12.3 or higher to generate HTML report.
 
@@ -103,11 +103,21 @@ The "--ref\_genome" option refers to using selected version of genome reference.
 
 The "--library\_type" option refers to PE (paired-end) or SE (single-end) library.
 
-The "--index\_type" option refers to index used in sample library preparation. The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt** are: truseq\_single\_index (TruSeq Single Indexes), illumina\_ud\_sys1 (Illumina UD indexes for NovaSeq, MiSeq, HiSeq 2000/2500), illumina\_ud\_sys2 (Illumina UD indexed for MiniSeq, NextSeq, HiSeq 3000/4000).
+The "--index\_type" option refers to index used in sample library preparation.
+
+The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt** are:
+
+* truseq\_single\_index (TruSeq Single Indexes)
+* illumina\_ud\_sys1 (Illumina UD indexes for NovaSeq, MiSeq, HiSeq 2000/2500)
+* illumina\_ud\_sys2 (Illumina UD indexed for MiniSeq, NextSeq, HiSeq 3000/4000)
+* prepX (PrepX for Apollo 324 NGS Library Prep System)
 
 **template_files/rnaseq_adapter_primer_sequences.txt** contains four columns (i.e. Type, Index, Description, Sequence). Sequences in the Index column is used to match those in Index column in sample info file. This column naming is rigid.
 
-The list is based on the following resources: [illumina adapter sequences](https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf)
+The list is based on the following resources:
+
+* [Illumina adapter sequences](https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf)
+* [PrepX RNA-Seq Index Primers and Sequences](https://genome.med.harvard.edu/documents/illumina/IntegenX_Apollo324_mRNA_Seq_Protocol_10012012.pdf)
 
 If users provide new sequences, add the new index type in the 1st column 'Type' and specify it in "--index\_type".
 

@@ -116,7 +116,7 @@ The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt
 
 The list is based on the following resources:
 
-* [illumina adapter sequences](https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf)
+* [Illumina adapter sequences](https://support.illumina.com/content/dam/illumina-support/documents/documentation/chemistry_documentation/experiment-design/illumina-adapter-sequences-1000000002694-07.pdf)
 * [PrepX RNA-Seq Index Primers and Sequences](https://genome.med.harvard.edu/documents/illumina/IntegenX_Apollo324_mRNA_Seq_Protocol_10012012.pdf)
 
 If users provide new sequences, add the new index type in the 1st column 'Type' and specify it in "--index\_type".

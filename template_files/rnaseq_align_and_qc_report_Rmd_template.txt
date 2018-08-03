@@ -182,7 +182,9 @@ if (library.type %in% c("PE")) {
 		row.names(bamstats.summary) <- c(bamstats.data[c(2:4, 7:14), 1], "Total Reads")
 	} else {
 		bamstats.summary <- bamstats.data[c(2:4, 7:13), c(2:length(names(bamstats.data))), drop=FALSE]
-		total_reads_per_sample <- 2*unique.counts.data$R1_Raw_Reads
+		if (library.type%in%c("PE")) {
+			total_reads_per_sample <- 2*unique.counts.data$R1_Raw_Reads
+		} else {total_reads_per_sample <- unique.counts.data$R1_Raw_Reads}
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample-bamstats.summary[1, ] )
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample)
 		row.names(bamstats.summary) <- c(bamstats.data[c(2:4, 7:13), 1], "Unmapped Reads", "Total Reads")
@@ -195,6 +197,9 @@ if (library.type %in% c("PE")) {
 , 8:9), 1], "Total Reads")
 	} else {
 		bamstats.summary <- bamstats.data[c(2:4, 8), c(2:length(names(bamstats.data))), drop=FALSE]
+		if (library.type%in%c("PE")) {
+			total_reads_per_sample <- 2*unique.counts.data$R1_Raw_Reads
+		} else {total_reads_per_sample <- unique.counts.data$R1_Raw_Reads}
 		total_reads_per_sample <- 2*unique.counts.data$Raw_Reads
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample-bamstats.summary[1, ] )
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample)
@@ -601,10 +606,15 @@ if (exists("ercc.mixes")) {
 
 		# combine ambion concentration with read counts
 		dat = merge(ambion.sub, ercc.data[,c("Gene",curr.sample.name)],by.x="ERCC_ID",by.y="Gene" )
-		curr.res=erccplot_func(conc=dat[,"Concentration"],count=dat[,curr.sample.name],colname=curr.sample.name)
-		ercc.fit.table=rbind(ercc.fit.table,data.frame(Sample=sample.names[i],curr.res))
+		curr.count=dat[,curr.sample.name]
+		if (length(curr.count[which(curr.count>0)])>0) { # if not all ERCC counts equal zero, compute correlation
+		  curr.res=erccplot_func(conc=dat[,"Concentration"],count=dat[,curr.sample.name],colname=curr.sample.name)
+		  ercc.fit.table=rbind(ercc.fit.table,data.frame(Sample=sample.names[i],curr.res))
+		}
 	}
-	write.table(ercc.fit.table, file=paste(project_name,"_ercc_fit.txt",sep=""), row.names=F, quote=F, sep="\t")
+	if (exists("ercc.fit.table")) {
+		write.table(ercc.fit.table, file=paste(project_name,"_ercc_fit.txt",sep=""), row.names=F, quote=F, sep="\t")
+	} else {cat("All ERCC read counts equal zero\n")}
   }
 } else {
 	cat("No ERCC Spike-ins used.")
@@ -614,7 +624,7 @@ if (exists("ercc.mixes")) {
 
 ```{r, ercc_fit_tb, eval=T, echo=F, message=F, results='asis'}
 if (exists("ercc.mixes")) {
-  if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
+  if (exists("ercc.fit.table")) {
     try(HTML(print(xtable(ercc.fit.table, caption="ERCC Spike-in Dose Response Fit Details"), type="html", label="tab:nine", table.placement="tbp", caption.placement="top", floating=FALSE))) #added "try()" when doing pig_lung - else was getting thrown out of loop with 'Error: could not find function "HTML"'
     DT::datatable(ercc.fit.table)
   }

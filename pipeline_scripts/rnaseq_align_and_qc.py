@@ -284,11 +284,15 @@ def star_and_htseq(curr_sample, out_dir, R1_trim, R2_trim, star_index_dir, ERCC_
 
     # htseq quantification
     cmd=cmd+"mkdir "+out_dir+"htseq_out/\n"
-    if strand=="nonstrand": # non-strand-specific assay: capture coding transcriptome without strand information
-        cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=no - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
-    elif strand=="reverse": # strand-specific assay: sequence first strand (reverse)
-        cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=reverse - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
-    elif strand=="forward": # strand-specific assay: sequence second strand (forward)
+    if R2_trim!="": # paired-end
+        if strand=="nonstrand": # non-strand-specific assay: capture coding transcriptome without strand information
+            cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=no - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
+        elif strand=="reverse": # strand-specific assay: sequence first strand (reverse)
+            cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=reverse - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
+        elif strand=="forward": # strand-specific assay: sequence second strand (forward)
+            cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=yes - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
+
+    else:  # single-end htseq-count: For stranded=yes and single-end reads, the read has to be mapped to the same strand as the feature.
         cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=yes - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
 
     return cmd
@@ -310,13 +314,18 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     cmd=cmd+"samtools idxstats "+curr_sample+"_accepted_hits.sorted.bam > "+curr_sample+"_accepted_hits.sorted.stats\n"
     #Write out bamtools summary stats:
     cmd=cmd+"bamtools stats -in "+curr_sample+"_accepted_hits.sorted.bam > "+curr_sample+"_accepted_hits.sorted.bamstats\n"
+
     #Run CollectRnaSeqMetrics
-    if strand=="forward":
-        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
-    elif strand=="reverse":
-        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"	 
-    elif strand=="nonstrand":
-        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+    if library_type in ["PE"]: # paired-end
+        if strand=="forward":
+            cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+        elif strand=="reverse":
+            cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+        elif strand=="nonstrand":
+            cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+
+    else:
+         cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
 
     #Get number of reads spanning junctions by getting "N"s in CIGAR field of bam file. Create cigarN.script
     if not os.path.isfile(out_dir+"cigarN.script"):

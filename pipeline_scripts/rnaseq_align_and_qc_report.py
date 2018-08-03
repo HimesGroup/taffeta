@@ -413,11 +413,18 @@ def make_htseq_count_matrix(path_out, project_name, sample_names, sample_paths, 
 
     # extract rRNA (hg38 only)
     if ref_genome=="hg38":
-        rrna_list=rrna_extract()
+        # obtain hg38 rRNA reference genome
+        import rnaseq_userdefine_variables as userdef # read in user-defined variable python script: import hg38_rRNA_gtf
+        rrna_gtf=userdef.hg38_rRNA_gtf
+
+        rrna_list=rrna_extract(rrna_gtf)
         rrna_out=map(lambda x:'\t'.join(x),(filter(lambda x:x[0] in rrna_list, a)))
 
-    # filter out ERCC and rRNA from gene list
-    gene_out=filter(lambda x:x not in ercc_out+rrna_out, a_str)
+        # filter out ERCC and rRNA from gene list
+        gene_out=filter(lambda x:x not in ercc_out+rrna_out, a_str)
+
+    else:
+        gene_out=filter(lambda x:x not in ercc_out, a_str)
 
     # gene output file
     outp1 = open(path_out+project_name+"_htseq_gene.txt", "w")
@@ -447,15 +454,11 @@ def make_htseq_count_matrix(path_out, project_name, sample_names, sample_paths, 
     outp4.close()
     print "Created htseq no_feature count statistics file "+path_out+project_name+"_htseq_nofeature.txt"
 
-def rrna_extract():
+def rrna_extract(rrna_gtf):
     """
-    Extract hg38 rRNA gene_id from gtf
+    Extract rRNA gene_id from gtf
     Return as a list
     """
-
-    # obtain rRNA reference genome
-    import rnaseq_userdefine_variables as userdef # read in user-defined variable python script: import hg38_rRNA_gtf
-    rrna_gtf=userdef.hg38_rRNA_gtf
 
     rrna=[]
     with open(rrna_gtf,'r') as f:
@@ -895,10 +898,8 @@ def make_rmd_var(path_start, project_name, ref_genome, library_type, aligner, sa
     rmd=rmd+"sample_info_file='"+sample_info_file+"'\n"
     if aligner=="star":
         rmd=rmd+"count_data_file='"+path_start+project_name+"_htseq_gene.txt'\n"
-    rmd=rmd+"```\n\n"
 
     # define files
-    rmd=rmd+"```{r files, eval=T, echo=F}\n"
     if ercc_mixes is not None:
         rmd=rmd+"ambion_file <- '"+template_dir+"ERCC_SpikeIn_Controls_Analysis.txt'\n"
         if aligner=="tophat":
@@ -1031,6 +1032,9 @@ def main(project_name, sample_info_file, path_start, aligner, ref_genome, librar
             print "ERCC spike-in used. Cannot find ERCC concentration file "+template_dir+"ERCC_SpikeIn_Controls_Analysis.txt"
             sys.exit()
 
+    else:
+        ercc_mixes=None
+
     # create stats files used for QC report
     make_project_data_files(project_name, sample_names, sample_paths, new_dir, ref_genome, library_type, aligner)
 
@@ -1057,4 +1061,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit()
 
-    main(args.project_name, args.samples_in, args.path_start, args.aligner, args.ref_genome, args.library_type, args.template_dir)	
+    main(args.project_name, args.samples_in, args.path_start, args.aligner, args.ref_genome, args.library_type, args.template_dir)

@@ -572,7 +572,8 @@ erccplot_func=function(conc,count,colname){
 ```
 
 ```{r, ercc_fit, eval=T, echo=F, message=F, results="asis", fig.height=4, fig.width=4} 
-if (exists("ercc.mixes") & ("1" %in% ercc.mixes | "2" %in% ercc.mixes)) {
+if (exists("ercc.mixes")) {
+  if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
 	sample.names <- sample.names.orig
 	if (!file.exists(ambion_file)) {stop("ERCC concentration file", ambion_file, " does not exist")}
 
@@ -604,6 +605,7 @@ if (exists("ercc.mixes") & ("1" %in% ercc.mixes | "2" %in% ercc.mixes)) {
 		ercc.fit.table=rbind(ercc.fit.table,data.frame(Sample=sample.names[i],curr.res))
 	}
 	write.table(ercc.fit.table, file=paste(project_name,"_ercc_fit.txt",sep=""), row.names=F, quote=F, sep="\t")
+  }
 } else {
 	cat("No ERCC Spike-ins used.")
 }
@@ -611,9 +613,11 @@ if (exists("ercc.mixes") & ("1" %in% ercc.mixes | "2" %in% ercc.mixes)) {
 
 
 ```{r, ercc_fit_tb, eval=T, echo=F, message=F, results='asis'}
-if (exists("ercc.mixes") & ("1" %in% ercc.mixes | "2" %in% ercc.mixes)) {
-	try(HTML(print(xtable(ercc.fit.table, caption="ERCC Spike-in Dose Response Fit Details"), type="html", label="tab:nine", table.placement="tbp", caption.placement="top", floating=FALSE))) #added "try()" when doing pig_lung - else was getting thrown out of loop with 'Error: could not find function "HTML"'
-	DT::datatable(ercc.fit.table)
+if (exists("ercc.mixes")) {
+  if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
+    try(HTML(print(xtable(ercc.fit.table, caption="ERCC Spike-in Dose Response Fit Details"), type="html", label="tab:nine", table.placement="tbp", caption.placement="top", floating=FALSE))) #added "try()" when doing pig_lung - else was getting thrown out of loop with 'Error: could not find function "HTML"'
+    DT::datatable(ercc.fit.table)
+  }
 }
 ```
 

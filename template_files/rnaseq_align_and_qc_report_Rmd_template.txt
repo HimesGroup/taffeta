@@ -182,9 +182,7 @@ if (library.type %in% c("PE")) {
 		row.names(bamstats.summary) <- c(bamstats.data[c(2:4, 7:14), 1], "Total Reads")
 	} else {
 		bamstats.summary <- bamstats.data[c(2:4, 7:13), c(2:length(names(bamstats.data))), drop=FALSE]
-		if (library.type%in%c("PE")) {
-			total_reads_per_sample <- 2*unique.counts.data$R1_Raw_Reads
-		} else {total_reads_per_sample <- unique.counts.data$R1_Raw_Reads}
+		total_reads_per_sample <- 2*unique.counts.data$R1_Raw_Reads
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample-bamstats.summary[1, ] )
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample)
 		row.names(bamstats.summary) <- c(bamstats.data[c(2:4, 7:13), 1], "Unmapped Reads", "Total Reads")
@@ -197,10 +195,7 @@ if (library.type %in% c("PE")) {
 , 8:9), 1], "Total Reads")
 	} else {
 		bamstats.summary <- bamstats.data[c(2:4, 8), c(2:length(names(bamstats.data))), drop=FALSE]
-		if (library.type%in%c("PE")) {
-			total_reads_per_sample <- 2*unique.counts.data$R1_Raw_Reads
-		} else {total_reads_per_sample <- unique.counts.data$R1_Raw_Reads}
-		total_reads_per_sample <- 2*unique.counts.data$Raw_Reads
+		total_reads_per_sample <- unique.counts.data$Raw_Reads
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample-bamstats.summary[1, ] )
 		bamstats.summary <- rbind(bamstats.summary, total_reads_per_sample)
 		row.names(bamstats.summary) <- c(bamstats.data[c(2:4, 8), 1], "Unmapped Reads", "Total Reads")

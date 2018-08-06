@@ -214,7 +214,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column called 'Row.names'\n")
     outp.write("```\n\n")
     outp.write("```{r normcount_save, eval=T, echo=F}\n")
-    outp.write("write.table(norm.counts, paste0(project_name,'_counts_normalized_by_DESeq2.txt'), quote=FALSE, row.names=FALSE)\n")
+    outp.write("write.table(norm.counts, paste0(project_name,'_counts_normalized_by_DESeq2.txt'), sep='\\t', quote=F, row.names=F, col.names=T)\n")
     outp.write("```\n\n")
 
     #create and paste the portion of the report that is unique to each comparison

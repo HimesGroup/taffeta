@@ -253,7 +253,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
         outp.write("coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]\n")
         outp.write("coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)\n")
-        outp.write("DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box\n")
+        outp.write("DT::datatable(coldata_curr, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box\n")
         outp.write("rownames(coldata_curr) <- coldata_curr$Sample\n")
         outp.write("coldata_curr$Sample <- NULL\n")
         outp.write("```\n\n")

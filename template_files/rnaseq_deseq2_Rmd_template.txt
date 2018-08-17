@@ -5,7 +5,7 @@ dds <- DESeq(ddsFullCountTable)
 dds_count <- counts(dds, normalize=T)
 
 # output results
-res <- results(dds)
+res <- results(dds, cooksCutoff=FALSE, independentFiltering=FALSE)
 res$gene_id <- row.names(res) 
   
 #rlog transformations - used later in heatmaps and PCA plot

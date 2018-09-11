@@ -192,7 +192,8 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     else:
 	print("This code can only append official gene symbols for hg38, mm38, rn6.")
 
-    outp.write("if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}\n\n")
+    outp.write("if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}\n")
+    outp.write("if (is_ensg) {countdata$gene_symbol[which(countdata$gene_symbol=='')] <- NA} # assign NA to genes without gene_symbol\n")
     outp.write("```\n")
 
     ###

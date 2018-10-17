@@ -516,7 +516,7 @@ if __name__ == "__main__":
             "(options: deseq2, sleuth)")
     parser.add_argument("--ref_genome", default="hg38", type=str, help="Specify reference genome (options: hg38, mm38, mm10, rn6)")
     parser.add_argument("--path_start", default="./", type=str, help="Directory path to where project directory created by rnaseq_de.py is located (default=./)")
-    parser.add_argument("--template_dir", default="./", type=str, help="directory to put template RMD file rnaseq_sleuth_Rmd_template.txt for QC report")
+    parser.add_argument("--template_dir", default="./", type=str, help="directory to put template RMD file rnaseq_deseq2_Rmd_template.txt or rnaseq_sleuth_Rmd_template.txt for summary report")
 
     args = parser.parse_args()
 

@@ -32,65 +32,6 @@ def get_sample_info(fin):
 
     return d
 
-def get_genome_ref_files(genome):
-    """
-    Location of all reference files needed for a given genome.
-    The ERCC gtf files were appended separately to each species own gtf file
-    Current choice: "hg38"
-    """
-
-    import rnaseq_userdefine_variables as userdef # read in reference file variables: improt reference genome files
-
-    if genome == "hg38":
-	fa = userdef.hg38_fa
-	gtf = userdef.hg38_gtf
-	ref = userdef.hg38_ref
-	ERCC_gtf = userdef.hg38_ERCC_gtf
-	star_index_dir = userdef.hg38_star_index_dir
-
-    elif genome == "hg19":
-	fa = userdef.hg19_fa
-	gtf = userdef.hg19_gtf
-	ref = userdef.hg19_ref
-	ERCC_gtf = userdef.hg19_ERCC_gtf
-	star_index_dir = userdef.hg19_star_index_dir
-
-    elif genome == "mm38":
-	fa = userdef.mm38_fa
-	gtf = userdef.mm38_gtf
-	ref = userdef.mm38_ref
-	ERCC_gtf = userdef.mm38_ERCC_gtf
-	star_index_dir = userdef.mm38_star_index_dir
-
-    elif genome == "mm10":
-	fa = userdef.mm10_fa
-	gtf = userdef.mm10_gtf
-	ref = userdef.mm10_ref
-	ERCC_gtf = userdef.mm10_ERCC_gtf
-	star_index_dir = userdef.mm10_star_index_dir
-
-    elif genome == "rn6":
-	fa = userdef.rn6_fa
-	gtf = userdef.rn6_gtf
-	ref = userdef.rn6_ref
-	ERCC_gtf = userdef.rn6_ERCC_gtf
-	star_index_dir = userdef.rn6_star_index_dir
-
-    elif genome == "susScr3":
-	fa = userdef.susScr3_fa
-	gtf = userdef.susScr3_gtf
-	ref = userdef.susScr3_ref
-	ERCC_gtf = userdef.susScr3_ERCC_gtf
-	star_index_dir = userdef.susScr3_star_index_dir
-
-    else:
-	print 'Unknown genome selected: ', genome
-	sys.exit()
-
-    # check if reference files exist
-    map(lambda x:check_exist, [fa, gtf, ref, ERCC_gtf, star_index_dir])
-
-    return(fa, gtf, ref, ERCC_gtf, star_index_dir)
 
 ###
 # Read in and process RnaSeqMetrics files
@@ -254,6 +195,7 @@ def read_samtools_stats(fin, ref_genome):
 		    curr_line = x.split('\t')[:-1]
 		    curr_line[0] = curr_line[0]
 		    rna_out.append( curr_line )
+                rrna=NA
 	    if ref_genome == "susScr3":
 		if ("chrM" in x) or ("chrUn_gl000220" in x):
 		    rrna += int(x.split('\t')[2])
@@ -315,6 +257,7 @@ def make_samidxstat_matrix(path_out, project_name, sample_names, sample_paths, r
     outp1 = open(path_out+project_name+"_counts.txt", "w")
     outp1.write("\t".join(name1)+"\n")
     outp1.write("\n".join(map("\t".join, c)))
+    outp1.write("\n")
     outp1.close()
     print "Created samtools idx stat matrix file "+path_out+project_name+"_counts.txt"
 
@@ -632,6 +575,7 @@ def make_bamstats_matrix(path_out, project_name, sample_names, sample_paths, ali
 				f[j] = list(f[j])+[bam_stats[j][1]]
 	outp6.write("\t".join(name6)+"\n")
 	outp6.write("\n".join(map("\t".join, f)))
+        outp6.write("\n")
 	outp6.close()
 	print "Created file "+path_out+project_name+"_bamstats_counts.txt"
 
@@ -995,7 +939,6 @@ def main(project_name, sample_info_file, path_start, aligner, ref_genome, librar
     Creates html report describing summary and QC statistics for a set of aligned RNA-Seq samples associated with a project
     Report is based on multiple output files created by rnaseq_align_and_qc.py
     Such files are first reformatted into matrices that are easily loaded into R
-    Report is created using Sweave
     Input:
         project_name: name for report.
 	sample_info_file: tab delimited txt file with sample information as described in rnaseq_align_and_qc.py
@@ -1039,10 +982,6 @@ def main(project_name, sample_info_file, path_start, aligner, ref_genome, librar
     make_project_data_files(project_name, sample_names, sample_paths, new_dir, ref_genome, library_type, aligner)
 
     #Create the report
-    if not os.path.exists(template_dir+"rnaseq_align_and_qc_report_Rmd_template.txt"):
-        print "Cannot find rnaseq_align_and_qc_report_Rmd_template.txt"
-	sys.exit()
-
     make_rmd_html(sample_info_file, project_name, new_dir, sample_names, ercc_mixes, ref_genome, library_type, aligner, template_dir)
 
 

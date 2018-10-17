@@ -23,10 +23,13 @@ Generate LSF scripts in each step for HPC use.
 * **Alignment and quantification:** STAR, HTSeq, kallisto (older versions used bowtie2, tophat, cufflinks, cummerbund, whose options are no longer available).
 * **Differential expression (DE) analysis:** R packages DESeq2 and sleuth
 * **QC:** fastqc, trimmomatic, samtools, bamtools, picardtools.
-* **Spesis-specific genome reference files:** reference genome fasta, gtf, refFlat, and index files. As our example uses ERCC spike-ins, the reference files include ERCC mix transcripts. 
-* **Adapter and primer sequences**: a list of is provided. For fastqc, replace . For trimming we provide adapter and primer sequences for the following types: Ilumina TruSeq single index, Illumina unique dual (UD) index adpter and PrepX. Users can tailor this file by adding sequences from other protocols.
 * **Pipeline scripts:** the Python scripts make use of various modules including subprocess, os, argparse, sys.
-* **R markdown scripts for summary reporot:** Require various R libraries such as DT, gplots, ggplot2, rmarkdown, RColorBrewer, plyr, dplyr, lattice, ginefilter, biomaRt. Note that the current RMD scripts require pandoc version 1.12.3 or higher to generate HTML report.
+* **R markdown scripts for summary reporot:** Require various R libraries such as DT, gplots, ggplot2, rmarkdown, RColorBrewer, dplyr, ginefilter, biomaRt. Note that the current RMD scripts require pandoc version 1.12.3 or higher to generate HTML report.
+
+## Prerequisite Files
+
+* **Spesis-specific genome reference files:** reference genome fasta, gtf, refFlat, and index files. As our example uses ERCC spike-ins, the reference files include ERCC mix transcripts. 
+* **Adapter and primer sequences**: a list of adapter and primer sequences for different library preparation kits is provided. For fastqc, replace . For trimming we provide adapter and primer sequences for the following types: Ilumina TruSeq single index, Illumina unique dual (UD) index adpter and PrepX. Users can tailor this file by adding sequences from other protocols.
 
 ## Workflow
 
@@ -141,7 +144,7 @@ Various output files will be written for each sample in directories structured a
 
 If ERCC_Mix column exists in phenotype file, it will report the concordance between ERCC spike-in transcript-level read counts and its molecular concentrations. Read in ERCC molecular concentration file **template_files/ERCC_SpikeIn_Controls_Analysis.txt** from specified directory <i>template_dir</i> which can be downloaded [here](https://assets.thermofisher.com/TFS-Assets/LSG/manuals/cms_095046.txt).
 
-> python rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
+> rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
 
 > bsub < <i>project_name</i>_qc.lsf
 
@@ -160,7 +163,7 @@ The RMD and corresponding HTML report files:
 
 ### Gene-based differential expression analysis - htseq-count/DESeq2
 
-Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.  Read in **template\_files/rnaseq\_de\_report\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
+Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.  Read in **template\_files/rnaseq\_deseq2\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
 > rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i>
 
@@ -176,7 +179,7 @@ Find the example comp file here **example\_files/SRP033351\_comp\_file.txt**.
 
 The pairwise DE results and normalized counts for all samples and samples from pairwise comparisons are contained in:
 
-> <i>project_name</i>/<i>project_name</i>_deseq2_out/
+> <i>path_start</i>/<i>project_name</i>/<i>project_name</i>_deseq2_out/
 > <i>project_name</i>_<i>Condition1</i>\_vs\_<i>Condition2</i>\_full_DESeq2_results.txt
 > <i>project_name</i>_<i>Condition1</i>\_vs\_<i>Condition2</i>\_counts_normalized_by_DESeq2.txt
 > <i>project_name</i>_counts_normalized_by_DESeq2.txt

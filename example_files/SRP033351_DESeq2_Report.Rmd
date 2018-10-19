@@ -59,7 +59,7 @@ project_name="SRP033351"
 path.start='/home/mengykan/Projects/SRP033351/'
 housekeeping_genes <- c('ACTB','GAPDH','B2M','RPL19','GABARAP')
 house_list=list() # create an empty list to save results of house-keeping genes
-fav_genes <- c('CRISPLD2', 'ORMDL3')
+fav_genes <- c('CRISPLD2', 'DUSP1', 'FKBP5', 'KLF15', 'TSC22D3', 'PER1', 'GLUL', 'KLF9', 'CEBPD', 'GPRC5B', 'VCAM1', 'TSLP')
 coldata <- read.table('/home/mengykan/Projects/SRP033351/files/sample_info_file.txt_withQC.txt', sep='\t', header=TRUE)
 coldata <- subset(coldata, QC_Pass==1)
 countdata <- read.table(paste0(path.start, project_name,'_Alignment_QC_Report_star/', project_name, '_htseq_gene.txt'), sep='\t', header=TRUE, check.names=FALSE)
@@ -75,7 +75,7 @@ genes <- genes[!duplicated(genes$ensembl_gene_id),]
 if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}
 if (is_ensg) {countdata <- rename(countdata, c('hgnc_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}
 if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}
-
+if (is_ensg) {countdata$gene_symbol[which(countdata$gene_symbol=='')] <- NA} # assign NA to genes without gene_symbol
 ```
 
 
@@ -91,7 +91,7 @@ norm.counts <- norm.counts[,2:ncol(norm.counts)] #else end up with a column call
 ```
 
 ```{r normcount_save, eval=T, echo=F}
-write.table(norm.counts, paste0(project_name,'_counts_normalized_by_DESeq2.txt'), quote=FALSE, row.names=FALSE)
+write.table(norm.counts, paste0(project_name,'_counts_normalized_by_DESeq2.txt'), sep='\t', quote=F, row.names=F, col.names=T)
 ```
 
 ```{r, eval=T, echo=F}
@@ -114,7 +114,7 @@ for (i in unique(coldata_curr$Donor)) {
 }
 coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]
 coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)
-DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
+DT::datatable(coldata_curr, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
 rownames(coldata_curr) <- coldata_curr$Sample
 coldata_curr$Sample <- NULL
 ```
@@ -140,12 +140,12 @@ dds <- DESeq(ddsFullCountTable)
 dds_count <- counts(dds, normalize=T)
 
 # output results
-res <- results(dds)
+res <- results(dds, cooksCutoff=FALSE, independentFiltering=FALSE)
 res$gene_id <- row.names(res) 
   
-#rlog transformations - used later in heatmaps and PCA plot
+#rlog transformations - used later in sample correlation heatmap and PCA plot
 #in transformations, blind=FALSE means tells it to use the design info
-#using blind=TRUE just uses the data with no background info, which leads to PCA & heatmap clustering by rat more than by test conditions... whereas the design controls for this
+#using blind=TRUE just uses the data with no background info
 rld<- rlogTransformation(dds, blind=FALSE)
 
 # add gene symbols for DE results
@@ -273,7 +273,7 @@ plotMA(dds,ylim=c(-2,2))
 hist(res$padj, main=" ", xlab="adjusted p-value", breaks=50, col="deepskyblue4", xaxp  = c(0, 1, 20))
 ```
 
-### Dendrogram based on regularized log transformed data
+### Dendrogram based on sample distance of regularized log transformed data
 
 ```{r, echo=F}
 # The dist2 estimates distance between samples
@@ -314,14 +314,14 @@ distplot_func <- function(m) {
 distplot_func(m=dist2(assay(rld)))
 ```
 
-### Heatmaps for 30 genes with highest counts
+### Heatmaps for 30 significant genes
 
 Genes were ranked by adjusted p-values.
 
 ```{r, echo=F}
 # The heatmap_topgene_func function for top gene heatmap plots
 heatmap_topgene_func <- function(tb, topnum=30, main="") {
-  m=assay(rld)
+  m=log2(dds_count+1)
   top.mat <- m[rownames(m)%in%tb[1:topnum,"Gene"],] # plot heatmap for top genes
   array_name <- colnames(m)
   gene_symbol=tb[1:topnum,"gene_symbol"]
@@ -331,7 +331,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
     trace="none",
     margins=c(12,20), # (bottom margin, left margin)
     cexRow=1,cexCol=1,
-    keysize=1.5,key.title=NA,key.xlab="Regularized log transformation",key.ylab="Counts",
+    keysize=1.5,key.title=NA,key.xlab="Log2-normalized counts",key.ylab="Counts",
     main=main)
   legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.8) # use predifined colour_status
 }
@@ -341,7 +341,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
 heatmap_topgene_func(tb=res_df, topnum=30, main="")
 ```
 
-### Principal Component Analysis (PCA) Plot
+### Principal component analysis (PCA) Plot based on regularized log transformed data
 
 ```{r, echo=F, warning=F, message=F}
 # The pcastat_func function computes principal components
@@ -524,7 +524,7 @@ for (i in unique(coldata_curr$Donor)) {
 }
 coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]
 coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)
-DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
+DT::datatable(coldata_curr, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
 rownames(coldata_curr) <- coldata_curr$Sample
 coldata_curr$Sample <- NULL
 ```
@@ -550,12 +550,12 @@ dds <- DESeq(ddsFullCountTable)
 dds_count <- counts(dds, normalize=T)
 
 # output results
-res <- results(dds)
+res <- results(dds, cooksCutoff=FALSE, independentFiltering=FALSE)
 res$gene_id <- row.names(res) 
   
-#rlog transformations - used later in heatmaps and PCA plot
+#rlog transformations - used later in sample correlation heatmap and PCA plot
 #in transformations, blind=FALSE means tells it to use the design info
-#using blind=TRUE just uses the data with no background info, which leads to PCA & heatmap clustering by rat more than by test conditions... whereas the design controls for this
+#using blind=TRUE just uses the data with no background info
 rld<- rlogTransformation(dds, blind=FALSE)
 
 # add gene symbols for DE results
@@ -683,7 +683,7 @@ plotMA(dds,ylim=c(-2,2))
 hist(res$padj, main=" ", xlab="adjusted p-value", breaks=50, col="deepskyblue4", xaxp  = c(0, 1, 20))
 ```
 
-### Dendrogram based on regularized log transformed data
+### Dendrogram based on sample distance of regularized log transformed data
 
 ```{r, echo=F}
 # The dist2 estimates distance between samples
@@ -724,14 +724,14 @@ distplot_func <- function(m) {
 distplot_func(m=dist2(assay(rld)))
 ```
 
-### Heatmaps for 30 genes with highest counts
+### Heatmaps for 30 significant genes
 
 Genes were ranked by adjusted p-values.
 
 ```{r, echo=F}
 # The heatmap_topgene_func function for top gene heatmap plots
 heatmap_topgene_func <- function(tb, topnum=30, main="") {
-  m=assay(rld)
+  m=log2(dds_count+1)
   top.mat <- m[rownames(m)%in%tb[1:topnum,"Gene"],] # plot heatmap for top genes
   array_name <- colnames(m)
   gene_symbol=tb[1:topnum,"gene_symbol"]
@@ -741,7 +741,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
     trace="none",
     margins=c(12,20), # (bottom margin, left margin)
     cexRow=1,cexCol=1,
-    keysize=1.5,key.title=NA,key.xlab="Regularized log transformation",key.ylab="Counts",
+    keysize=1.5,key.title=NA,key.xlab="Log2-normalized counts",key.ylab="Counts",
     main=main)
   legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.8) # use predifined colour_status
 }
@@ -751,7 +751,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
 heatmap_topgene_func(tb=res_df, topnum=30, main="")
 ```
 
-### Principal Component Analysis (PCA) Plot
+### Principal component analysis (PCA) Plot based on regularized log transformed data
 
 ```{r, echo=F, warning=F, message=F}
 # The pcastat_func function computes principal components
@@ -934,7 +934,7 @@ for (i in unique(coldata_curr$Donor)) {
 }
 coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]
 coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)
-DT::datatable(coldata_curr, rownames=FALSE, options = list(dom = 't', columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
+DT::datatable(coldata_curr, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box
 rownames(coldata_curr) <- coldata_curr$Sample
 coldata_curr$Sample <- NULL
 ```
@@ -960,12 +960,12 @@ dds <- DESeq(ddsFullCountTable)
 dds_count <- counts(dds, normalize=T)
 
 # output results
-res <- results(dds)
+res <- results(dds, cooksCutoff=FALSE, independentFiltering=FALSE)
 res$gene_id <- row.names(res) 
   
-#rlog transformations - used later in heatmaps and PCA plot
+#rlog transformations - used later in sample correlation heatmap and PCA plot
 #in transformations, blind=FALSE means tells it to use the design info
-#using blind=TRUE just uses the data with no background info, which leads to PCA & heatmap clustering by rat more than by test conditions... whereas the design controls for this
+#using blind=TRUE just uses the data with no background info
 rld<- rlogTransformation(dds, blind=FALSE)
 
 # add gene symbols for DE results
@@ -1093,7 +1093,7 @@ plotMA(dds,ylim=c(-2,2))
 hist(res$padj, main=" ", xlab="adjusted p-value", breaks=50, col="deepskyblue4", xaxp  = c(0, 1, 20))
 ```
 
-### Dendrogram based on regularized log transformed data
+### Dendrogram based on sample distance of regularized log transformed data
 
 ```{r, echo=F}
 # The dist2 estimates distance between samples
@@ -1134,14 +1134,14 @@ distplot_func <- function(m) {
 distplot_func(m=dist2(assay(rld)))
 ```
 
-### Heatmaps for 30 genes with highest counts
+### Heatmaps for 30 significant genes
 
 Genes were ranked by adjusted p-values.
 
 ```{r, echo=F}
 # The heatmap_topgene_func function for top gene heatmap plots
 heatmap_topgene_func <- function(tb, topnum=30, main="") {
-  m=assay(rld)
+  m=log2(dds_count+1)
   top.mat <- m[rownames(m)%in%tb[1:topnum,"Gene"],] # plot heatmap for top genes
   array_name <- colnames(m)
   gene_symbol=tb[1:topnum,"gene_symbol"]
@@ -1151,7 +1151,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
     trace="none",
     margins=c(12,20), # (bottom margin, left margin)
     cexRow=1,cexCol=1,
-    keysize=1.5,key.title=NA,key.xlab="Regularized log transformation",key.ylab="Counts",
+    keysize=1.5,key.title=NA,key.xlab="Log2-normalized counts",key.ylab="Counts",
     main=main)
   legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.8) # use predifined colour_status
 }
@@ -1161,7 +1161,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
 heatmap_topgene_func(tb=res_df, topnum=30, main="")
 ```
 
-### Principal Component Analysis (PCA) Plot
+### Principal component analysis (PCA) Plot based on regularized log transformed data
 
 ```{r, echo=F, warning=F, message=F}
 # The pcastat_func function computes principal components

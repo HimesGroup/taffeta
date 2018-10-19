@@ -8,9 +8,9 @@ dds_count <- counts(dds, normalize=T)
 res <- results(dds, cooksCutoff=FALSE, independentFiltering=FALSE)
 res$gene_id <- row.names(res) 
   
-#rlog transformations - used later in heatmaps and PCA plot
+#rlog transformations - used later in sample correlation heatmap and PCA plot
 #in transformations, blind=FALSE means tells it to use the design info
-#using blind=TRUE just uses the data with no background info, which leads to PCA & heatmap clustering by rat more than by test conditions... whereas the design controls for this
+#using blind=TRUE just uses the data with no background info
 rld<- rlogTransformation(dds, blind=FALSE)
 
 # add gene symbols for DE results
@@ -138,7 +138,7 @@ plotMA(dds,ylim=c(-2,2))
 hist(res$padj, main=" ", xlab="adjusted p-value", breaks=50, col="deepskyblue4", xaxp  = c(0, 1, 20))
 ```
 
-### Dendrogram based on regularized log transformed data
+### Dendrogram based on sample distance of regularized log transformed data
 
 ```{r, echo=F}
 # The dist2 estimates distance between samples
@@ -179,14 +179,14 @@ distplot_func <- function(m) {
 distplot_func(m=dist2(assay(rld)))
 ```
 
-### Heatmaps for 30 genes with highest counts
+### Heatmaps for 30 significant genes
 
 Genes were ranked by adjusted p-values.
 
 ```{r, echo=F}
 # The heatmap_topgene_func function for top gene heatmap plots
 heatmap_topgene_func <- function(tb, topnum=30, main="") {
-  m=assay(rld)
+  m=log2(dds_count+1)
   top.mat <- m[rownames(m)%in%tb[1:topnum,"Gene"],] # plot heatmap for top genes
   array_name <- colnames(m)
   gene_symbol=tb[1:topnum,"gene_symbol"]
@@ -196,7 +196,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
     trace="none",
     margins=c(12,20), # (bottom margin, left margin)
     cexRow=1,cexCol=1,
-    keysize=1.5,key.title=NA,key.xlab="Regularized log transformation",key.ylab="Counts",
+    keysize=1.5,key.title=NA,key.xlab="Log2-normalized counts",key.ylab="Counts",
     main=main)
   legend("bottomleft",legend=names(colour_status),fill=colour_status,cex=0.8) # use predifined colour_status
 }
@@ -206,7 +206,7 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
 heatmap_topgene_func(tb=res_df, topnum=30, main="")
 ```
 
-### Principal Component Analysis (PCA) Plot
+### Principal component analysis (PCA) Plot based on regularized log transformed data
 
 ```{r, echo=F, warning=F, message=F}
 # The pcastat_func function computes principal components

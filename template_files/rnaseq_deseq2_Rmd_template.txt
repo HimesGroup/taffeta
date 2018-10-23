@@ -179,7 +179,7 @@ distplot_func <- function(m) {
 distplot_func(m=dist2(assay(rld)))
 ```
 
-### Heatmaps for 30 significant genes
+### Heatmaps for top 30 significant genes
 
 Genes were ranked by adjusted p-values.
 

@@ -6,15 +6,22 @@ import os
 import sys
 import subprocess
 
-def make_rmd_html(rmd_template, geo_id, project_name, path_start, out_dir, pheno_info, rmd_file):
+import rnaseq_userdefine_variables as userdef # read in user-defined variable python script
+# import author information
+author=userdef.author
+# import HPC parameters
+memory=userdef.memory
+queue=userdef.queue
+
+def make_rmd_html(rmd_template, geo_id, sra_id, project_name, path_start, out_dir, pheno_info, rmd_file):
     """
     Creates Rmd report. The top of report is below and the rest concatenated from a separate text document (rmd_template).
     Two files generated: 1) geo_id+"_withoutQC.txt" raw phenotype data from GEO (if phenotype_fn is not specified) 2) project_name+"_sraFile.info" list ftp address of sra files
     """
     outp = open(rmd_file, "w")
     outp.write("---\n")
-    outp.write("title: " + project_name + "SRA download\n")
-    outp.write("author: 'Mengyuan Kan (mengykan@upenn.edu)'\n")
+    outp.write("title: " + project_name + " SRA download\n")
+    outp.write("author: '"+author+"'\n")
     outp.write("date: \"`r format(Sys.time(), '%d %B, %Y')`\"\n")
     outp.write("output:\n")
     outp.write("  html_document:\n")
@@ -24,14 +31,23 @@ def make_rmd_html(rmd_template, geo_id, project_name, path_start, out_dir, pheno
     outp.write("chunk_output_type: console\n")
     outp.write("---\n\n")
 
-    outp.write("Assign the variables for GEO ID (geo_id), data directory (out_dir), phenotype file if user defined (pheno_fn).\n\n")
+    if geo_id is not None:
+        outp.write("Assign the variables for GEO ID (geo_id), data directory (out_dir), or phenotype file if user defined (pheno_fn).\n")
+        outp.write("Phenotype data is obtained from GEO (if user did not specify phenotype file).\n\n")
+    else:
+        if sra_id is not None:
+            outp.write("Assign the variables for SRA ID (sra_id), data directory (out_dir).\n")
+            outp.write("Users have to manually prepare phenotype file based on sample descriptions in SRA.\n")
 
     outp.write("```{r var, echo=T}\n")
     outp.write("out_dir <- '" + out_dir + "'\n")
     outp.write("project_name <- '" + project_name + "'\n")
     if pheno_info is not None:
         outp.write("pheno_info <- '" + pheno_info + "'\n")
-    outp.write("geo_id <- '" + geo_id + "'\n")
+    if geo_id is not None:
+        outp.write("geo_id <- '" + geo_id + "'\n")
+    elif sra_id is not None:
+        outp.write("sra_id <- '" + sra_id + "'\n")
     outp.write("```\n\n")
 
     outp.write("\n")
@@ -42,7 +58,7 @@ def make_rmd_html(rmd_template, geo_id, project_name, path_start, out_dir, pheno
 
     outp.close()
 
-def lsf_file(job_name, cmd, memory=36000):
+def lsf_file(job_name, cmd, memory=24000, thread=1, queue=queue):
     """
     Creates .lsf files
     """
@@ -51,11 +67,11 @@ def lsf_file(job_name, cmd, memory=36000):
     outp.write("#!/bin/bash\n")
     outp.write("#BSUB -L /bin/bash\n")
     outp.write("#BSUB -J "+job_name+"\n")
-    outp.write("#BSUB -q normal\n")
+    outp.write("#BSUB -q "+queue+"\n")
     outp.write("#BSUB -o "+job_name+"_%J.out\n")
     outp.write("#BSUB -e "+job_name+"_%J.screen\n")
     outp.write("#BSUB -M "+str(memory)+"\n")
-    outp.write("#BSUB -n 1\n")
+    outp.write("#BSUB -n "+str(thread)+"\n")
     outp.write(cmd)
     outp.write("\n")
     outp.close()
@@ -110,7 +126,7 @@ def download_fastq(SRA_info, out_dir, path_start, fastqc):
                 lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for download and/or fastqc
             
 
-def main(geo_id, path_start, project_name, pheno_info, template_dir, fastqc):
+def main(geo_id, sra_id, path_start, project_name, pheno_info, template_dir, fastqc):
 
     # Set up project and sample output directories
     if path_start == "./":
@@ -140,7 +156,7 @@ def main(geo_id, path_start, project_name, pheno_info, template_dir, fastqc):
 
     # create and run rmd report file to obtain sample infomation file from GEO and SRA
     rmd_file = out_dir + project_name + "_SRAdownload_RnaSeqReport.Rmd"
-    make_rmd_html(rmd_template, geo_id, project_name, path_start, out_dir, pheno_info, rmd_file)
+    make_rmd_html(rmd_template, geo_id, sra_id, project_name, path_start, out_dir, pheno_info, rmd_file)
     ftpinfo_cmd="echo \"library(rmarkdown); rmarkdown::render('"+rmd_file+"')\" | R --no-save --no-restore"
     subprocess.call(ftpinfo_cmd, shell=True)
 
@@ -157,6 +173,7 @@ def main(geo_id, path_start, project_name, pheno_info, template_dir, fastqc):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Download RNA-Seq rawr reads .fastq files from SRA.")
     parser.add_argument("--geo_id", type=str, help="GEO accession id")
+    parser.add_argument("--sra_id", type=str, help="SRP id if GEO entry does not exist. If both GEO ID and SRA ID are specified, only use GEO_ID.")
     parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
     parser.add_argument("--project_name", type=str, help="Name of project that all samples correspond to.")
     parser.add_argument("--pheno_info", help="Use user defined phenotype file to download the .fastq files of corresponding samples from SRA. The name in 'SRA_ID' column should match the sample id in SRA database. If not defined, download samples based on GEO phenotype field 'relation.1'.")
@@ -164,8 +181,17 @@ if __name__ == '__main__':
     parser.add_argument("--fastqc", action='store_true', help="If specified, run fastqc for downloaded raw .fastq files.")
     args = parser.parse_args()
 
-    if args.geo_id is None or args.project_name is None:
+    if args.geo_id is None:
+        if args.sra_id is None:
+            print "Please specify GEO ID or SRA ID."
+            parser.print_help()
+            sys.exit()
+
+    if args.geo_id is not None and args.sra_id is not None:
+        print "Both GEO ID and SRA ID are specified. Only use GEO_ID."
+
+    if args.project_name is None:
         parser.print_help()
         sys.exit()
 
-    main(args.geo_id, args.path_start, args.project_name, args.pheno_info, args.template_dir, args.fastqc)
+    main(args.geo_id, args.sra_id, args.path_start, args.project_name, args.pheno_info, args.template_dir, args.fastqc)

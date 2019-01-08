@@ -70,6 +70,13 @@ htseq_version="0.6.1"
 deseq2_version="1.18.1"
 
 ###
+# HPC parameters
+###
+
+memory=36000
+queue="legacy" # normal or legacy
+
+###
 # Genes of interest
 ###
 

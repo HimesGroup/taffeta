@@ -86,7 +86,7 @@ The sample info file used in the following steps should be provided by users.
 
 If use data from GEO, most GEO phenotype data do not have index information. However, FastQC is able to detect them as "Overrepresented sequences". Users can tailor the 'Index' column based on FastQC results. We provide a file with most updated adapter and primer sequences for FastQC detection.
 
-An example phenotype file can be found here: **example_files/sample_info_file.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC\_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
+An example phenotype file can be found here: **example_files/SRP033351_Phenotype_withoutQC.txt**. Note that column naming is rigid for the following columns: 'Sample', 'Status', 'Index', 'R1', 'R2', 'ERCC\_Mix', 'Treatment', 'Disease', 'Donor', because pipeline scripts will recognize these name strings, but the column order can be changed.
 
 ### Alignment, quantification and QC
 
@@ -144,7 +144,7 @@ Various output files will be written for each sample in directories structured a
 
 If ERCC_Mix column exists in phenotype file, it will report the concordance between ERCC spike-in transcript-level read counts and its molecular concentrations. Read in ERCC molecular concentration file **template_files/ERCC_SpikeIn_Controls_Analysis.txt** from specified directory <i>template_dir</i> which can be downloaded [here](https://assets.thermofisher.com/TFS-Assets/LSG/manuals/cms_095046.txt).
 
-> rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
+> rnaseq\_align\_and\_qc\_report.py  --project\_name <i>output_prefix</i> --sample\_in <i>sample_info_file.txt</i> --aligner star --ref\_genome hg38 --library\_type PE --strand nonstrand --path\_start <i>output_path</i> --template\_dir <i>templete_file_directory</i>
 
 > bsub < <i>project_name</i>_qc.lsf
 
@@ -165,11 +165,11 @@ The RMD and corresponding HTML report files:
 
 Run **pipeline\_scripts/rnaseq\_de\_report.py** to perform DE analysis and create an HTML report of differential expression summary statistics.  Read in **template\_files/rnaseq\_deseq2\_Rmd\_template.txt** from specified directory <i>template_dir</i> to create a RMD script.
 
-> rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i>
+> rnaseq_de_report.py --project_name <i>output_prefix</i> --sample_in <i>sample_info_file_withQC.txt</i> --comp <i>sample_comp_file_withQC.txt</i> --de_package deseq2 --ref_genome hg38 --path_start <i>output_path</i> --template_dir <i>templete_file_directory</i>
 
 > bsub < <i>project_name</i>_deseq2.lsf
 
-The "--sample_in" option specifies user provided phenotype file for DE analysis. The columns are the same as **example\_files/sample\_info\_file.txt** but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
+The "--sample_in" option specifies user provided phenotype file for DE analysis (e.g. **example\_files/SRP033351_Phenotype_withQC.txt**). The columns are the same as **example\_files/SRP033351_Phenotype_withoutQC.txt** but with an additional column "QC_Pass" designating samples to be included (QC_Pass=1) or excluded (QC_Pass=0) after QC. This column naming is rigid which will be recoganized in pipeline scripts, but column order can be changed.
 
 The "--comp" option specifies comparisons of interest in a tab-delimited text file with one comparison per line with three columns (i.e. Condition1, Condition0, Design), designating Condition1 vs. Condition2. The DE analysis accommodates a "paired" or "unpaired" option specified in Design column. For paired design, specify the condition to correct for that should match the column name in the sample info file - e.g. paired:Donor. Note that if there are any samples without a pair in any given comparison, the script will automatically drop these samples from that comparison, which will be noted in the report.
 
@@ -193,6 +193,6 @@ The RMD and corresponding HTML report file:
 
 Updating...
 
-### acknowledgements
+### Acknowledgements
 This set of scripts was initially developed to analyze RNA-Seq and DGE data at the [Partners Personalized Medicine PPM](http://pcpgm.partners.org/). Barbara Klanderman is the molecular biologist who led the establishment of PPM RNA-seq lab protocols and played an essential role in determining what components of the reports would be most helpful to PPM wet lab staff. 
 

@@ -1,5 +1,5 @@
 ---
-title: SRP033351SRA download
+title: SRP033351 SRA download
 author: 'Mengyuan Kan (mengykan@upenn.edu)'
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
@@ -10,7 +10,8 @@ editor_options:
 chunk_output_type: console
 ---
 
-Assign the variables for GEO ID (geo_id), data directory (out_dir), phenotype file if user defined (pheno_fn).
+Assign the variables for GEO ID (geo_id), data directory (out_dir), or phenotype file if user defined (pheno_fn).
+Phenotype data is obtained from GEO (if user did not specify phenotype file).
 
 ```{r var, echo=T}
 out_dir <- '/home/mengykan/Projects/SRP033351/SRP033351_SRAdownload/'
@@ -33,11 +34,12 @@ install.packages("dplyr")
 install.packages("pander")
 ```
 
-Load the necessary libraries. Load dplyr packages later since they will mask other functions.
+Load the necessary libraries.
 
 ```{r lib, eval=T, echo=F, message=F, warning=F}
 library(GEOquery)
 library(SRAdb)
+library(dplyr)
 library(pander)
 ```
 
@@ -46,20 +48,24 @@ library(pander)
 Obtain raw sample information including SRA ID from GEO. If pheno_fn is specified, download samples based on SRA_ID column; otherwise, download samples based on the GEO raw phenotype file.
 
 ```{r geo_download, eval=T, echo=F, message=F, warning=F}
-if (!exists("pheno_fn")) {
-  geo_fn <- paste0(out_dir, geo_id, "_series_matrix.txt.gz")
-  if (!file.exists(geo_fn)) { # matrix files are alreadly downloaded
-    gse <- getGEO(geo_id, destdir=out_dir, GSEMatrix = TRUE)[[1]] # dowanload matrix file
-  } else {
-    gse <- getGEO(filename=geo_fn,GSEMatrix = TRUE)
+if (exists("geo_id")){
+  if (!exists("pheno_fn")) {
+    geo_fn <- paste0(out_dir, geo_id, "_series_matrix.txt.gz")
+    if (!file.exists(geo_fn)) { # matrix files are alreadly downloaded
+      gse <- getGEO(geo_id, destdir=out_dir, GSEMatrix = TRUE)[[1]] # download matrix file
+    } else {
+      gse <- getGEO(filename=geo_fn,GSEMatrix = TRUE)
+    }
   }
 }
 ```
 
 Show expression dataset features using gse matrix
 ```{r gse, eval=T, echo=F}
-if (!exists("pheno_fn")) {
-  gse
+if (exists("geo_id")){
+  if (!exists("pheno_fn")) {
+    gse
+  }
 }
 ```
 
@@ -68,15 +74,20 @@ if (!exists("pheno_fn")) {
 If pheno_fn is not defined, download samples that have SRA id from GEO raw phenotype files, otherwise, download samples from defined phenotype file.
 
 ```{r pheno.raw, eval=T, echo=F, message=F, warning=F}
-if (!exists("pheno_fn")) {
-  pheno.raw <- pData(phenoData(gse))
-  files <- gsub(".*=","",pheno.raw$relation.1)
-} else {
-  if (!file.exists(pheno_fn)) {stop("Phenotype file specified does not exist: ", pheno_fn)}
-  pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
-  files <- pheno.raw$SRA_ID
+if (exists("geo_id")){
+  if (!exists("pheno_fn")) {
+    pheno.raw <- pData(phenoData(gse))
+    if (all(c("relation","relation.1")%in%names(pheno.raw))) {
+      relation=pheno.raw$relation.1
+      if (all(grepl("SRX",pheno.raw$relation))) {relation=pheno.raw$relation} # if SRX ids exist in relation column (e.g. GSE40996)
+    }
+    files <- gsub(".*=","",relation)
+  } else {
+    pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
+    files <- pheno.raw$SRA_ID
+  }
+  cat("Samples for download:", paste(files,collapse=", "),"\n")
 }
-cat("Samples for download:", paste(files,collapse=", "),"\n")
 ```
 
 Get fastq file information from SRA. Raw .fastq files will be downloaded in parallele using Linux bash script
@@ -96,6 +107,14 @@ srainfo_func <-function(file) {
   sra_acc <- sraConvert(file, out_type=c('run'), sra_con = sra_con )
   getFASTQinfo (sra_acc$run, sra_con, srcType="ftp")
 }
+
+# The fastqinfo function can be used in absence of a GEO entry using the SRA ID
+fastq_info_func <- function(SRA_ID) {
+	sra_info <- sraConvert( in_acc=SRA_ID, out_type=c('experiment','run'), sra_con = sra_con )
+ 	#fastq_files <- arrange(sra_info,experiment,run)
+ 	sraFiles <- getFASTQinfo(in_acc = c(sra_info$experiment), sra_con, srcType = 'ftp' )
+ 	return(sraFiles)
+}
 ```
 
 ```{r sraFiles, eval=T, echo=F, message=F, warning=F}
@@ -107,10 +126,22 @@ if (!file.exists("SRAmetadb.sqlite")) {
   sra_con <- dbConnect(SQLite(),dbname="SRAmetadb.sqlite")
 }
 # obtain SRA file information
-sraFiles <- do.call(rbind, lapply(files, srainfo_func))
-write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
+if(exists("geo_id")){
+  sraFiles <- do.call(rbind, lapply(files, srainfo_func))
+  write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
+  
+} else if (exists("sra_id")){
+  sraFiles <- fastq_info_func(sra_id)
+  sraFiles <- sraFiles %>% select(run,submission,study,sample,experiment,ftp)
+  write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
+}
 ```
 
+Show first five rows of SRA information
+```{r srainfo_show, eval=T, echo=F, message=F, warning=F, results="asis"}
+row.names(sraFiles) <- NULL
+pandoc.table(head(sraFiles,5), justify='left',split.tables=Inf, caption="SRA information")
+```
 
 ```{r sra_download, eval=F, echo=F, message=F, warning=F}
 # Download fastq files, disabled here
@@ -132,48 +163,54 @@ For continuous variables, show the summary table. For categorical variables, onl
 Generate a variable, suppldata (whether supplementary data are available), based on whether the column supplementary_file is none.
 
 ```{r phenoraw_summ, eval=T, echo=F, results="asis"}
-for (x in names(pheno.raw)) {
-  vec=pheno.raw[,x]
-  if (!is.numeric(vec)) {
-    vec <- factor(vec)
-    if (nlevels(vec)>5) {res=table(droplevels(vec[vec%in%levels(vec)[1:5]]))} else {res=table(vec)}
-    res=data.frame(res)
-    names(res) <- c(x,"counts")
+if(exists("geo_id")){
+  for (x in names(pheno.raw)) {
+    vec=pheno.raw[,x]
+    if (!is.numeric(vec)) {
+      vec <- factor(vec)
+      if (nlevels(vec)>5) {res=table(droplevels(vec[vec%in%levels(vec)[1:5]]))} else {res=table(vec)}
+      res=data.frame(res)
+      names(res) <- c(x,"counts")
+    }
+    if (is.numeric(vec)){res=summary(vec)}
+    pandoc.table(res, justify='left',split.tables=Inf, caption=x)
   }
-  if (is.numeric(vec)){res=summary(vec)}
-  pandoc.table(res, justify='left',split.tables=Inf, caption=x)
 }
 ```
 
 ### User tailored phenotype file
 
-This step is only used for tailoring raw phenotype file from GEO.
+**This step is only used for tailoring raw phenotype file from GEO. This step requires mannual inspection.**
 
-Raw phenotypic variables are not informative (e.g. description, characteristics_ch1 and source_name_ch1) and not created in a consice way.  Select useful phenotype variables and manually modify them using a standard format including the following columns, Sample, GEO_ID, Donor (required column for treatment comparison), Disease, Treatment, and any other information if provided such as Age, Gender, ERCC spike-in, Sequencing index, Sample preparation kit. **This step requires mannual inspection.**
+Raw phenotypic variables are not informative (e.g. description, characteristics_ch1 and source_name_ch1) and not created in a consice way. Select useful phenotype variables and manually modify them using a standard format including the following columns: Sample, GEO_ID, Donor (required column for treatment comparison), Disease, Treatment, and any other information if provided such as Age, Gender, ERCC spike-in, Sequencing index, Sample preparation kit.
+
+The example codes for this section are based on phenotype data from GSE52778 (SRA study ID: SRP033351).
 
 ```{r pheno, eval=T, echo=F, message=F, warning=F}
 if (!exists("pheno_fn")) {
-  library(dplyr)
-  cols=c("title","geo_accession", "characteristics_ch1.2", "characteristics_ch1.3", "characteristics_ch1","relation.1")
-  pheno <- pheno.raw %>%
-    dplyr::select(cols) %>%
-    dplyr::mutate(SRA_ID=gsub(".*=","",pheno.raw$relation.1)) %>%
-    dplyr::mutate(GEO_ID=geo_accession) %>%
-    dplyr::mutate(Donor=gsub("cell line: ","",characteristics_ch1.3)) %>%
-    dplyr::mutate(Tissue="ASM") %>%
-    dplyr::mutate(Treatment=gsub("treatment: ","",characteristics_ch1)) %>%
-    dplyr::mutate(Treatment=gsub("Albuterol","alb",Treatment)) %>%
-    dplyr::mutate(Treatment=gsub("Dexamethasone","dex",Treatment)) %>%
-    dplyr::mutate(Treatment=gsub("Untreated","untreated",Treatment)) %>%
-    dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
-    dplyr::mutate(Protocol="TruSeq_RNA_Sample_Prep_Kit_v2") %>%
-    dplyr::mutate_if(is.character,as.factor) %>%
-    dplyr::select((length(cols)+1):ncol(.)) # remove original columns
-  pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)
-  names(pheno)[names(pheno)%in%c("run")] <- c("Sample")
-  names(pheno)[names(pheno)%in%c("experiment")] <- c("SRA_ID")
-  detach("package:dplyr")
-  write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)
+  if(exists("geo_id")){
+    library(dplyr)
+    pheno.raw$files <- files # Note that file column should be selected in the code below
+    cols=c("title","geo_accession", "characteristics_ch1.2","characteristics_ch1.3", "characteristics_ch1","files")
+    pheno <- pheno.raw %>%
+      dplyr::select(cols) %>%
+      dplyr::mutate(SRA_ID=files) %>%
+      dplyr::mutate(GEO_ID=geo_accession) %>%
+      dplyr::mutate(Donor=gsub("cell line: ","",characteristics_ch1.3)) %>%
+      dplyr::mutate(Tissue="ASM") %>%
+      dplyr::mutate(Treatment=gsub("treatment: ","",characteristics_ch1)) %>%
+      dplyr::mutate(Treatment=gsub("Albuterol","alb",Treatment)) %>%
+      dplyr::mutate(Treatment=gsub("Dexamethasone","dex",Treatment)) %>%
+      dplyr::mutate(Treatment=gsub("Untreated","untreated",Treatment)) %>%
+      dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
+      dplyr::mutate_if(is.character,as.factor) %>%
+      dplyr::select(-one_of(cols)) # remove original columns
+    pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)
+    names(pheno)[names(pheno)%in%c("run")] <- c("Sample")
+    names(pheno)[names(pheno)%in%c("experiment")] <- c("SRA_ID")
+    detach("package:dplyr")
+    write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)
+  }
 }
 ```
 
@@ -183,13 +220,16 @@ Show the summary of phenotype variables and the sample size for different groups
 if (exists("pheno_fn")) {
     pheno <- raw.pheno
 }
+
 # show the first five rows
-pandoc.table(head(pheno,5), split.tables=Inf,caption="Show the first 5 rows of the modified phenotype file")
-# show the groups of interest
-avail_group=c("Tissue","Disease","Treatment")[c("Tissue","Disease","Treatment")%in%names(pheno)]
-res=as.data.frame(table(pheno[,avail_group]))
-names(res) <- c(avail_group,"Count")
-pandoc.table(res, split.tables=Inf, caption="Sample size in different tissue and disease/treatment groups")
+if(exists("pheno_fn")|exists("geo_id")){
+  pandoc.table(head(pheno,5), split.tables=Inf,caption="Show the first 5 rows of the modified phenotype file")
+  # show the groups of interest
+  avail_group=c("Tissue","Disease","Treatment")[c("Tissue","Disease","Treatment")%in%names(pheno)]
+  res=as.data.frame(table(pheno[,avail_group]))
+  names(res) <- c(avail_group,"Count")
+  pandoc.table(res, split.tables=Inf, caption="Sample size in different tissue and disease/treatment groups")
+ }
 ```
 
 #### Session information

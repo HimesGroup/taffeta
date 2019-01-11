@@ -180,8 +180,8 @@ if (!exists("pheno_fn")) {
       dplyr::mutate(Treatment=gsub("Albuterol","alb",Treatment)) %>%
       dplyr::mutate(Treatment=gsub("Dexamethasone","dex",Treatment)) %>%
       dplyr::mutate(Treatment=gsub("Untreated","untreated",Treatment)) %>%
+      dplyr::mutate(Disease="nonasthma") %>%
       dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
-      dplyr::mutate(Protocol="TruSeq_RNA_Sample_Prep_Kit_v2") %>%
       dplyr::mutate_if(is.character,as.factor) %>%
       dplyr::select(-one_of(cols)) # remove original columns
     pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)

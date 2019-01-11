@@ -1,4 +1,4 @@
 Condition1	Condition0	Design
-healthy_alb	healthy_untreated	paired:Donor
-healthy_dex	healthy_untreated	paired:Donor
-healthy_alb_dex	healthy_untreated	paired:Donor
+alb	untreated	paired:Donor
+dex	untreated	paired:Donor
+alb_dex	untreated	paired:Donor

@@ -4,7 +4,8 @@ import sys
 import subprocess
 import os
 import glob
-
+import re
+import rnaseq_userdefine_variables as userdef
 
 def check_exist(file):
     if not os.path.exists(file):
@@ -47,7 +48,7 @@ def get_genome_ref_files(genome):
     Current choice: "hg38"
     """
 
-    import rnaseq_userdefine_variables as userdef  # read in user-defined variable python script: improt reference files
+    # read in user-defined variable python script: improt reference files
 
     if genome == "hg38":
 	fa = userdef.hg38_fa
@@ -200,13 +201,25 @@ def make_adapter_fa(curr_sample, out_dir, curr_index, index_dict):
     outp.write("\n")
     outp.close()
 
+def name_fastqc(filename):
+    """
+    Create filename prefix of fastqc output
+    """
+
+    # extract basename
+    filename=os.path.basename(filename)
+    # remove extension
+    filename=re.split("\.fastq\.|\.fastq$|\.txt$",filename)[0]
+    return(filename)
+
+
 def trim_and_fastqc(curr_sample, curr_index, out_dir, R1, R2, R1_trim, R2_trim):
     """
     Use Trimmomatic to trim adaptor and perform fastqc
     """
     
     # Trim adapter
-    import rnaseq_userdefine_variables as userdef # read in user-defined variable python script: import trimmomatic java path
+    # read in user-defined variable python script: import trimmomatic java path
     trimmomatic=userdef.trimmomatic
 
     cmd="" # create command variable
@@ -235,14 +248,21 @@ def trim_and_fastqc(curr_sample, curr_index, out_dir, R1, R2, R1_trim, R2_trim):
         print curr_sample+" fastqc results already exist. Skip fastqc."
     else:
         # Run fastqc
-        cmd=cmd+"fastqc -o "+out_dir+" "+R1_trim+" "+R2_trim+"\n" # since R2 could be "", no harm to add an empty string directly here
+        cmd=cmd+"fastqc -o "+out_dir+" --extract "+R1_trim+" "+R2_trim+"\n" # since R2 could be "", no harm to add an empty string directly here
         if curr_index=='NA': # use no-trimmed files
-            # original fastqc .zip file name
-            R1_org_name=R1_trim.split(".fastq", 1)[0]+"_fastqc.zip"
-            cmd=cmd+"cp "+R1_org_name+" "+R1_fastqc_fn+"\n"
+            # retrieve original sample name without path and fastq extension
+            R1_org_name=out_dir+name_fastqc(R1_trim)+"_fastqc" # change the path for original fastq file
+            # rename fastqc result folder to current name
+            cmd=cmd+"cd "+out_dir+"; mv "+R1_org_name+" "+curr_sample+"_R1_Trimmed_fastqc\n"
+            # create zip file
+            cmd=cmd+"zip -rm "+R1_fastqc_fn+" "+curr_sample+"_R1_Trimmed_fastqc\n"
             if R2_trim!="": # if R2 exists
-                R2_org_name=R2_trim.split(".fastq", 1)[0]+"_fastqc.zip"
-                cmd=cmd+"cp "+R2_org_name+" "+R2_fastqc_fn+"\n"
+                # retrieve original sample name without path and fastq extension
+                R2_org_name=out_dir+name_fastqc(R2_trim)+"_fastqc" # change the path for original fastq file
+                # rename fastqc result folder to current name
+                cmd=cmd+"cd "+out_dir+"; mv "+R2_org_name+" "+curr_sample+"_R2_Trimmed_fastqc\n"
+                # create zip file
+                cmd=cmd+"zip -rm "+R2_fastqc_fn+" "+curr_sample+"_R2_Trimmed_fastqc\n"
 
     #Get total number of reads, unique reads, % unique reads from trimmed file(s).
     if ".gz" in R1_trim: # for gzip .fastq file
@@ -303,7 +323,7 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     Obtain QC metrics from bam file
     """
     # bam stat
-    import rnaseq_userdefine_variables as userdef # read in user-defined variable python script: import picard directory
+    # read in user-defined variable python script: import picard directory
     picard_dir=userdef.picard_dir
 
     #Create sorted bam file:
@@ -345,7 +365,7 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     cmd=cmd+"rm accepted_hits.bam \n"
     return cmd
 
-def lsf_file(job_name, cmd, memory=36000, thread=12):
+def lsf_file(job_name, cmd, memory=36000, thread=12, queue=userdef.queue):
     """
     Creates .lsf files
     """
@@ -354,7 +374,7 @@ def lsf_file(job_name, cmd, memory=36000, thread=12):
     outp.write("#!/bin/bash\n")
     outp.write("#BSUB -L /bin/bash\n")
     outp.write("#BSUB -J "+job_name+"\n")
-    outp.write("#BSUB -q normal\n")
+    outp.write("#BSUB -q "+queue+"\n")
     outp.write("#BSUB -o "+job_name+"_%J.out\n")
     outp.write("#BSUB -e "+job_name+"_%J.screen\n")
     outp.write("#BSUB -M "+str(memory)+"\n")
@@ -464,6 +484,7 @@ def main(sample_info_file, project_name, aligner, ref_genome, library_type, inde
         ###
         # Trim Adaptor and fastqc
         ###
+
         if curr_index=="NA": # no index specified. skip trim
             R1_trim = R1
             R2_trim = R2

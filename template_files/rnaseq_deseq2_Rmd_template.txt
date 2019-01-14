@@ -57,6 +57,13 @@ if (exists("housekeeping_genes")) {
 }
 ```
 
+
+```{r, eval=T, echo=F, results="asis"}
+summ_tb=as.data.frame(table(droplevels(coldata_curr$Status)))
+names(summ_tb) <- c("Status","Count")
+pandoc.table(summ_tb, split.tables=Inf, caption="Comparison Summary")
+```
+
 ### Top 50 genes by p-value
 ```{r, eval=T, echo=F}
 #output table for report
@@ -111,7 +118,7 @@ volplot_func <- function(df,qval_column,title) {
     diffgenes <- df$Gene[qval<0.05] #Create list of all DEG's
     #cat(length(diffgenes), "differentially expressed genes have been identified based on", qval_column)
     print(
-    ggplot(df, aes(x = log2FoldChange, y = logqval, color=sig)) + geom_point() +
+    ggplot(df, aes(x = log2FoldChange, y = logqval, color=sig)) + geom_point(size=0.5) +
       theme_bw() +
       labs(title=title,x="log2FoldChange",y=paste0("-log10(",qval_column,")")) +
       scale_color_manual(values=color) +

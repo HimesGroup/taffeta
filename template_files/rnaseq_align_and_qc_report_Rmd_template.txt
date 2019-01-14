@@ -83,12 +83,12 @@ if (library_type %in% c("PE")) {
 } else {
     R1_dups <- unname(unlist(duplicates[which(duplicates$Read_Number=="Total Deduplicated Percentage"),which(grepl("_R1$",names(duplicates)))])) # extract total duplicate reads for R1
     unique.counts.data.2 <- cbind(unique.counts.data, R1_dups)
-    unique.counts.data.2$Fastqc_Total_Deduplicated_Percentage_R1 <- unique.counts.data.2$R1_dups
+    unique.counts.data.2$Fastqc_Total_Deduplicated_Percentage <- unique.counts.data.2$R1_dups
     unique.counts.data.2$R1_dups <- NULL
     # format the table
-    pct_cols <- c("R1_Percent_Unique","Fastqc_Total_Deduplicated_Percentage_R1")
+    pct_cols <- c("Percent_Unique","Fastqc_Total_Deduplicated_Percentage")
     unique.counts.data.2[,pct_cols] <- round(unique.counts.data.2[,pct_cols],2)
-    ct_cols <- c("R1_Raw_Reads","R1_Unique_Reads")
+    ct_cols <- c("Raw_Reads","Unique_Reads")
     unique.counts.data.2[,ct_cols] <- round(unique.counts.data.2[,ct_cols]/1000000,3)
 }
 DT::datatable(unique.counts.data.2, rownames = FALSE, options = list(pageLength = 25))
@@ -273,11 +273,12 @@ row.names(sum.data) <- sum.data$Type
 sum.data$Type <- NULL
 # exclude rows
 row_excl <- !row.names(sum.data)%in%c("RIBOSOMAL_BASES", "PCT_RIBOSOMAL_BASES", "SAMPLE", "LIBRARY", "READ_GROUP")
+sum.data <- sum.data[row_excl,]
 # row numbers that contain percentage
 pct_nrow <- grepl("PCT",row.names(sum.data))
 # replace percentage with round 2
-sum.data[pct_nrow,] <- apply(sum.data[pct_nrow,], 2, function(x){round(x*100,2)})
-DT::datatable(sum.data[row_excl,], options = list(pageLength = 25))
+sum.data[pct_nrow,] <- apply(sum.data[pct_nrow,], 2, function(x){round(as.numeric(x)*100,2)})
+DT::datatable(sum.data, options = list(pageLength = 25))
 ```
 
 ### Plot: Percentages of Total Mapped Bases Mapping to mRNA, Intronic and Intergenic Regions
@@ -287,6 +288,7 @@ sum.data.for.plot <- sum.data[c("PCT_INTERGENIC_BASES", "PCT_INTRONIC_BASES", "P
 rownames(sum.data.for.plot) <- c("Intergenic", "Intronic", "mRNA")
 sum.data.for.plot$which  <- rownames(sum.data.for.plot)
 sum.data.melted <- sum.data.for.plot %>% tidyr::gather(Sample,value,-which)
+sum.data.melted$value <- as.numeric(sum.data.melted$value)
 sum.data.melted$which <- factor(sum.data.melted$which, levels=c("mRNA", "Intronic", "Intergenic")) # desired order
 
 ggplot(data = sum.data.melted, aes(x = Sample, y = value, fill=which)) + 

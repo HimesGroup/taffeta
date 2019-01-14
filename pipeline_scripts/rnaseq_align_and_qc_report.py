@@ -825,7 +825,8 @@ def make_rmd_title(path_start, project_name, aligner, library_type, strand, ref_
     # Sequencing parameters
     rmd=rmd+"**Sequencing parameters:**\n\n"
     rmd=rmd+"* library_type = "+library_type+"\n"
-    rmd=rmd+"* strand = "+strand+"\n\n"
+    rmd=rmd+"* strand = "+strand+"\n"
+    rmd=rmd+"* ref_genome = "+ref_genome+"\n\n"
 
     return rmd
 

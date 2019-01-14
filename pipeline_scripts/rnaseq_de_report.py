@@ -5,6 +5,7 @@ import subprocess
 import os
 import re
 import fnmatch
+import rnaseq_userdefine_variables as userdef
 
 def make_rmd_css(path_start):
     """
@@ -25,7 +26,7 @@ def make_rmd_css(path_start):
     css_outp.close()
 
 
-def lsf_file(job_name, cmd, memory=36000, thread=1):
+def lsf_file(job_name, cmd, memory=36000, thread=1, queue=userdef.queue):
     """
     Creates .lsf files
     """
@@ -34,7 +35,7 @@ def lsf_file(job_name, cmd, memory=36000, thread=1):
     outp.write("#!/bin/bash\n")
     outp.write("#BSUB -L /bin/bash\n")
     outp.write("#BSUB -J "+job_name+"\n")
-    outp.write("#BSUB -q normal\n")
+    outp.write("#BSUB -q "+queue+"\n")
     outp.write("#BSUB -o "+job_name+"_%J.out\n")
     outp.write("#BSUB -e "+job_name+"_%J.screen\n")
     outp.write("#BSUB -M "+str(memory)+"\n")

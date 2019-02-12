@@ -305,15 +305,15 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">SRP033351 SRA download</h1>
 <h4 class="author"><em>Mengyuan Kan (<a href="mailto:mengykan@upenn.edu">mengykan@upenn.edu</a>)</em></h4>
-<h4 class="date"><em>11 January, 2019</em></h4>
+<h4 class="date"><em>12 February, 2019</em></h4>
 
 </div>
 
 <div id="TOC">
 <ul>
 <li><a href="#obtain-raw-geo-phenotype-file">Obtain raw GEO phenotype file</a></li>
-<li><a href="#get-sra-ftp-link-for-samples">Get SRA ftp link for samples</a></li>
 <li><a href="#raw-phenotype-summary">Raw phenotype summary</a></li>
+<li><a href="#get-sra-ftp-link-for-samples">Get SRA ftp link for samples</a></li>
 <li><a href="#user-tailored-phenotype-file">User tailored phenotype file</a></li>
 </ul>
 </div>
@@ -339,76 +339,6 @@ geo_id &lt;- 'GSE52778'</code></pre>
 ## featureData: none
 ## experimentData: use 'experimentData(object)'
 ## Annotation: GPL11154</code></pre>
-</div>
-<div id="get-sra-ftp-link-for-samples" class="section level3">
-<h3>Get SRA ftp link for samples</h3>
-<p>If pheno_fn is not defined, download samples that have SRA id from GEO raw phenotype files, otherwise, download samples from defined phenotype file.</p>
-<pre><code>## Samples for download: SRX384345, SRX384346, SRX384347, SRX384348, SRX384349, SRX384350, SRX384351, SRX384352, SRX384353, SRX384354, SRX384355, SRX384356, SRX384357, SRX384358, SRX384359, SRX384360</code></pre>
-<p>Get fastq file information from SRA. Raw .fastq files will be downloaded in parallele using Linux bash script</p>
-<p>Show first five rows of SRA information</p>
-<table>
-<caption>SRA information</caption>
-<colgroup>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="8%"></col>
-<col width="8%"></col>
-<col width="9%"></col>
-<col width="55%"></col>
-</colgroup>
-<thead>
-<tr class="header">
-<th align="left">run</th>
-<th align="left">submission</th>
-<th align="left">study</th>
-<th align="left">sample</th>
-<th align="left">experiment</th>
-<th align="left">ftp</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="left">SRR1039508</td>
-<td align="left">SRA114259</td>
-<td align="left">SRP033351</td>
-<td align="left">SRS508568</td>
-<td align="left">SRX384345</td>
-<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_1.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_1.fastq.gz</a></td>
-</tr>
-<tr class="even">
-<td align="left">SRR1039508</td>
-<td align="left">SRA114259</td>
-<td align="left">SRP033351</td>
-<td align="left">SRS508568</td>
-<td align="left">SRX384345</td>
-<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_2.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_2.fastq.gz</a></td>
-</tr>
-<tr class="odd">
-<td align="left">SRR1039509</td>
-<td align="left">SRA114259</td>
-<td align="left">SRP033351</td>
-<td align="left">SRS508567</td>
-<td align="left">SRX384346</td>
-<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_1.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_1.fastq.gz</a></td>
-</tr>
-<tr class="even">
-<td align="left">SRR1039509</td>
-<td align="left">SRA114259</td>
-<td align="left">SRP033351</td>
-<td align="left">SRS508567</td>
-<td align="left">SRX384346</td>
-<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_2.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_2.fastq.gz</a></td>
-</tr>
-<tr class="odd">
-<td align="left">SRR1039510</td>
-<td align="left">SRA114259</td>
-<td align="left">SRP033351</td>
-<td align="left">SRS508570</td>
-<td align="left">SRX384347</td>
-<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/000/SRR1039510/SRR1039510_1.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/000/SRR1039510/SRR1039510_1.fastq.gz</a></td>
-</tr>
-</tbody>
-</table>
 </div>
 <div id="raw-phenotype-summary" class="section level3">
 <h3>Raw phenotype summary</h3>
@@ -1505,6 +1435,76 @@ geo_id &lt;- 'GSE52778'</code></pre>
 </tbody>
 </table>
 </div>
+<div id="get-sra-ftp-link-for-samples" class="section level3">
+<h3>Get SRA ftp link for samples</h3>
+<p>If pheno_fn is not defined, download samples that have SRA id from GEO raw phenotype files, otherwise, download samples from defined phenotype file.</p>
+<pre><code>## Samples for download: SRX384345, SRX384346, SRX384347, SRX384348, SRX384349, SRX384350, SRX384351, SRX384352, SRX384353, SRX384354, SRX384355, SRX384356, SRX384357, SRX384358, SRX384359, SRX384360</code></pre>
+<p>Get fastq file information from SRA. Raw .fastq files will be downloaded in parallele using Linux bash script</p>
+<p>Show first five rows of SRA information</p>
+<table>
+<caption>SRA information</caption>
+<colgroup>
+<col width="9%"></col>
+<col width="9%"></col>
+<col width="8%"></col>
+<col width="8%"></col>
+<col width="9%"></col>
+<col width="55%"></col>
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">run</th>
+<th align="left">submission</th>
+<th align="left">study</th>
+<th align="left">sample</th>
+<th align="left">experiment</th>
+<th align="left">ftp</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">SRR1039508</td>
+<td align="left">SRA114259</td>
+<td align="left">SRP033351</td>
+<td align="left">SRS508568</td>
+<td align="left">SRX384345</td>
+<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_1.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_1.fastq.gz</a></td>
+</tr>
+<tr class="even">
+<td align="left">SRR1039508</td>
+<td align="left">SRA114259</td>
+<td align="left">SRP033351</td>
+<td align="left">SRS508568</td>
+<td align="left">SRX384345</td>
+<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_2.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/008/SRR1039508/SRR1039508_2.fastq.gz</a></td>
+</tr>
+<tr class="odd">
+<td align="left">SRR1039509</td>
+<td align="left">SRA114259</td>
+<td align="left">SRP033351</td>
+<td align="left">SRS508567</td>
+<td align="left">SRX384346</td>
+<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_1.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_1.fastq.gz</a></td>
+</tr>
+<tr class="even">
+<td align="left">SRR1039509</td>
+<td align="left">SRA114259</td>
+<td align="left">SRP033351</td>
+<td align="left">SRS508567</td>
+<td align="left">SRX384346</td>
+<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_2.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/009/SRR1039509/SRR1039509_2.fastq.gz</a></td>
+</tr>
+<tr class="odd">
+<td align="left">SRR1039510</td>
+<td align="left">SRA114259</td>
+<td align="left">SRP033351</td>
+<td align="left">SRS508570</td>
+<td align="left">SRX384347</td>
+<td align="left"><a href="ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/000/SRR1039510/SRR1039510_1.fastq.gz" class="uri">ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR103/000/SRR1039510/SRR1039510_1.fastq.gz</a></td>
+</tr>
+</tbody>
+</table>
+</div>
 <div id="user-tailored-phenotype-file" class="section level3">
 <h3>User tailored phenotype file</h3>
 <p><strong>This step is only used for tailoring raw phenotype file from GEO. This step requires mannual inspection.</strong></p>
@@ -1514,13 +1514,14 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <table>
 <caption>Show the first 5 rows of the modified phenotype file</caption>
 <colgroup>
-<col width="14%"></col>
-<col width="16%"></col>
-<col width="16%"></col>
 <col width="12%"></col>
-<col width="11%"></col>
-<col width="14%"></col>
-<col width="14%"></col>
+<col width="13%"></col>
+<col width="13%"></col>
+<col width="10%"></col>
+<col width="9%"></col>
+<col width="12%"></col>
+<col width="12%"></col>
+<col width="12%"></col>
 </colgroup>
 <thead>
 <tr class="header">
@@ -1530,6 +1531,7 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <th align="center">Donor</th>
 <th align="center">Tissue</th>
 <th align="center">Treatment</th>
+<th align="center">Disease</th>
 <th align="center">ERCC_Mix</th>
 </tr>
 </thead>
@@ -1541,6 +1543,7 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">N61311</td>
 <td align="center">ASM</td>
 <td align="center">untreated</td>
+<td align="center">nonasthma</td>
 <td align="center">-</td>
 </tr>
 <tr class="even">
@@ -1550,6 +1553,7 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">N61311</td>
 <td align="center">ASM</td>
 <td align="center">dex</td>
+<td align="center">nonasthma</td>
 <td align="center">-</td>
 </tr>
 <tr class="odd">
@@ -1559,6 +1563,7 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">N61311</td>
 <td align="center">ASM</td>
 <td align="center">alb</td>
+<td align="center">nonasthma</td>
 <td align="center">-</td>
 </tr>
 <tr class="even">
@@ -1568,6 +1573,7 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">N61311</td>
 <td align="center">ASM</td>
 <td align="center">alb_dex</td>
+<td align="center">nonasthma</td>
 <td align="center">-</td>
 </tr>
 <tr class="odd">
@@ -1577,20 +1583,23 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <td align="center">N052611</td>
 <td align="center">ASM</td>
 <td align="center">untreated</td>
+<td align="center">nonasthma</td>
 <td align="center">-</td>
 </tr>
 </tbody>
 </table>
-<table style="width:39%;">
+<table style="width:56%;">
 <caption>Sample size in different tissue and disease/treatment groups</caption>
 <colgroup>
 <col width="12%"></col>
+<col width="16%"></col>
 <col width="16%"></col>
 <col width="9%"></col>
 </colgroup>
 <thead>
 <tr class="header">
 <th align="center">Tissue</th>
+<th align="center">Disease</th>
 <th align="center">Treatment</th>
 <th align="center">Count</th>
 </tr>
@@ -1598,21 +1607,25 @@ geo_id &lt;- 'GSE52778'</code></pre>
 <tbody>
 <tr class="odd">
 <td align="center">ASM</td>
+<td align="center">nonasthma</td>
 <td align="center">alb</td>
 <td align="center">4</td>
 </tr>
 <tr class="even">
 <td align="center">ASM</td>
+<td align="center">nonasthma</td>
 <td align="center">alb_dex</td>
 <td align="center">4</td>
 </tr>
 <tr class="odd">
 <td align="center">ASM</td>
+<td align="center">nonasthma</td>
 <td align="center">dex</td>
 <td align="center">4</td>
 </tr>
 <tr class="even">
 <td align="center">ASM</td>
+<td align="center">nonasthma</td>
 <td align="center">untreated</td>
 <td align="center">4</td>
 </tr>

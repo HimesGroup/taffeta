@@ -47,19 +47,48 @@ if (exists("geo_id")){
 }
 ```
 
+### Raw phenotype summary
+
+Generated a summary of all the phenotypic variables for overview.
+
+For continuous variables, show the summary table. For categorical variables, only show the first five levels of variables.
+
+Generate a variable, suppldata (whether supplementary data are available), based on whether the column supplementary_file is none.
+
+```{r phenoraw_summ, eval=T, echo=F, results="asis"}
+if(exists("geo_id")){
+  pheno.raw <- pData(phenoData(gse))
+  for (x in names(pheno.raw)) {
+    vec=pheno.raw[,x]
+    if (!is.numeric(vec)) {
+      vec <- factor(vec)
+      if (nlevels(vec)>5) {res=table(droplevels(vec[vec%in%levels(vec)[1:5]]))} else {res=table(vec)}
+      res=data.frame(res)
+      names(res) <- c(x,"counts")
+    }
+    if (is.numeric(vec)){res=summary(vec)}
+    pandoc.table(res, justify='left',split.tables=Inf, caption=x)
+  }
+}
+```
+
 ### Get SRA ftp link for samples
 
 If pheno_fn is not defined, download samples that have SRA id from GEO raw phenotype files, otherwise, download samples from defined phenotype file.
 
+SRA sample ID is derived from GEO phenotype where the column name with **relation** if SRA download is needed.
+
 ```{r pheno.raw, eval=T, echo=F, message=F, warning=F}
 if (exists("geo_id")){
   if (!exists("pheno_fn")) {
-    pheno.raw <- pData(phenoData(gse))
-    if (all(c("relation","relation.1")%in%names(pheno.raw))) {
-      relation=pheno.raw$relation.1
-      if (all(grepl("SRX",pheno.raw$relation))) {relation=pheno.raw$relation} # if SRX ids exist in relation column (e.g. GSE40996)
-    }
-    files <- gsub(".*=","",relation)
+    relation_cols <- which(grepl("relation",names(pheno.raw))) # columns which have "relation" in column names
+    relation_col=relation_cols[sapply(relation_cols, function(x){ # the column with "SRX" is where to retain the SRA ID
+      relation=pheno.raw[,x]
+      all(grepl("SRX", relation))
+    })]
+    if (length(relation_col)>1) {stop("More than two columns contain SRX information. Please check and speciy column name to the variable relation_name.")}
+    relation_name=names(pheno.raw)[relation_col]
+    files <- gsub(".*=","",pheno.raw[,relation_name])
   } else {
     pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
     files <- pheno.raw$SRA_ID
@@ -130,30 +159,6 @@ if (!file.exists("SRAmetadb.sqlite")) {
   sra_con <- dbConnect(SQLite(),dbname="SRAmetadb.sqlite")
 }
 system.time(sapply(files, sradownload_func))
-```
-
-### Raw phenotype summary
-
-Generated a summary of all the phenotypic variables for overview.
-
-For continuous variables, show the summary table. For categorical variables, only show the first five levels of variables.
-
-Generate a variable, suppldata (whether supplementary data are available), based on whether the column supplementary_file is none.
-
-```{r phenoraw_summ, eval=T, echo=F, results="asis"}
-if(exists("geo_id")){
-  for (x in names(pheno.raw)) {
-    vec=pheno.raw[,x]
-    if (!is.numeric(vec)) {
-      vec <- factor(vec)
-      if (nlevels(vec)>5) {res=table(droplevels(vec[vec%in%levels(vec)[1:5]]))} else {res=table(vec)}
-      res=data.frame(res)
-      names(res) <- c(x,"counts")
-    }
-    if (is.numeric(vec)){res=summary(vec)}
-    pandoc.table(res, justify='left',split.tables=Inf, caption=x)
-  }
-}
 ```
 
 ### User tailored phenotype file

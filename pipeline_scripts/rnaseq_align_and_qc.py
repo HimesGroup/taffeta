@@ -365,6 +365,28 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     cmd=cmd+"rm accepted_hits.bam \n"
     return cmd
 
+
+def bam2bw_and_track(curr_sample, curr_color, out_dir, template_dir, track_fn, bigdata_path, len_fn):
+    """
+    Convert bam to bw file
+    """
+
+    cmd=""
+    cmd=cmd+"genomeCoverageBed -split -bg -ibam "+curr_sample+"_accepted_hits.sorted.bam"+" -g "+len_fn+" > "+curr_sample+".bdg\n"
+    cmd=cmd+"LC_COLLATE=C sort -k1,1 -k2,2n "+curr_sample+".bdg > "+curr_sample+".sorted.bdg\n"
+    cmd=cmd+"bedGraphToBigWig "+curr_sample+".sorted.bdg "+len_fn+" "+curr_sample+".bw\n"
+
+    """
+    Create UCSC track file
+    """
+
+    outp=open(track_fn, 'a')
+    outp.write("track type=bigWig name="+"\""+curr_sample+"\" color="+curr_color+" gridDefault=on maxHeightPixels=50 visibility=full autoScale=off viewLimits=5:100 description=\""+curr_sample+"\" bigDataUrl="+bigdata_path+curr_sample+".bw\n")
+    outp.close()
+
+    return cmd
+
+
 def lsf_file(job_name, cmd, memory=36000, thread=12, queue=userdef.queue):
     """
     Creates .lsf files
@@ -384,7 +406,7 @@ def lsf_file(job_name, cmd, memory=36000, thread=12, queue=userdef.queue):
     outp.close()
 
 
-def main(sample_info_file, project_name, aligner, ref_genome, library_type, index_type, strand, path_start, template_dir):
+def main(sample_info_file, project_name, aligner, ref_genome, library_type, index_type, strand, path_start, template_dir, bam2bw):
     """
     Read in phenotype sample info provided by the users and perform the following steps:
     1) Perform adapter trimming - if Illumina indexes are not available in phenotype files
@@ -456,6 +478,47 @@ def main(sample_info_file, project_name, aligner, ref_genome, library_type, inde
         # Obtain dictionary with adapter sequences of corresponding index type
         index_dict=index_check(indexes, index_type, template_dir)
 
+
+    # If perform bam to bigwig file conversion, create url and colors
+    if bam2bw:
+        # overwrite ucsc track file if it already exists
+        track_fn=path_start+project_name+"_ucsc_track.txt"
+        if os.path.exists(track_fn):
+            print "Warning: ucsc track file already exists: "+track_fn+". Overwrite it."
+            outp=open(track_fn,'w')
+            outp.write("")
+            outp.close()
+
+        # read in url
+        bigdata_url=userdef.bigdata_url
+        bigdata_path=bigdata_url+"/"+project_name+"/"
+        print "Convert .bam files to .bw files. Use user-provided URL: "+bigdata_url
+        print "Need to upload all the generated .bw files to this path: "+bigdata_path
+
+        # obtain genome length file
+        if ref_genome == "hg38":
+    	    len_fn = userdef.hg38_len
+
+        elif ref_genome == "hg19":
+    	    len_fn = userdef.hg19_len
+
+        check_exist(len_fn)
+
+        # create color list for ucsc track display based on treatment condition
+        rgb_colors=["27,158,119", "217,95,2", '117,112,179', '231,41,138', '102,166,30', '230,171,2', '166,118,29', '102,102,102'] # Dark2 color set "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666" convert to RGB (https://www.rapidtables.com/web/color/RGB_Color.html)
+        if "Status" not in info_dict:
+            colors=track_colors[0]*len(sample_names) # use one color for all samples
+        else:
+            conds=info_dict["Status"]
+            cond_uniq=list(set(conds))
+            # Assign color to each Status condition
+            RGBS={}
+            # repeat colors if the status is greater than the rgb_colors
+            rgb_colors=(len(cond_uniq)/len(rgb_colors)+1)*rgb_colors
+            for i in range(len(cond_uniq)):
+                RGBS[cond_uniq[i]]=rgb_colors[i]
+            colors=map(lambda x: RGBS[x], conds)
+
     ####
     # Run by each sample
     ####
@@ -517,6 +580,17 @@ def main(sample_info_file, project_name, aligner, ref_genome, library_type, inde
         bamstat_cmd = get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type)
         cmd = cmd + bamstat_cmd
 
+
+        ###
+        # Convert bam to bw
+        ###
+
+        if bam2bw:
+            curr_color=colors[i]
+            bam2bw_cmd=bam2bw_and_track(curr_sample, curr_color, out_dir, template_dir, track_fn, bigdata_path, len_fn)
+            cmd=cmd+bam2bw_cmd
+
+
         ###
         # Create .lsf files
         ###
@@ -536,11 +610,12 @@ if __name__ == "__main__":
         "(options: nonstrand, reverse, forward)")
     parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
     parser.add_argument("--template_dir", default="./", type=str, help="directory to put provided or user defined reference index files")
+    parser.add_argument("--bam2bw", action='store_true', help="If specified, generate bigwig files (.bw) and create ucsc track file.")
     args = parser.parse_args()
 
     if args.project_name is None or args.samples_in is None:
         parser.print_help()
         sys.exit()
 
-    main(args.samples_in, args.project_name, args.aligner, args.ref_genome, args.library_type, args.index_type, args.strand, args.path_start, args.template_dir)
+    main(args.samples_in, args.project_name, args.aligner, args.ref_genome, args.library_type, args.index_type, args.strand, args.path_start, args.template_dir, args.bam2bw)
 

@@ -11,6 +11,7 @@ hg38_ref = "/project/bhimeslab/Reference/hg38/refFlat.txt"
 hg38_ERCC_gtf = "/project/bhimeslab/Reference/hg38/genes.ERCC.gtf"
 hg38_star_index_dir = "/project/bhimeslab/Reference/hg38/STAR_index"
 hg38_rRNA_gtf = "/project/bhimeslab/Reference/hg38/rRNA_hg38.gtf"
+hg38_len = "/project/bhimeslab/Reference/hg38/hg38.len"
 
 # hg19 reference files
 hg19_fa = "/project/bhimeslab/Reference/hg19/genome.ERCC.fa"
@@ -18,6 +19,7 @@ hg19_gtf = "/project/bhimeslab/Reference/hg19/genes.gtf"
 hg19_ref = "/project/bhimeslab/Reference/hg19/refFlat.txt"
 hg19_ERCC_gtf = "/project/bhimeslab/Reference/hg19/genes.ERCC.gtf"
 hg19_star_index_dir = "/project/bhimeslab/Reference/hg19/STAR_index"
+hg19_len = "/project/bhimeslab/Reference/hg19/hg19.len"
 
 # mm38 reference files
 mm38_fa = "/project/bhimeslab/Reference/mm38/mm.GRCm38.genome.ERCC92.fa"
@@ -25,6 +27,7 @@ mm38_gtf = "/project/bhimeslab/Reference/mm38/mm.GRCm38.75.genes.gtf"
 mm38_ref = "/project/bhimeslab/Reference/mm38/refFlat.txt"
 mm38_ERCC_gtf = "/project/bhimeslab/Reference/mm38/mm.GRCm38.75.genes.ERCC.gtf"
 mm38_star_index_dir = "/project/bhimeslab/Reference/mm38/STAR_index"
+mm38_len = "/project/bhimeslab/Reference/mm38/mm38.len"
 
 # mm10 reference files
 mm10_fa = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genome.ERCC92.fa"
@@ -32,6 +35,7 @@ mm10_gtf = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genes.gtf"
 mm10_ref = "/project/bhimeslab/Reference/mm38/refFlat_UCSC.txt"
 mm10_ERCC_gtf = "/project/bhimeslab/Reference/mm38/UCSC_mm10_genes.ERCC.gtf"
 mm10_star_index_dir = "/project/bhimeslab/Reference/mm38/STAR_index_mm10"
+mm10_len = "/project/bhimeslab/Reference/mm10/mm10.len"
 
 # rn6 reference files
 rn6_fa = "/project/bhimeslab/Reference/rn6/genome.ERCC.fa"
@@ -39,6 +43,7 @@ rn6_gtf = "/project/bhimeslab/Reference/rn6/genes.gtf"
 rn6_ref = "/project/bhimeslab/Reference/rn6/refFlat.txt"
 rn6_ERCC_gtf = "/project/bhimeslab/Reference/rn6/genes.ERCC.gtf"
 rn6_star_index_dir = "/project/bhimeslab/Reference/rn6/STAR_index"
+rn6_len ="/project/bhimeslab/Reference/rn6/rn6.len"
 
 # susScr3 reference files
 susScr3_fa = "/project/bhimeslab/Reference/susScr3/Ensembl_susScr3_genome.ERCC92.fa"
@@ -46,10 +51,17 @@ susScr3_gtf = "/project/bhimeslab/Reference/susScr3/genes.gtf"
 susScr3_ref = "/project/bhimeslab/Reference/susScr3/refFlat.txt"
 susScr3_ERCC_gtf = "/project/bhimeslab/Reference/susScr3/Ensembl_susScr3_genes.ERCC.gtf"
 susScr3_star_index_dir = "/project/bhimeslab/Reference/susScr3/STAR_index"
+susScr3_len = "/project/bhimeslab/Reference/susScr3/susScr3.len"
 
 # ERCC
 ERCC_only = "/project/bhimeslab/Reference/ERCC92.gtf"
 
+###
+# BigData UTL
+###
+
+# user-provided public URL to put bigwig files
+bigdata_url="http://public.himeslab.org"
 
 ###
 # Informatics Tools

@@ -195,14 +195,14 @@ if (!exists("pheno_fn")) {
     detach("package:dplyr")
     write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)
   }
-}
+} else {pheno.raw <- read.table(pheno_fn, header=T, sep="\t")}
 ```
 
 Show the summary of phenotype variables and the sample size for different groups
 
 ```{r pheno_summ, eval=T, echo=F, message=F, warning=F, results="asis"}
 if (exists("pheno_fn")) {
-    pheno <- raw.pheno
+    pheno <- pheno.raw
 }
 
 # show the first five rows

@@ -43,7 +43,7 @@ def make_rmd_html(rmd_template, geo_id, sra_id, project_name, path_start, out_di
     outp.write("out_dir <- '" + out_dir + "'\n")
     outp.write("project_name <- '" + project_name + "'\n")
     if pheno_info is not None:
-        outp.write("pheno_info <- '" + pheno_info + "'\n")
+        outp.write("pheno_fn <- '" + pheno_info + "'\n")
     if geo_id is not None:
         outp.write("geo_id <- '" + geo_id + "'\n")
     elif sra_id is not None:

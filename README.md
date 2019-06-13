@@ -114,6 +114,8 @@ The index types provided in **template_files/rnaseq_adapter_primer_sequences.txt
 * illumina\_ud\_sys1 (Illumina UD indexes for NovaSeq, MiSeq, HiSeq 2000/2500)
 * illumina\_ud\_sys2 (Illumina UD indexed for MiniSeq, NextSeq, HiSeq 3000/4000)
 * prepX (PrepX for Apollo 324 NGS Library Prep System)
+* Nextera_DU (Nextera XT indexes for MiniSeq, NextSeq, HiSeq 3000/4000)
+* NebNext_DU (NebNext multiplex oligos for MiniSeq, NextSeq, HiSeq 3000/4000)
 
 **template_files/rnaseq_adapter_primer_sequences.txt** contains four columns (i.e. Type, Index, Description, Sequence). Sequences in the Index column is used to match those in Index column in sample info file. This column naming is rigid.
 

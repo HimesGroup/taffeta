@@ -136,7 +136,14 @@ dup.data <- duplicates
 dup.data <- dup.data[which(dup.data$Read_Number!="Total Deduplicated Percentage"),]
 dup.data$Read_Number <- 1:(nrow(duplicates)-1)
 dup.data <- dup.data %>% tidyr::gather(Sample,value,-Read_Number)
-dup.data$Sample2 <- sapply(as.character(dup.data$Sample), function(x){strsplit(x, "_R1|_R2")[[1]]})
+# dup.data$Sample2 <- sapply(as.character(dup.data$Sample), function(x){strsplit(x, "_R1|_R2")[[1]]}) # this command does not work for samples with _R1 and _R2 already in the sample name
+# create a temperaray sample data frame
+sampleframe_R1=data.frame(Sample2=sample.names, Sample=paste0(sample.names,"_R1"))
+sampleframe_R2=data.frame(Sample2=sample.names, Sample=paste0(sample.names,"_R2"))
+sampleframe = rbind(sampleframe_R1, sampleframe_R2)
+# create Sample2 column without read "_R1" or "_R2" suffix
+dup.data <- merge(sampleframe, dup.data, by="Sample", all.y=T)
+
 nsamp=ncol(duplicates)-1
 # dup.org <- 1:(nrow(duplicates)-1)
 # shift=unlist(lapply(1:nsamp, function(i){dup.org+delta*(i-1)}))
@@ -664,8 +671,8 @@ pcaplot_func <- function(pc, group_var, legend) { # group_var: column name for a
 
 # The pca_func function generates multiple pca plots for scan date, disease, treatment, and Donor
 pca_func <- function(pc) {
-  group_vars=c("Disease", "Treatment", "Tissue", "Donor")
-  legends=c("Disease", "Treatment", "Tissue", "Donor")
+  group_vars=c("Disease", "Treatment", "Tissue", "Donor", "Status")
+  legends=c("Disease", "Treatment", "Tissue", "Donor", "Status")
   idx_exist=c(1:length(group_vars))[group_vars%in%names(coldata)] # obtain index of existing variables
   plot_list=list() # store plots in a list
   for (i in idx_exist) {

@@ -277,9 +277,9 @@ def trim_and_fastqc(curr_sample, curr_index, out_dir, R1, R2, R1_trim, R2_trim):
 
     return cmd
 
-def star_and_htseq(curr_sample, out_dir, R1_trim, R2_trim, star_index_dir, ERCC_gtf, strand):
+def star_align(curr_sample, out_dir, R1_trim, R2_trim, star_index_dir, strand):
     """
-    Use STAR for alignment and htseq for quantification
+    Use STAR for alignment
     """
 
     cmd="mkdir "+out_dir+"star_out\n"
@@ -300,21 +300,6 @@ def star_and_htseq(curr_sample, out_dir, R1_trim, R2_trim, star_index_dir, ERCC_
         cmd=cmd+" --readFilesCommand zcat"
     cmd=cmd+"\n"
 
-    cmd=cmd+"mv Aligned.sortedByCoord.out.bam accepted_hits.bam\n"
-
-    # htseq quantification
-    cmd=cmd+"mkdir "+out_dir+"htseq_out/\n"
-    if R2_trim!="": # paired-end
-        if strand=="nonstrand": # non-strand-specific assay: capture coding transcriptome without strand information
-            cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=no - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
-        elif strand=="reverse": # strand-specific assay: sequence first strand (reverse)
-            cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=reverse - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
-        elif strand=="forward": # strand-specific assay: sequence second strand (forward)
-            cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=yes - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
-
-    else:  # single-end htseq-count: For stranded=yes and single-end reads, the read has to be mapped to the same strand as the feature.
-        cmd=cmd+"samtools view accepted_hits.bam | htseq-count -r pos --stranded=yes - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
-
     return cmd
 
 
@@ -327,7 +312,7 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     picard_dir=userdef.picard_dir
 
     #Create sorted bam file:
-    cmd="samtools sort accepted_hits.bam -@12 -T "+curr_sample+".tmp -o "+curr_sample+"_accepted_hits.sorted.bam\n"
+    cmd="samtools sort Aligned.sortedByCoord.out.bam -@12 -T "+curr_sample+".tmp -o "+curr_sample+"_accepted_hits.sorted.bam\n"
     #Create indexed bam file:
     cmd=cmd+"samtools index -@12 "+curr_sample+"_accepted_hits.sorted.bam\n"
     #Write out index stats of where reads align to by chr:
@@ -336,16 +321,12 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     cmd=cmd+"bamtools stats -in "+curr_sample+"_accepted_hits.sorted.bam > "+curr_sample+"_accepted_hits.sorted.bamstats\n"
 
     #Run CollectRnaSeqMetrics
-    if library_type in ["PE"]: # paired-end
-        if strand=="forward":
-            cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
-        elif strand=="reverse":
-            cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
-        elif strand=="nonstrand":
-            cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
-
-    else:
-         cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+    if strand=="forward":
+        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+    elif strand=="reverse":
+        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+    elif strand=="nonstrand":
+        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
 
     #Get number of reads spanning junctions by getting "N"s in CIGAR field of bam file. Create cigarN.script
     if not os.path.isfile(out_dir+"cigarN.script"):
@@ -361,10 +342,25 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     #Gather metrics unique to paired-end samples using CollectInsertSizeMetrics
     if library_type in ["PE"]:
 	cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectInsertSizeMetrics.jar VALIDATION_STRINGENCY=LENIENT HISTOGRAM_FILE="+curr_sample+"_InsertSizeHist.pdf INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_InsertSizeMetrics\n"
-		
-    cmd=cmd+"rm accepted_hits.bam \n"
+
     return cmd
 
+def htseq_quant(curr_sample, out_dir, ERCC_gtf, strand):
+    """
+    Use htseq-count for quantification
+    """
+
+    cmd = ""
+    cmd=cmd+"mkdir "+out_dir+"htseq_out/\n"
+
+    if strand=="nonstrand": # non-strand-specific assay: capture coding transcriptome without strand information
+        cmd=cmd+"samtools view "+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos --stranded=no - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
+    elif strand=="reverse": # strand-specific assay: sequence first strand (reverse)
+        cmd=cmd+"samtools view "+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos --stranded=reverse - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
+    elif strand=="forward": # strand-specific assay: sequence second strand (forward)
+        cmd=cmd+"samtools view "+curr_sample+"_accepted_hits.sorted.bam | htseq-count -r pos --stranded=yes - "+ERCC_gtf+" > "+out_dir+"htseq_out/"+curr_sample+"_counts.txt\n"
+
+    return cmd
 
 def bam2bw_and_track(curr_sample, curr_color, out_dir, template_dir, track_fn, bigdata_path, len_fn):
     """
@@ -566,13 +562,13 @@ def main(sample_info_file, project_name, aligner, ref_genome, library_type, inde
         cmd = cmd + trim_and_fastqc_cmd
 
         ###
-        # Alignment and quanification
+        # Alignment
         ###
 
-        # STAR alignment and htseq quanification
+        # STAR alignment
         if aligner == "star": 
-            star_and_htseq_cmd = star_and_htseq(curr_sample, out_dir, R1_trim, R2_trim, star_index_dir, ERCC_gtf, strand)
-            cmd = cmd + star_and_htseq_cmd
+            star_align_cmd = star_align(curr_sample, out_dir, R1_trim, R2_trim, star_index_dir, strand)
+            cmd = cmd + star_align_cmd
 
         ###
         # Obtain QC metrics from .bam file
@@ -580,6 +576,12 @@ def main(sample_info_file, project_name, aligner, ref_genome, library_type, inde
         bamstat_cmd = get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type)
         cmd = cmd + bamstat_cmd
 
+        ###
+        # Quantification
+        ###
+        
+        htseq_quant_cmd = htseq_quant(curr_sample, out_dir, ERCC_gtf, strand)
+        cmd = cmd + htseq_quant_cmd
 
         ###
         # Convert bam to bw

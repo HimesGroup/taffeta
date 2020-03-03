@@ -248,12 +248,14 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
         if design=="paired": # if there is a sample without a pair in this comparison, remove it from the comparison
             outp.write("#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.\n")
 	    outp.write("for (i in unique(coldata_curr$"+control_var+")) {\n")
-	    outp.write("	if (nrow(coldata_curr[which(coldata_curr$Status=='"+case+"' & coldata_curr$"+control_var+"==i),]) != nrow(coldata_curr[which(coldata_curr$Status=='"+ctrl+"' & coldata_curr$"+control_var+"==i),])) {\n")
+	    outp.write("	if (nrow(coldata_curr[which(coldata_curr$Status==case & coldata_curr$"+control_var+"==i),]) != nrow(coldata_curr[which(coldata_curr$Status=='"+ctrl+"' & coldata_curr$"+control_var+"==i),])) {\n")
 	    outp.write("		coldata_curr <- coldata_curr[-which(coldata_curr$"+control_var+"==i),]\n")
+            
 	    outp.write("		cat('Samples with "+control_var+"==', i, 'were removed from the "+case+" vs. "+ctrl+" comparison because there was an unequal number of case and control samples')\n}\n}\n")
 
 
         outp.write("coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]\n")
+        #outp.write("coldata_curr <- coldata_curr[order(rownames(coldata_curr)), ]\n")
         outp.write("coldata_curr$Status <- factor(coldata_curr$Status, levels = c(ctrl,case)) # make sure that control is being used as reference level (else DESeq2 does it alphabetically)\n")
         outp.write("DT::datatable(coldata_curr, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = '_all')))) # dom = 't' removes search box\n")
         outp.write("rownames(coldata_curr) <- coldata_curr$Sample\n")

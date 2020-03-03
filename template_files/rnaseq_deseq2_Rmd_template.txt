@@ -97,7 +97,6 @@ Volcano plot (probes with a q-value <0.05 are present in red)
 ```{r, echo=F}
 # The volplot_func function generates volcano plots
 volplot_func <- function(df,qval_column,title) {
-  if (missing(title)) {title=""}
   # get qvalue column
   qval <- df[,qval_column]
   if (all(is.na(qval))) {message("The batch and status are highly confounded. Batch effect is not adjusted.")} else {         
@@ -116,7 +115,9 @@ volplot_func <- function(df,qval_column,title) {
     # log10 transformed q values
     df$logqval <- -log10(qval)
     diffgenes <- df$Gene[qval<0.05] #Create list of all DEG's
+    signum = paste0(length(diffgenes), " differentially expressed genes")
     #cat(length(diffgenes), "differentially expressed genes have been identified based on", qval_column)
+    if (missing(title)) {title=signum}
     print(
     ggplot(df, aes(x = log2FoldChange, y = logqval, color=sig)) + geom_point(size=0.5) +
       theme_bw() +

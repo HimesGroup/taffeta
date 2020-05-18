@@ -86,7 +86,7 @@ deseq2_version="1.18.1"
 ###
 
 memory=36000
-queue="legacy" # normal or legacy
+queue="normal" # normal or legacy
 
 ###
 # Genes of interest
@@ -99,4 +99,4 @@ fav_gene=["CRISPLD2","ORMDL3"]
 ###
 
 # author name and contact info (shown in .html report)
-author="Mengyuan Kan (mengykan@upenn.edu)"
+author="Mengyuan Kan (mengykan@pennmedicine.upenn.edu)"

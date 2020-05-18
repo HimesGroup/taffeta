@@ -46,7 +46,7 @@ def make_rmd_html(rmd_template, geo_id, sra_id, project_name, path_start, out_di
         outp.write("pheno_fn <- '" + pheno_info + "'\n")
     if geo_id is not None:
         outp.write("geo_id <- '" + geo_id + "'\n")
-    elif sra_id is not None:
+    if sra_id is not None:
         outp.write("sra_id <- '" + sra_id + "'\n")
     outp.write("```\n\n")
 
@@ -86,45 +86,69 @@ def download_fastq(SRA_info, out_dir, path_start, fastqc):
     sra=open(SRA_info, 'r')
     sra=sra.readlines()
     header=sra[0].rstrip()
-    if header != "run\tsubmission\tstudy\tsample\texperiment\tftp":
-        print "The column names in SRA_info file "+SRA_info+" should be run, submission, study, sample, experiment, ftp\n"
+    if header == "run\tsubmission\tstudy\tsample\texperiment\tftp":
+        sradb_exist = True # use fastq ftp link from SRAdb to download
+    elif header == "run\tsubmission\texperiment":
+        sradb_exist = False # use SRAtool kit to download
+    else:
+        print "The column names in SRA_info file "+SRA_info+" should be run, submission, [study, sample, experiment,] ftp\n"
         sys.exit()
 
     SRA={} # key: Sample ID, value: ftp
     for line in sra[1:]:
         line = line.rstrip().split('\t')
         run = line[0]
-        ftp = line[5]
-        if run not in SRA:
-            SRA[run]=[ftp]
+        if sradb_exist:
+            ftp = line[5]
+            if run not in SRA:
+                SRA[run]=[ftp]
+            else:
+                SRA[run]=SRA[run]+[ftp]
         else:
-            SRA[run]=SRA[run]+[ftp]
+            if run not in SRA:
+                SRA[run]=1
+            else:
+                SRA[run]=1
 
     # create .lsf file with download command
     for sample in SRA:
-        fastq_names=map(lambda x: x.split('/')[-1] ,SRA[sample]) # exclude ftp path and obtain fastq file name
+        if sradb_exist:
+            fastq_names=map(lambda x: x.split('/')[-1] ,SRA[sample]) # exclude ftp path and obtain fastq file name
+        else:
+            fastq_names=sample
 
         if fastqc: # create new directory under current sample name for raw fastqc results
             fastqc_out=path_start+sample
             if not os.path.exists(fastqc_out):
                 os.makedirs(fastqc_out)
 
-        for i in range(len(fastq_names)):
-            fastq_name=fastq_names[i]
-            ftp=SRA[sample][i]
-            if os.path.exists(out_dir+fastq_name):
-                print(out_dir+fastq_name+" already exists. Skip download.") # if the fastq file already exists, skip download
-                if fastqc:
-                    download_cmd="fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
-                    lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for fastqc
-            else:
-                download_cmd="cd "+out_dir+"\n"
-                download_cmd=download_cmd+"wget "+ ftp+"\n"
-                if fastqc:
-                    download_cmd=download_cmd+"fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
+        if sradb_exist: # use ftp link
+            for i in range(len(fastq_names)):
+                fastq_name=fastq_names[i]
+                ftp=SRA[sample][i]
+                if os.path.exists(out_dir+fastq_name):
+                    print(out_dir+fastq_name+" already exists. Skip download.") # if the fastq file already exists, skip download
+                    if fastqc:
+                        download_cmd="fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
+                        lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for fastqc
+                else:
+                    download_cmd="cd "+out_dir+"\n"
+                    download_cmd=download_cmd+"wget "+ ftp+"\n"
+                    if fastqc:
+                        download_cmd=download_cmd+"fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
 
-                lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for download and/or fastqc
-            
+                    lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for download and/or fastqc
+
+        else: # use SRAtool kit
+            download_cmd="fastq-dump -I --split-files "+sample+" --outdir "+out_dir+" --gzip --skip-technical\n"
+            if fastqc: # list all posible fastq files
+                # if there is only one read:
+                download_cmd=download_cmd+"fastqc "+out_dir+sample+".fastq.gz -o "+fastqc_out+"\n"
+                # if there are paired reads:
+                download_cmd=download_cmd+"fastqc "+out_dir+sample+"_1.fastq.gz -o "+fastqc_out+"\n"
+                download_cmd=download_cmd+"fastqc "+out_dir+sample+"_2.fastq.gz -o "+fastqc_out+"\n"
+            lsf_file(sample+"_download", download_cmd) # create .lsf files for download and/or fastqc
+
 
 def main(geo_id, sra_id, path_start, project_name, pheno_info, template_dir, fastqc):
 

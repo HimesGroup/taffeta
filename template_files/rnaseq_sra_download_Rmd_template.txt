@@ -122,16 +122,32 @@ fastq_info_func <- function(SRA_ID) {
  	sraFiles <- getFASTQinfo(in_acc = c(sra_info$experiment), sra_con, srcType = 'ftp' )
  	return(sraFiles)
 }
+
+# check if sample from GEO exists in SRAdb
+sraconv_func <- function(files) {
+  conversion <- sraConvert(files, sra_con = sra_con )
+}
 ```
 
 ```{r sraFiles, eval=T, echo=F, message=F, warning=F}
 # download SRAmetadb.sqlite if it does not exist
-if (!file.exists("SRAmetadb.sqlite")) {
-  sqlfile <<- getSRAdbFile()
+if (!file.exists(paste0(out_dir, "/SRAmetadb.sqlite"))) {
+  sqlfile <- getSRAdbFile()
   sra_con <- dbConnect(SQLite(),sqlfile)
 } else {
   sra_con <- dbConnect(SQLite(),dbname="SRAmetadb.sqlite")
 }
+# check if files exist in sradb. If not, download fastq file from SRA using SRA toolkits
+conversion <- sraconv_func(files)
+sradb_exist <- nrow(conversion)!=0
+if (!sradb_exist) {
+  if (!exists("sra_id")) {stop(geo_id, " is not available in SRAdb. Please provide sra_id.")}
+}
+```
+
+
+```{r sra_download_sradbexist, eval=sradb_exist, echo=F, message=F, warning=F}
+# if study the exists in SRAdb
 # obtain SRA file information
 if(exists("geo_id")){
   sraFiles <- do.call(rbind, lapply(files, srainfo_func))
@@ -144,6 +160,19 @@ if(exists("geo_id")){
 }
 ```
 
+```{r sra_download_sradbnotexist, eval=!sradb_exist, echo=F, message=F, warning=F}
+# if the study does not exist in SRAdb
+# obtain metadata from SRA website
+metadata_fn <- paste0(out_dir, "/", sra_id, ".metadata.csv") 
+cmd_metadata_download <- paste0("esearch -db sra -query ", sra_id, " | efetch -format runinfo | awk -F ',' 'NR==1; NR>1 {print $0 | \"grep -v Run\" }' | sed '/^$/d' > ", metadata_fn)
+system(cmd_metadata_download)
+# save meta data in sraFile.info
+sraFiles <- read.csv(metadata_fn)
+names(sraFiles) <- unname(sapply(names(sraFiles), tolower))
+sraFiles <- sraFiles %>% select(run,submission,experiment)
+write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
+```
+
 Show first five rows of SRA information
 ```{r srainfo_show, eval=T, echo=F, message=F, warning=F, results="asis"}
 row.names(sraFiles) <- NULL
@@ -152,8 +181,8 @@ pandoc.table(head(sraFiles,5), justify='left',split.tables=Inf, caption="SRA inf
 
 ```{r sra_download, eval=F, echo=F, message=F, warning=F}
 # Download fastq files, disabled here
-if (!file.exists("SRAmetadb.sqlite")) {
-  sqlfile <<- getSRAdbFile()
+if (!file.exists(paste0(out_dir, "/SRAmetadb.sqlite"))) {
+  sqlfile <- getSRAdbFile()
   sra_con <- dbConnect(SQLite(),sqlfile)
 } else {
   sra_con <- dbConnect(SQLite(),dbname="SRAmetadb.sqlite")

@@ -247,10 +247,11 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
         if design=="paired": # if there is a sample without a pair in this comparison, remove it from the comparison
             outp.write("#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.\n")
+            outp.write("donors_case=as.character(coldata_curr$"+control_var+")[which(coldata_curr$Status==case)]\n")
+            outp.write("donors_ctrl=as.character(coldata_curr$"+control_var+")[which(coldata_curr$Status==ctrl)]\n")
 	    outp.write("for (i in unique(coldata_curr$"+control_var+")) {\n")
-	    outp.write("	if (nrow(coldata_curr[which(coldata_curr$Status==case & coldata_curr$"+control_var+"==i),]) != nrow(coldata_curr[which(coldata_curr$Status=='"+ctrl+"' & coldata_curr$"+control_var+"==i),])) {\n")
+	    outp.write("	if (!(i%in%donors_case&i%in%donors_ctrl)) {\n")
 	    outp.write("		coldata_curr <- coldata_curr[-which(coldata_curr$"+control_var+"==i),]\n")
-            
 	    outp.write("		cat('Samples with "+control_var+"==', i, 'were removed from the "+case+" vs. "+ctrl+" comparison because there was an unequal number of case and control samples')\n}\n}\n")
 
 

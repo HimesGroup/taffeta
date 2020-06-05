@@ -150,12 +150,12 @@ if (!sradb_exist) {
 # if study the exists in SRAdb
 # obtain SRA file information
 if(exists("geo_id")){
-  sraFiles <- do.call(rbind, lapply(files, srainfo_func)) %>% unique() 
+  sraFiles <- do.call(rbind, lapply(files, srainfo_func)) %>% dplyr::filter(experiment%in%files) %>% unique() # exclude the same samples that are used in other projects
   write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
   
 } else if (exists("sra_id")){
-  sraFiles <- fastq_info_func(sra_id) %>% unique()
-  sraFiles <- sraFiles %>% select(run,submission,study,sample,experiment,ftp)
+  sraFiles <- fastq_info_func(sra_id)
+  sraFiles <- sraFiles %>% dplyr::filter(experiment%in%files) %>% dplyr::select(run,submission,study,sample,experiment,ftp) %>% unique() # exclude the same samples that are used in other projects
   write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
 }
 ```
@@ -169,7 +169,7 @@ system(cmd_metadata_download)
 # save meta data in sraFile.info
 sraFiles <- read.csv(metadata_fn)
 names(sraFiles) <- unname(sapply(names(sraFiles), tolower))
-sraFiles <- sraFiles %>% select(run,submission,experiment) %>% unique()
+sraFiles <- sraFiles %>% dplyr::filter(experiment%in%files) %>% dplyr::select(run,submission,experiment) %>% unique() # exclude the same samples that are used in other projects
 write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
 ```
 

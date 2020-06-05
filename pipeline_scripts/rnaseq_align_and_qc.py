@@ -310,6 +310,10 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     # bam stat
     # read in user-defined variable python script: import picard directory
     picard_dir=userdef.picard_dir
+    # read in picard version
+    picard_version = userdef.picard_version
+    if picard_version.startswith("2."): # picard commands are slightly different between v1.96 and v2.22
+        picard2 = True
 
     #Create sorted bam file:
     cmd="samtools sort Aligned.sortedByCoord.out.bam -@12 -T "+curr_sample+".tmp -o "+curr_sample+"_accepted_hits.sorted.bam\n"
@@ -319,14 +323,19 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     cmd=cmd+"samtools idxstats "+curr_sample+"_accepted_hits.sorted.bam > "+curr_sample+"_accepted_hits.sorted.stats\n"
     #Write out bamtools summary stats:
     cmd=cmd+"bamtools stats -in "+curr_sample+"_accepted_hits.sorted.bam > "+curr_sample+"_accepted_hits.sorted.bamstats\n"
+    cmd=cmd+"rm Aligned.sortedByCoord.out.bam\n"
 
     #Run CollectRnaSeqMetrics
+    if picard2:
+        picard_cmd_metrics="java -Xmx2g -jar "+picard_dir+"/picard.jar CollectRnaSeqMetrics"
+    else:
+        picard_cmd_metrics="java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar"
     if strand=="forward":
-        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+        cmd=cmd+picard_cmd_metrics+" REF_FLAT="+ref+" STRAND_SPECIFICITY=FIRST_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
     elif strand=="reverse":
-        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+        cmd=cmd+picard_cmd_metrics+" REF_FLAT="+ref+" STRAND_SPECIFICITY=SECOND_READ_TRANSCRIPTION_STRAND VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
     elif strand=="nonstrand":
-        cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectRnaSeqMetrics.jar REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
+        cmd=cmd+picard_cmd_metrics+" REF_FLAT="+ref+" STRAND_SPECIFICITY=NONE VALIDATION_STRINGENCY=LENIENT INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_RNASeqMetrics\n"
 
     #Get number of reads spanning junctions by getting "N"s in CIGAR field of bam file. Create cigarN.script
     if not os.path.isfile(out_dir+"cigarN.script"):
@@ -340,8 +349,12 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     cmd=cmd+"echo \"Junction Spanning Reads: \" $(bamtools filter -in "+curr_sample+"_accepted_hits.sorted.bam -script "+out_dir+"cigarN.script | bamtools count ) >> "+curr_sample+"_accepted_hits.sorted.bamstats \n"
 
     #Gather metrics unique to paired-end samples using CollectInsertSizeMetrics
+    if picard2:
+        picard_cmd_insert="java -Xmx2g -jar "+picard_dir+"/picard.jar CollectInsertSizeMetrics"
+    else:
+        picard_cmd_insert="java -Xmx2g -jar "+picard_dir+"CollectInsertSizeMetrics.jar"
     if library_type in ["PE"]:
-	cmd=cmd+"java -Xmx2g -jar "+picard_dir+"CollectInsertSizeMetrics.jar VALIDATION_STRINGENCY=LENIENT HISTOGRAM_FILE="+curr_sample+"_InsertSizeHist.pdf INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_InsertSizeMetrics\n"
+	cmd=cmd+picard_cmd_insert+" VALIDATION_STRINGENCY=LENIENT HISTOGRAM_FILE="+curr_sample+"_InsertSizeHist.pdf INPUT="+curr_sample+"_accepted_hits.sorted.bam OUTPUT="+curr_sample+"_InsertSizeMetrics\n"
 
     return cmd
 

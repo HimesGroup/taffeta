@@ -312,6 +312,7 @@ def get_bamstat_metrics(curr_sample, out_dir, ref, strand, library_type):
     picard_dir=userdef.picard_dir
     # read in picard version
     picard_version = userdef.picard_version
+    picard2 = False
     if picard_version.startswith("2."): # picard commands are slightly different between v1.96 and v2.22
         picard2 = True
 

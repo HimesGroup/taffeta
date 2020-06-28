@@ -84,7 +84,7 @@ if (exists("geo_id")){
     relation_cols <- which(grepl("relation",names(pheno.raw))) # columns which have "relation" in column names
     relation_col=relation_cols[sapply(relation_cols, function(x){ # the column with "SRX" is where to retain the SRA ID
       relation=pheno.raw[,x]
-      all(grepl("SRX", relation))
+      any(grepl("SRX", relation))
     })]
     if (length(relation_col)>1) {stop("More than two columns contain SRX information. Please check and speciy column name to the variable relation_name.")}
     relation_name=names(pheno.raw)[relation_col]

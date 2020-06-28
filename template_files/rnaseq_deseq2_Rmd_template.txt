@@ -64,6 +64,14 @@ names(summ_tb) <- c("Status","Count")
 pandoc.table(summ_tb, split.tables=Inf, caption="Comparison Summary")
 ```
 
+```{r, eval=T, echo=F}
+if (exists("fav_genes")) {
+  comp=paste0(case,"_vs_",ctrl)
+  # save padj for house-keeping genes if defined
+  fav_list[[comp]]=res_df[which(res_df$gene_symbol%in%fav_genes),]
+}
+```
+
 ### Top 50 genes by p-value
 ```{r, eval=T, echo=F}
 #output table for report
@@ -317,7 +325,7 @@ boxplot_func <- function(df) {
     geom_boxplot(outlier.colour=NA, lwd=0.2, color="grey18") + 
     stat_boxplot(geom ='errorbar', color="grey18") + 
     expand_limits(y=0) +
-    geom_jitter(size=2, width=0.2) + 
+    geom_jitter(size=0.5, width=0.2) + 
     guides(fill=FALSE) +
     theme_bw() +  
     labs(title=paste0(gene_id, " ", gene_symbol)) +
@@ -325,8 +333,8 @@ boxplot_func <- function(df) {
     labs(y="Normalized counts") +
     theme(text = element_text(size=9), 
           strip.text.x = element_text(size = 10),
-	  axis.text.x = element_text(size=12),
-          #axis.text.x = element_text(angle = 90, hjust = 1, size=12),
+	  #axis.text.x = element_text(size=12),
+          axis.text.x = element_text(angle = 90, hjust = 1, size=12),
           axis.text.y = element_text(size=9),
           plot.title = element_text(size=12),
           axis.title.x = element_blank(),
@@ -350,9 +358,9 @@ for (i in 1:topnum) {
 Boxplots for user-defined favorite genes if they exist, and show DE results
 
 ```{r, eval=T, echo=F, cache=FALSE, warning=F, message=F, fig.height=4, fig.width=4}
-fav_genes=fav_genes[fav_genes%in%as.character(res_df$gene_symbol)] # select favorite genes within the current results
-if (length(fav_genes)==0) {cat("None of user-defined genes are found in current DE results.\n")} else {
-  for (i in fav_genes) {
+sel_fav_genes=fav_genes[fav_genes%in%as.character(res_df$gene_symbol)] # select favorite genes within the current results
+if (length(sel_fav_genes)==0) {cat("None of user-defined genes are found in current DE results.\n")} else {
+  for (i in sel_fav_genes) {
     gene_symbol=i
     gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values
     curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
@@ -362,9 +370,9 @@ if (length(fav_genes)==0) {cat("None of user-defined genes are found in current 
 ```
 
 ```{r, eval=T, echo=F, message=F}
-if (length(fav_genes)>0) {
+if (length(sel_fav_genes)>0) {
   fav_tb=data.frame()
-  for (i in fav_genes) {
+  for (i in sel_fav_genes) {
     gene_symbol=i
     curr_data <- res_df[which(res_df$gene_symbol==gene_symbol),][1,] # choose Ensembl gene with smallest p-values
     fav_tb=rbind(fav_tb, curr_data)
@@ -375,4 +383,5 @@ if (length(fav_genes)>0) {
   DT::datatable(fav_tb, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
 }
 ```
+
 

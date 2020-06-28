@@ -156,6 +156,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
     # user-defined favorite genes
     outp.write("fav_genes <- c('"+"', '".join(fav_gene)+"')\n")
+    outp.write("fav_list <- list()\n")
 
     #Read in phenofile; phenofile should contain columns"Sample" and "Status"; if desired, it can have other columns (e.g. "Individual" or "Cell_Line", etc.) & design can be modified accordingly
     outp.write("coldata <- read.table('"+sample_info_file+"', sep='\\t', header=TRUE)\n")
@@ -309,6 +310,29 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("  dat[,c('pvalue')] <- formatC(dat[,c('pvalue')], format = \"e\", digits = 2)\n")
     outp.write("  dat <- dat %>% spread(gene_symbol, pvalue)\n")
     outp.write("  DT::datatable(dat, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = \"_all\"))))\n")    
+    outp.write("}\n```\n\n")
+
+    #Favorite gene boxplots for all conditions
+    outp.write("## Favorite gene expressions in all conditions\n")
+    outp.write("\n")
+    outp.write("```{r, eval=T, echo=F, cache=F, warning=F, message=F}\n")
+    outp.write("if (exists(\"fav_genes\")) {\n")
+    outp.write("  sel_ids=as.character() # save selected Ensembl ID for favorite genes\n")
+    outp.write("  for (i in fav_genes) {\n")
+    outp.write("    gene_symbol <- i\n")
+    outp.write("    gene_ids <- norm.counts[which(norm.counts$gene_symbol==i),'Gene']\n")
+    outp.write("    curr_data <- norm.counts[which(norm.counts$gene_symbol==i),names(norm.counts)[names(norm.counts)%in%coldata$Sample]]\n")
+    outp.write("    curr_data <- curr_data[which.max(rowSums(curr_data)),]\n")
+    outp.write("    gene_id <- gene_ids[which.max(rowSums(curr_data))] # choose Ensembl gene with the most counts\n")
+    outp.write("    sel_ids <- c(sel_ids, gene_id)\n")
+    outp.write("    curr_data <- data.frame(Sample=colnames(curr_data),Gene=rep(gene_id,ncol(curr_data)),gene_symbol=rep(gene_symbol,ncol(curr_data)),count=as.numeric(curr_data))\n")
+    outp.write("    curr_data <- merge(curr_data,coldata[which(coldata$Sample%in%curr_data$Sample),c('Sample','Status')],by='Sample')\n")
+    outp.write("    print(boxplot_func(df=curr_data))")
+    outp.write("  }\n")
+    outp.write("  dat <- do.call(rbind,lapply(1:length(fav_list),function(x){dat=fav_list[[x]];dat$Comparison=names(fav_list)[x];dat[which(dat$Gene%in%sel_ids),c('gene_symbol','pvalue','Comparison')]})) # obtain all p-value for favorite genes\n")
+    outp.write("  dat[,c('pvalue')] <- formatC(dat[,c('pvalue')], format = \"e\", digits = 2)\n")
+    outp.write("  dat <- dat %>% spread(gene_symbol, pvalue)\n")
+    outp.write("  DT::datatable(dat, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = \"_all\"))))\n")
     outp.write("}\n```\n\n")
 
     outp.write("```{r session_info, eval=T, echo=F}\n")

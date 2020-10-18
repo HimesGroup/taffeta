@@ -690,7 +690,7 @@ pca_func <- function(pc) {
 
 ```{r align_pca, eval=T, echo=F, message=F, warning=F}
 if (aligner=="star") {
-  coldata <- read.table(sample_info_file, sep='\t', header=TRUE)
+  coldata <- read.table(sample_info_file, sep='\t', header=TRUE, stringsAsFactors = TRUE)
   countdata <- read.table(count_data_file, sep='\t', header=TRUE, check.names=FALSE)
   rld <- rlog_func(coldata,countdata)
   pca_dat <- assay(rld)

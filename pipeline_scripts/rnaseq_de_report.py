@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 import argparse
 import sys
 import subprocess
@@ -140,7 +140,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("> "+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt<br>\n\n")
     outp.write("where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br>\n\n")
     outp.write("\n\n```{r lib, echo=F, message=F, warning=F}\n")
-    outp.write("library(gplots)\nlibrary(reshape2)\nlibrary(RColorBrewer)\nlibrary(plyr)\nlibrary(lattice)\nlibrary(genefilter)\nlibrary(ggplot2)\nlibrary(viridis)\nlibrary(DESeq2)\nlibrary(DT)\nlibrary(tidyr)\nlibrary(biomaRt)\nlibrary(pander)\noptions(width = 1000)\n```\n")
+    outp.write("library(gplots)\nlibrary(RColorBrewer)\nlibrary(ggplot2)\nlibrary(viridis)\nlibrary(DESeq2)\nlibrary(DT)\nlibrary(tidyr)\nlibrary(biomaRt)\nlibrary(pander)\noptions(width = 1000)\n```\n")
     outp.write("\n")
     outp.write("\n\n```{r vars, eval=T, echo=F}\n")
     outp.write("project_name=\""+project_name+"\"\n")

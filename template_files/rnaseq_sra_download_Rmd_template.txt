@@ -94,6 +94,13 @@ if (exists("geo_id")){
     files <- pheno.raw$SRA_ID
   }
   cat("Samples for download:", paste(files,collapse=", "),"\n")
+} else {
+  if (exists("pheno_fn")) {
+    pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
+    files <- pheno.raw$SRA_ID    
+  } else {
+    stop("GEO ID is not provided. Please provide user defined meta-data.")
+  }
 }
 ```
 
@@ -142,6 +149,16 @@ conversion <- sraconv_func(files)
 sradb_exist <- nrow(conversion)!=0
 if (!sradb_exist) {
   if (!exists("sra_id")) {stop(geo_id, " is not available in SRAdb. Please provide sra_id.")}
+}
+
+# check if all samples exist in SRAdb
+if (sradb_exist) {
+  if (!all(sapply(files, function(x){x%in%conversion$experiment}))) {
+    cat("Not all samples in GEO or phenotype file are in SRAdb. Use SRA Tools for download.\n")
+    if (!exists("sra_id")|!exists("pheno_fn")) {
+      stop("Please provide SRA ID or phenotype file.")
+    } else {sradb_exist=FALSE}
+  }
 }
 ```
 
@@ -238,10 +255,12 @@ if (exists("pheno_fn")) {
 if(exists("pheno_fn")|exists("geo_id")){
   pandoc.table(head(pheno,5), split.tables=Inf,caption="Show the first 5 rows of the modified phenotype file")
   # show the groups of interest
-  avail_group=c("Tissue","Disease","Treatment")[c("Tissue","Disease","Treatment")%in%names(pheno)]
-  res=as.data.frame(table(pheno[,avail_group]))
-  names(res) <- c(avail_group,"Count")
-  pandoc.table(res, split.tables=Inf, caption="Sample size in different tissue and disease/treatment groups")
+  avail_group=c("Tissue","Disease","Treatment")[c("Tissue","Disease","Treatment")%in%names(pheno)] 
+  if (length(avail_group)>0) {
+    res=as.data.frame(table(pheno[,avail_group]))
+    names(res) <- c(avail_group,"Count")
+    pandoc.table(res, split.tables=Inf, caption="Sample size in different tissue and disease/treatment groups")
+  }
  }
 ```
 

@@ -1,22 +1,17 @@
+Install the prerequisite NCBI tool kits if they do not exist
+* esearch 
+* efetch
+
 Install the prerequisite R packages if they do not exist
-* GEOquery 
-* SRAdb
+* GEOquery (if geo_id is specified)
 * dplyr
 * pander
 
-```{r pkg, eval=F, echo=F, message=F, warning=F}
-source("http://bioconductor.org/biocLite.R")
-biocLite("GEOquery")
-biocLite ("SRAdb")
-install.packages("dplyr")
-install.packages("pander")
-```
-
 Load the necessary libraries.
 
+
 ```{r lib, eval=T, echo=F, message=F, warning=F}
-library(GEOquery)
-library(SRAdb)
+if (exists("geo_id")){library(GEOquery)}
 library(dplyr)
 library(pander)
 ```
@@ -104,9 +99,12 @@ if (exists("geo_id")){
 }
 ```
 
-Get fastq file information from SRA. Raw .fastq files will be downloaded in parallele using Linux bash script
+Get fastq file information from SRA repository using SRA Tools. Raw .fastq files will be downloaded in parallele using Linux bash script
 
 ```{r sra_func, echo=F, message=F, warning=F}
+###
+# Stop using SRAdb to retrieve data
+###
 # The sradownload_func downloads fastq file based on SRA id
 sradownload_func <- function(file) {
   SRAdb::getSRAfile(file, sra_con,
@@ -136,7 +134,10 @@ sraconv_func <- function(files) {
 }
 ```
 
-```{r sraFiles, eval=T, echo=F, message=F, warning=F}
+```{r sraFiles, eval=F, echo=F, message=F, warning=F}
+###
+# Stop using SRAdb to retrieve data
+###
 # download SRAmetadb.sqlite if it does not exist
 if (!file.exists(paste0(out_dir, "/SRAmetadb.sqlite"))) {
   sqlfile <- getSRAdbFile()
@@ -163,7 +164,11 @@ if (sradb_exist) {
 ```
 
 
-```{r sra_download_sradbexist, eval=sradb_exist, echo=F, message=F, warning=F}
+```{r sra_download_sradbexist, eval=F, echo=F, message=F, warning=F}
+###
+# Stop using SRAdb to retrieve data
+###
+
 # if study the exists in SRAdb
 # obtain SRA file information
 if(exists("geo_id")){
@@ -177,7 +182,7 @@ if(exists("geo_id")){
 }
 ```
 
-```{r sra_download_sradbnotexist, eval=!sradb_exist, echo=F, message=F, warning=F}
+```{r sra_download_sradbnotexist, eval=T, echo=F, message=F, warning=F}
 # if the study does not exist in SRAdb
 # obtain metadata from SRA website
 metadata_fn <- paste0(out_dir, "/", sra_id, ".metadata.csv") 
@@ -196,17 +201,6 @@ row.names(sraFiles) <- NULL
 pandoc.table(head(sraFiles,5), justify='left',split.tables=Inf, caption="SRA information")
 ```
 
-```{r sra_download, eval=F, echo=F, message=F, warning=F}
-# Download fastq files, disabled here
-if (!file.exists(paste0(out_dir, "/SRAmetadb.sqlite"))) {
-  sqlfile <- getSRAdbFile()
-  sra_con <- dbConnect(SQLite(),sqlfile)
-} else {
-  sra_con <- dbConnect(SQLite(),dbname="SRAmetadb.sqlite")
-}
-system.time(sapply(files, sradownload_func))
-```
-
 ### User tailored phenotype file
 
 **This step is only used for tailoring raw phenotype file from GEO. This step requires mannual inspection.**
@@ -215,12 +209,16 @@ Raw phenotypic variables are not informative (e.g. description, characteristics_
 
 The example codes for this section are based on phenotype data from GSE52778 (SRA study ID: SRP033351).
 
-```{r pheno, eval=T, echo=F, message=F, warning=F}
-if (!exists("pheno_fn")) {
-  if(exists("geo_id")){
-    library(dplyr)
-    pheno.raw$files <- files # Note that file column should be selected in the code below
-    cols=c("title","geo_accession", "characteristics_ch1.2","characteristics_ch1.3", "characteristics_ch1","files")
+```{r choose_pheno, eval=T, echo=F, message=F, warning=F}
+# define parameters to execute corresponding block
+retrive_pheno_fromGEO <- (!exists("pheno_fn"))&(exists("geo_id"))
+use_pheno_fn <- exists("pheno_fn")
+```
+
+```{r pheno_from_GEO, eval=retrive_pheno_fromGEO, echo=F, message=F, warning=F}
+library(dplyr)
+cols=c("title","geo_accession", "characteristics_ch1.2","characteristics_ch1.3", "characteristics_ch1")
+if (all(sapply(cols, function(x){x%in%names(pheno.raw)}))) {
     pheno <- pheno.raw %>%
       dplyr::select(cols) %>%
       dplyr::mutate(SRA_ID=files) %>%
@@ -233,24 +231,27 @@ if (!exists("pheno_fn")) {
       dplyr::mutate(Treatment=gsub("Untreated","untreated",Treatment)) %>%
       dplyr::mutate(Disease="nonasthma") %>%
       dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
-      dplyr::mutate_if(is.character,as.factor) %>%
-      dplyr::select(-one_of(cols)) # remove original columns
-    pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)
-    names(pheno)[names(pheno)%in%c("run")] <- c("Sample")
-    names(pheno)[names(pheno)%in%c("experiment")] <- c("SRA_ID")
-    detach("package:dplyr")
-    write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)
-  }
-} else {pheno.raw <- read.table(pheno_fn, header=T, sep="\t")}
+      dplyr::select(-one_of(cols)) %>% # remove original columns
+      dplyr::mutate(SRA_ID=files) %>%
+      dplyr::mutate_if(is.character,as.factor) 
+} else {
+  cat("Not all pre-defined column names are in meta data. Use raw meta data.\n")
+  pheno <- pheno.raw
+}
+pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)
+names(pheno)[names(pheno)%in%c("run")] <- c("Sample")
+names(pheno)[names(pheno)%in%c("experiment")] <- c("SRA_ID")
+detach("package:dplyr")
+write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)
+```
+
+```{r pheno_from_file, eval=use_pheno_fn, echo=F, message=F, warning=F}
+pheno <- read.table(pheno_fn, header=T, sep="\t")
 ```
 
 Show the summary of phenotype variables and the sample size for different groups
 
 ```{r pheno_summ, eval=T, echo=F, message=F, warning=F, results="asis"}
-if (exists("pheno_fn")) {
-    pheno <- pheno.raw
-}
-
 # show the first five rows
 if(exists("pheno_fn")|exists("geo_id")){
   pandoc.table(head(pheno,5), split.tables=Inf,caption="Show the first 5 rows of the modified phenotype file")

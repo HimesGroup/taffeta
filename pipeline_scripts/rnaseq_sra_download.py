@@ -195,8 +195,8 @@ def main(geo_id, sra_id, path_start, project_name, pheno_info, template_dir, fas
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Download RNA-Seq rawr reads .fastq files from SRA.")
-    parser.add_argument("--geo_id", type=str, help="GEO accession id")
-    parser.add_argument("--sra_id", type=str, help="SRP id if GEO entry does not exist. If both GEO ID and SRA ID are specified, only use GEO_ID.")
+    parser.add_argument("--sra_id", type=str, help="SRA ID.")
+    parser.add_argument("--geo_id", type=str, help="GEO accession id. Retrieve meta-data from GEO if specified.")
     parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")
     parser.add_argument("--project_name", type=str, help="Name of project that all samples correspond to.")
     parser.add_argument("--pheno_info", help="Use user defined phenotype file to download the .fastq files of corresponding samples from SRA. The name in 'SRA_ID' column should match the sample id in SRA database. If not defined, download samples based on GEO phenotype field 'relation.1'.")
@@ -204,14 +204,14 @@ if __name__ == '__main__':
     parser.add_argument("--fastqc", action='store_true', help="If specified, run fastqc for downloaded raw .fastq files.")
     args = parser.parse_args()
 
-    if args.geo_id is None:
-        if args.sra_id is None:
-            print "Please specify GEO ID or SRA ID."
-            parser.print_help()
-            sys.exit()
+    if args.sra_id is None:
+        print "Please specify SRA ID."
+        parser.print_help()
+        sys.exit()
 
-    if args.geo_id is not None and args.sra_id is not None:
-        print "Both GEO ID and SRA ID are specified. Only use GEO_ID."
+    if args.geo_id is None:
+        print "GEO ID is not specified."
+        print "No phenotype file will be retrieved from GEO."
 
     if args.project_name is None:
         parser.print_help()

@@ -24,10 +24,22 @@ Obtain raw sample information including SRA ID from GEO. If pheno_fn is specifie
 if (exists("geo_id")){
   if (!exists("pheno_fn")) {
     geo_fn <- paste0(out_dir, geo_id, "_series_matrix.txt.gz")
-    if (!file.exists(geo_fn)) { # matrix files are alreadly downloaded
-      gse <- getGEO(geo_id, destdir=out_dir, GSEMatrix = TRUE)[[1]] # download matrix file
-    } else {
+    if (file.exists(geo_fn)) { # matrix files are alreadly downloaded
       gse <- getGEO(filename=geo_fn,GSEMatrix = TRUE)
+    } else {
+      gse <- getGEO(geo_id, destdir=out_dir, GSEMatrix = TRUE) # download matrix file
+      if (length(gse)>1) {  # multiple platform
+        gpls=sapply(gse,annotation)
+        cat("This study was performed in multiple platforms:\n")
+        cat(unname(gpls),"\n")
+        cat("Samples from same platform shoud be analyzed together. Assign a platform to the variable geo_GPL in the session coding.\n")
+        if (geo_GPL=="") {
+          stop("This study has multiple platforms. Please assign the platform to the variable geo_GPL in the session coding.")
+        } else {
+          if (!geo_GPL%in%gpls) {stop("Specified platform does not exist. Please correct.")}
+          cat("Use platform", geo_GPL, "\n"); idx=which(grepl(geo_GPL, gpls)); gse <- gse[[idx]]
+        }
+      }
     }
   }
 }
@@ -88,7 +100,7 @@ if (exists("geo_id")){
     pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
     files <- pheno.raw$SRA_ID
   }
-  cat("Samples for download:", paste(files,collapse=", "),"\n")
+  cat(length(files), "samples for download:", paste(files,collapse=", "),"\n")
 } else {
   if (exists("pheno_fn")) {
     pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
@@ -192,7 +204,12 @@ system(cmd_metadata_download)
 sraFiles <- read.csv(metadata_fn)
 names(sraFiles) <- unname(sapply(names(sraFiles), tolower))
 sraFiles <- sraFiles %>% dplyr::filter(experiment%in%files) %>% dplyr::select(run,submission,experiment) %>% unique() # exclude the same samples that are used in other projects
-write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
+if (!exists("geo_id")) {
+  sra_fn <- paste0(out_dir, project_name, "_sraFile.info")
+} else {
+  if (geo_GPL=="") {sra_fn <- paste0(out_dir, project_name, "_sraFile.info")} else {sra_fn <- paste0(out_dir, project_name, "_", geo_GPL, "_sraFile.info")}
+}
+write.table(sraFiles, sra_fn, col.names=T,row.names=F,sep="\t",quote=F )
 ```
 
 Show first five rows of SRA information
@@ -237,6 +254,7 @@ if (all(sapply(cols, function(x){x%in%names(pheno.raw)}))) {
 } else {
   cat("Not all pre-defined column names are in meta data. Use raw meta data.\n")
   pheno <- pheno.raw
+  pheno$SRA_ID <- files
 }
 pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)
 names(pheno)[names(pheno)%in%c("run")] <- c("Sample")

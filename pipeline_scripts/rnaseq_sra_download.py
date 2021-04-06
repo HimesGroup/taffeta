@@ -80,75 +80,51 @@ def lsf_file(job_name, cmd, memory=24000, thread=1, queue=queue):
 
 def download_fastq(SRA_info, out_dir, path_start, fastqc):
     """
-    Obtain ftp download link for samples in project_name + "_sraFile.info" from SRA
+    Obtain ftp download link for samples in project_name + "_sraFile.info" or project_name + geo_GPL + "_sraFile.info" from SRA
     Creates .lsf files for .fastq file download
     """
 
     sra=open(SRA_info, 'r')
     sra=sra.readlines()
     header=sra[0].rstrip()
-    if header == "run\tsubmission\tstudy\tsample\texperiment\tftp":
-        sradb_exist = True # use fastq ftp link from SRAdb to download
-    elif header == "run\tsubmission\texperiment":
-        sradb_exist = False # use SRAtool kit to download
-    else:
-        print "The column names in SRA_info file "+SRA_info+" should be run, submission, [study, sample, experiment,] ftp\n"
+    if header != "run\tsubmission\texperiment":
+        print "The column names in SRA_info file "+SRA_info+" should be run, submission\n"
         sys.exit()
 
     SRA={} # key: Sample ID, value: ftp
     for line in sra[1:]:
         line = line.rstrip().split('\t')
         run = line[0]
-        if sradb_exist:
-            ftp = line[5]
-            if run not in SRA:
-                SRA[run]=[ftp]
-            else:
-                SRA[run]=SRA[run]+[ftp]
+        if run not in SRA:
+            SRA[run]=1
         else:
-            if run not in SRA:
-                SRA[run]=1
-            else:
-                SRA[run]=1
+            SRA[run]=1
 
     # create .lsf file with download command
     for sample in SRA:
-        if sradb_exist:
-            fastq_names=map(lambda x: x.split('/')[-1] ,SRA[sample]) # exclude ftp path and obtain fastq file name
-        else:
-            fastq_names=sample
+
+        fastq_names=sample
 
         if fastqc: # create new directory under current sample name for raw fastqc results
             fastqc_out=path_start+sample
             if not os.path.exists(fastqc_out):
                 os.makedirs(fastqc_out)
 
-        if sradb_exist: # use ftp link
-            for i in range(len(fastq_names)):
-                fastq_name=fastq_names[i]
-                ftp=SRA[sample][i]
-                if os.path.exists(out_dir+fastq_name):
-                    print(out_dir+fastq_name+" already exists. Skip download.") # if the fastq file already exists, skip download
-                    if fastqc:
-                        download_cmd="fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
-                        lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for fastqc
-                else:
-                    download_cmd="cd "+out_dir+"\n"
-                    download_cmd=download_cmd+"wget "+ ftp+"\n"
-                    if fastqc:
-                        download_cmd=download_cmd+"fastqc "+out_dir+fastq_name+" -o "+fastqc_out+"\n"
+        # use SRAtool kit
+        download_cmd="fastq-dump -I --split-files "+sample+" --outdir "+out_dir+" --gzip --skip-technical\n"
+        if fastqc: # list all posible fastq files
+            # if there is only one read:
+            download_cmd=download_cmd+"fastqc "+out_dir+sample+".fastq.gz -o "+fastqc_out+"\n"
+            # if there are paired reads:
+            download_cmd=download_cmd+"fastqc "+out_dir+sample+"_1.fastq.gz -o "+fastqc_out+"\n"
+            download_cmd=download_cmd+"fastqc "+out_dir+sample+"_2.fastq.gz -o "+fastqc_out+"\n"
 
-                    lsf_file(sample+"_"+str(i+1)+"_download", download_cmd) # create .lsf files for download and/or fastqc
+        # remove .sra cached files
+        home_dir = os.path.expanduser("~")
+        sra_fn = home_dir + "/ncbi/public/sra/" + sample + ".sra"
+        download_cmd = download_cmd + "rm " + sra_fn
 
-        else: # use SRAtool kit
-            download_cmd="fastq-dump -I --split-files "+sample+" --outdir "+out_dir+" --gzip --skip-technical\n"
-            if fastqc: # list all posible fastq files
-                # if there is only one read:
-                download_cmd=download_cmd+"fastqc "+out_dir+sample+".fastq.gz -o "+fastqc_out+"\n"
-                # if there are paired reads:
-                download_cmd=download_cmd+"fastqc "+out_dir+sample+"_1.fastq.gz -o "+fastqc_out+"\n"
-                download_cmd=download_cmd+"fastqc "+out_dir+sample+"_2.fastq.gz -o "+fastqc_out+"\n"
-            lsf_file(sample+"_download", download_cmd) # create .lsf files for download and/or fastqc
+        lsf_file(sample+"_download", download_cmd) # create .lsf files for download and/or fastqc
 
 
 def main(geo_id, geo_GPL, sra_id, path_start, project_name, pheno_info, template_dir, fastqc):
@@ -180,15 +156,21 @@ def main(geo_id, geo_GPL, sra_id, path_start, project_name, pheno_info, template
     rmd_template = rmd_in.read()
 
     # create and run rmd report file to obtain sample infomation file from GEO and SRA
-    rmd_file = out_dir + project_name + "_SRAdownload_RnaSeqReport.Rmd"
+    if geo_GPL is not None:
+        rmd_file = out_dir + project_name + "_" + geo_GPL + "_SRAdownload_RnaSeqReport.Rmd"
+    else:
+        rmd_file = out_dir + project_name + "_SRAdownload_RnaSeqReport.Rmd"
     make_rmd_html(rmd_template, geo_id, geo_GPL, sra_id, project_name, path_start, out_dir, pheno_info, rmd_file)
     ftpinfo_cmd="echo \"library(rmarkdown); rmarkdown::render('"+rmd_file+"')\" | R --no-save --no-restore"
     subprocess.call(ftpinfo_cmd, shell=True)
 
     # check if RSA info file is generated
-    SRA_info = out_dir + project_name + "_sraFile.info"
+    if geo_GPL is not None:
+        SRA_info = out_dir + project_name + "_" + geo_GPL + "_sraFile.info"
+    else:
+        SRA_info = out_dir + project_name + "_sraFile.info"
     if not os.path.exists(SRA_info):
-        print "The SRA file " + SRA_info +"does not exist. Please check!"
+        print "The SRA file " + SRA_info +" does not exist. Please check!"
         sys.exit()
 
     # download .fastq file based on ftp address in generated project_name+sraFile.info file

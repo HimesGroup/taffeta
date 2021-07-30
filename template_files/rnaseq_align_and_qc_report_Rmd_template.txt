@@ -678,7 +678,7 @@ pca_func <- function(pc) {
   for (i in idx_exist) {
     group_var=group_vars[i]
     legend=legends[i]
-    nlevel=nlevels(coldata[,group_var]) # levels of the variable
+    nlevel=length(unique(coldata[,group_var])) # levels of the variable
     if (group_var=="ScanDate_Group"|(nlevel>=2&nlevel<=20)) {
       plot_list[[group_var]]=pcaplot_func(pc, group_var=group_var,legend=legend)
     }

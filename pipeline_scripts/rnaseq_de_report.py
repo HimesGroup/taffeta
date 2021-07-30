@@ -171,21 +171,21 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("countdata$Gene <- sapply(strsplit(as.character(countdata$Gene), '\\\.'), '[[', 1) # remove .5 in transcript ENSG00000000005.5\n")
 
     if ref_genome=="hg38":
-        outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')\n")
+        outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='jan2019.archive.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')\n")
 	outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'hgnc_symbol'), values=countdata$Gene, mart=mart) # 30 duplicates transcripts from ensembles. They are microRNA and SRP RNAs. Just use the unique transcripts.\n")
         outp.write("genes <- genes[!duplicated(genes$ensembl_gene_id),]\n")
 	outp.write("if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}\n")
 	outp.write("if (is_ensg) {countdata <- rename(countdata, c('hgnc_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}\n")
 
     elif ref_genome=="mm38" or ref_genome=="mm10":
-	outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='mmusculus_gene_ensembl')\n")
+	outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='jan2019.archive.ensembl.org', path='/biomart/martservice' ,dataset='mmusculus_gene_ensembl')\n")
 	outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'mgi_symbol'), values=countdata$Gene, mart=mart)\n")
         outp.write("genes <- genes[!duplicated(genes$ensembl_gene_id),]\n")
 	outp.write("if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}\n")
 	outp.write("if (is_ensg) {countdata <- rename(countdata, c('mgi_symbol'='gene_symbol'))} else {countdata$gene_symbol <- countdata$Gene}\n")
 
     elif ref_genome=="rn6":
-	outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='rnorvegicus_gene_ensembl')\n")
+	outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='jan2019.archive.ensembl.org', path='/biomart/martservice' ,dataset='rnorvegicus_gene_ensembl')\n")
 	outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_gene_id', 'rgd_symbol'), values=countdata$Gene, mart=mart)\n")
         outp.write("genes <- genes[!duplicated(genes$ensembl_gene_id),]\n")
 	outp.write("if (is_ensg) {countdata <- merge(countdata, genes, by.x='Gene', by.y='ensembl_gene_id')} else {countdata <- countdata}\n")
@@ -418,15 +418,15 @@ def make_sleuth_html(rmd_template, project_name, path_start, sample_info_file, r
 		outp.write("k_curr$target_id <- sapply(strsplit(as.character(k_curr$target_id), '\\\.'), '[[', 1)\n")
 
 		if ref_genome=="hg38":
-			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')\n")
+			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='jan2019.archive.ensembl.org', path='/biomart/martservice' ,dataset='hsapiens_gene_ensembl')\n")
 			outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_transcript_id', 'ensembl_gene_id', 'hgnc_symbol'), values=k_curr$target_id, mart=mart)\n")
 			outp.write("genes <- dplyr::rename(genes, target_id = ensembl_transcript_id,ens_gene = ensembl_gene_id, ext_gene = external_gene_name)\n")
 		elif ref_genome=="mm38" or ref_genome=="mm10":
-			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='mmusculus_gene_ensembl')\n")
+			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='jan2019.archive.ensembl.org', path='/biomart/martservice' ,dataset='mmusculus_gene_ensembl')\n")
 			outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_transcript_id', 'ensembl_gene_id', 'mgi_symbol'), values=k_curr$target_id, mart=mart)\n")
 			outp.write("genes <- dplyr::rename(genes, target_id = ensembl_transcript_id,ens_gene = ensembl_gene_id, ext_gene = mgi_symbol)\n")
 		elif ref_genome=="rn6":
-			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='mar2016.archive.ensembl.org', path='/biomart/martservice' ,dataset='rnorvegicus_gene_ensembl')\n")
+			outp.write("mart <- useMart(biomart='ENSEMBL_MART_ENSEMBL', host='jan2019.archive.ensembl.org', path='/biomart/martservice' ,dataset='rnorvegicus_gene_ensembl')\n")
 			outp.write("genes <- biomaRt::getBM(attribute=c('ensembl_transcript_id', 'ensembl_gene_id', 'rgd_symbol'), values=k_curr$target_id, mart=mart)\n")
 			outp.write("genes <- dplyr::rename(genes, target_id = ensembl_transcript_id,ens_gene = ensembl_gene_id, ext_gene = rgd_symbol)\n")
 		else:

@@ -35,8 +35,8 @@ res_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_full_DESeq2_results.txt")
 write.table(res_df[order(res_df$pvalue, decreasing=FALSE),], res_fn, quote=FALSE, row.names=FALSE, sep='\t')
 ```
 
-```{r, eval=T, echo=F}
-# save normalized counts results
+```{r, eval=F, echo=F}
+# save normalized counts results. Stop save counts for two sample comparisons.
 res_ct_fn=paste0(project_name,"_",case,"_vs_",ctrl,"_counts_normalized_by_DESeq2.txt")
 write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T, sep='\t')
 ```
@@ -385,4 +385,218 @@ if (length(sel_fav_genes)>0) {
 }
 ```
 
+### Gene-set enrichment analysis
+
+```{r eval=T, echo=F}
+# generate the list of z-score statistics
+de_modi <- res_df %>%
+  dplyr::filter(gene_symbol!="") %>% # remove Ensemble ID cannot be mapped to genes
+  dplyr::filter(gene_symbol!="NA") %>% # remove Ensemble ID cannot be mapped to genes
+  dplyr::arrange(gene_symbol, padj, -abs(log2FoldChange)) %>% # order by gene name, p-values and descending absolute logFC values
+  dplyr::group_by(gene_symbol) %>% # group by gene name
+  dplyr::filter(dplyr::row_number()==1) %>% # select first row in each gene
+  dplyr::ungroup() %>%
+  dplyr::select(gene_symbol,stat) %>% # replace column names
+  dplyr::arrange(stat) %>%
+  as.data.frame()
+gene_stat <- de_modi$stat
+names(gene_stat) <- de_modi$gene_symbol
+```
+
+```{r eval=T, echo=F, message=F, warning=F}
+# run fgsea
+res <- fgsea(pathways=pathways.msigkeggreac, stats=gene_stat, minSize=15, maxSize=500, nperm=10000, gseaParam=1)
+# collapse dependent pathways. create a list of mainPathways and parentPathways
+collapsedPathways <- collapsePathways(fgseaRes=res[order(pval),], pathways=pathways.msigkeggreac, stats=gene_stat, gseaParam=1)
+mainPathways <- collapsedPathways$mainPathways
+parentPathways <- collapsedPathways$parentPathways
+res=res %>% dplyr::arrange(padj) # order by padj value
+# annotate main pathways to fgsea results
+res$main_pathway <- sapply(res$pathway, function(x){if (x%in%mainPathways) {"main"} else {parentPathways[[x]]}})
+```
+
+```{r eval=T, echo=F}
+# convert the list column leadingEdge into character
+convtleadingEdge_func <- function(fgsea_res) {
+  leadingEdge <- rep(NA, nrow(fgsea_res))
+  leadingEdge <- sapply(fgsea_res$leadingEdge, function(x)paste(x,collapse=","))
+  fgsea_res$leadingEdge <- NULL
+  fgsea_res <- as.data.frame(do.call(cbind,lapply(fgsea_res,unlist)))
+  fgsea_res$leadingEdge <- leadingEdge
+  return(fgsea_res)
+}
+res_save <- convtleadingEdge_func(res)
+res_fn <- paste0(project_name,"_",case,"_vs_",ctrl,"_fgsea_results.csv")
+write.csv(res_save, res_fn, row.names = F)
+```
+
+View top pathways in fgsea results. Only include the first five leading genes
+
+```{r eval=T, echo=F}
+res_show <- res[padj<0.05&main_pathway=="main"]
+leadingEdge <- rep(NA, nrow(res_show))
+leadingEdge <- sapply(res_show$leadingEdge, function(x)paste(x[1:5],collapse=","))
+res_show$leadingEdge <- NULL
+res_show$leadingEdge <- leadingEdge
+DT::datatable(res_show[1:50], rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+```
+
+Generate barplot if pathways with absoluate NES>=2
+
+```{r eval=T, echo=F}
+#Generate data barplots for top pathways
+res_barplot <- res[padj<0.05&abs(NES)>2]
+if (nrow(res_barplot)>0) {barplot=T} else {barplot=F}
+if (nrow(res_barplot)<=10) {height=8} else {height=15/50*nrow(res_barplot)}
+```
+
+
+```{r, echo=F}
+textconv4plot_func <- function(x) {
+  if (x=="REACTOME_ACTIVATION_OF_THE_MRNA_UPON_BINDING_OF_THE_CAP_BINDING_COMPLEX_AND_EIFS_AND_SUBSEQUENT_BINDING_TO_43S") {x <- "REACTOME_MRNA_ACTIVATION_CAP_BINDING_COMPLEX_EIFS_43S_BINDING"}
+  if (x=="REACTOME_ANTIGEN_PRESENTATION_FOLDING_ASSEMBLY_AND_PEPTIDE_LOADING_OF_CLASS_I_MHC") {x<-"REACTOME_ANTIGEN_PRESENTATION_CLASS_I_MHC"}
+  if (x=="REACTOME_BIOSYNTHESIS_OF_THE_N_GLYCAN_PRECURSOR_DOLICHOL_LIPID_LINKED_OLIGOSACCHARIDE_LLO_AND_TRANSFER_TO_A_NASCENT_PROTEIN") {x <- "REACTOME_BIOSYNTHESIS_OF_N_GLYCAN_PRECURSOR_AND_TRANSFER_TO_A_NASCENT_PROTEIN"}
+  if (x=="REACTOME_TRANSPORT_OF_GLUCOSE_AND_OTHER_SUGARS_BILE_SALTS_AND_ORGANIC_ACIDS_METAL_IONS_AND_AMINE_COMPOUNDS") {x <- "REACTOME_TRANSPORT_OF_BILE_SALTS"}
+  if (x=="REACTOME_NEUROTRANSMITTER_RECEPTOR_BINDING_AND_DOWNSTREAM_TRANSMISSION_IN_THE_POSTSYNAPTIC_CELL") {x <- "REACTOME_NEUROTRANSMITTER_RECEPTORS"}
+  if (x=="REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS_BY_CHEMIOSMOTIC_COUPLING_AND_HEAT_PRODUCTION_BY_UNCOUPLING_PROTEINS"){x<-"REACTOME_RESPIRATORY_ELECTRON_TRANSPORT_ATP_SYNTHESIS"}
+  return(x)
+}
+
+textconv_func <- function(x) {
+  x=tolower(x)
+  x=gsub("_"," ",x)
+  x=gsub("27 hydroxycholesterol", "27-hydroxycholesterol", x)
+  x=gsub("43s", "43S", x)
+  x=gsub("apc c mediated", "APC/C-mediated", x)
+  x=gsub("atp","ATP",x)
+  x=gsub("b cell","B cell",x)
+  x=gsub("bcr","BCR",x)
+  x=gsub("bmp","BMP",x)
+  x=gsub("ca2","Ca2",x)
+  x=gsub("cap binding complex", "cap-binding complex", x)
+  x=gsub("cct", "CCT", x)
+  x=gsub("CCT tric", "CCT/TriC", x)
+  x=gsub("class i mhc", "class I MHC", x)
+  x=gsub("class iii", "class III", x)
+  x=gsub("class ii", "class II", x)
+  x=gsub("class i", "class I", x)
+  x=gsub("c type lectin receptors clrs", "C-type lectin receptors (CLRs)",x)
+  x=gsub("c mediated","C mediated",x)
+  x=gsub("cdk2","Cdk2",x)
+  x=gsub("ddx58 ifih1", "DDX58/IFIH1", x)
+  x=gsub("dna", "DNA", x)
+  x=gsub(" eifs"," eIFs", x)
+  x=gsub("fceri", "FCERI", x)
+  x=gsub("g1 s","G1/S",x)
+  x=gsub("g alpha i","G alpha (i)",x)
+  x=gsub("gpcr","GPCR",x)
+  x=gsub("gtp","GTP",x)
+  x=gsub("hiv", "HIV", x)
+  x=gsub("ikks", "IKKs", x)
+  x=gsub("inf", "INF", x)
+  x=gsub("INFection","infection",x)
+  x=gsub("INFluenza","influenza",x) # convert INF back to inf
+  x=gsub("jak stat", "JAK-STAT", x)
+  x=gsub(" llo", " LLO", x) # DOLICHOL_LIPID_LINKED_OLIGOSACCHARIDE_LLO
+  x=gsub("kegg","KEGG:",x)
+  x=gsub("ksrp","KSRP",x) # archived
+  x=gsub(" m phase"," M phase",x)
+  x=gsub("ncam1","NCAM1",x)
+  x=gsub(" n glycan", " N glycan", x)
+  x=gsub("nfkb", "NFkB", x)
+  x=gsub("nf kb", "NFkB", x)
+  x=gsub("nod1 2", "NOD1/2", x)
+  x=gsub("nod like","NOD-like",x)
+  x=gsub("non lymphoid","non-lymphoid",x)
+  x=gsub("o linked", "O-linked",x)
+  x=gsub("orc1", "Orc1", x)
+  x=gsub("p 27 p21","p21/27",x)
+  x=gsub("p450","P450",x)
+  x=gsub("parkinsons", "Parkinson's", x)
+  x=gsub("perk", "PERK", x)
+  x=gsub("phospholipase c","phospholipase C",x)
+  x=gsub("phase iii","phase III",x)
+  x=gsub("phase ii","phase II",x)
+  x=gsub("phase i","phase I",x)
+  x=gsub("pol iii","pol III",x)
+  x=gsub("pol ii","pol II",x)
+  x=gsub("pol i","pol I",x)
+  x=gsub("pre initiation","pre-initiation",x)
+  x=gsub("pre mrna", "pre-mRNA",x)
+  x=gsub("reactome","Reactome:",x)
+  x=gsub("runx3","RUNX3",x)
+  x=gsub("mhc","MHC",x)
+  x=gsub("rho","Rho",x)
+  x=gsub("rig i like", "RIG-I-like", x)
+  x=gsub("rig i mda5", "RIG-I/MDA5", x)
+  x=gsub("rna","RNA",x)
+  x=gsub("teRNAry","ternary",x) # fix words replaced by RNA
+  x=gsub(" s phase"," S phase",x)
+  x=gsub("slits","SLITs",x)
+  x=gsub("robo","ROBO",x)
+  x=gsub("srp dependent","SRP-dependent",x)
+  x=gsub("scf skp2", "SCF(Skp2)", x)
+  x=gsub("tak1", "TAK1", x)
+  x=gsub("tca","TCA",x)
+  x=gsub("tcr signaling", "TCR signoaling", x)
+  x=gsub("tgf","TGF",x)
+  x=gsub("tp53","TP53",x)
+  x=gsub("3 utr","3' UTR",x)
+  x=gsub("cytokine cytokine receptor","cytokine-cytokine receptor",x)
+  return(x)
+}
+
+checkvar_func <- function(variable) {
+  if (variable!="") {
+    if (!file.exists(get(variable))) {
+      stop(variable,"='",get(variable),"' does not exist")
+    }
+  }
+}
+```
+
+```{r eval=barplot, echo=F, fig.height=height, fig.width=15}
+dat_barplot <- data.frame(pathway=res_barplot$pathway, NES=res_barplot$NES)
+dummies=paste0(rep(LETTERS,each=length(LETTERS)),rep(LETTERS,length(LETTERS)))
+dummy <- data.frame(pathway=c(dat_barplot[order(-dat_barplot$NES),"pathway"]),dummy=dummies[1:nrow(dat_barplot)])
+dat_barplot <- merge(dat_barplot,dummy,by="pathway")
+labels <- as.character(dummy$pathway)
+labels <- unname(sapply(labels,textconv_func))
+
+
+ggplot(dat_barplot,aes(y=NES,x=dummy)) + geom_bar(width=0.8, position=position_dodge(width=0.8), stat="identity", fill="#006d2c") + 
+  coord_flip() +
+  scale_x_discrete(labels=labels) +
+  ylab("normalized enrichment score")+
+  theme_bw()+
+  theme(
+    axis.title.y=element_blank(),
+    axis.text.y=element_text(size=11),
+    axis.title.x=element_text(size=9))
+```
+
+
+
+View leading edges in top pathways. Select top five pathways with positive and negative NES respectively
+
+```{r, eval=T, echo=F}
+res_pos = res_show[NES>=0]
+if (nrow(res_pos)>0) {
+  top_pos = res_pos[order(-NES)]$pathway[1:5]
+  for (i in top_pos[!is.na(top_pos)]) {
+    print(plotEnrichment(pathway = pathways.msigkeggreac[[i]], stats = gene_stat) + labs(title=i))
+  }
+}
+```
+             
+```{r, eval=T, echo=F}
+res_neg = res_show[NES<=0]
+if (nrow(res_neg)>0) {
+  top_neg = res_neg[order(NES)]$pathway[1:5]
+  for (i in top_neg[!is.na(top_neg)]) {
+    print(plotEnrichment(pathway = pathways.msigkeggreac[[i]], stats = gene_stat) + labs(title=i))
+  }
+}
+```
+             
 

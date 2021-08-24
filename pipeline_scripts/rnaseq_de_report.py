@@ -45,7 +45,26 @@ def lsf_file(job_name, cmd, memory=36000, thread=1, queue=userdef.queue):
     outp.close()
 
 
-def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file):
+def fgsea_pathway_prepare(template_dir):
+
+    """
+    Generate R codes to read in gmt file into a list
+    """
+
+    KEGG_fn = template_dir+"c2.cp.kegg.v7.4.symbols.gmt"
+    REACTOME_fn =template_dir+"c2.cp.reactome.v7.4.symbols.gmt"
+    outp = "\n"
+    outp = outp + "Convert KEGG and REACTOME pathway files in .gmt format provided by MSigDB into a pathway list\n"
+    outp = outp + "```{r createpathwaylist, eval=T, echo=F}\n"
+    outp = outp + 'pathways.msigkegg <- gmtPathways("'+KEGG_fn+'")\n'
+    outp = outp + 'pathways.msigreactome <- gmtPathways("'+REACTOME_fn+'")\n'
+    outp = outp + "pathways.msigkeggreac <- c(pathways.msigkegg,pathways.msigreactome)\n"
+    outp = outp + "```\n\n"
+    return outp
+
+
+
+def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file, template_dir):
     """
     Creates Rmd report. The top of report is below and the rest concatenated from a separate text document (rmd_template).
     """
@@ -140,7 +159,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("> "+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt<br>\n\n")
     outp.write("where CASE and CONTROL are pairs of conditions specified in the comparisons file.<br>\n\n")
     outp.write("\n\n```{r lib, echo=F, message=F, warning=F}\n")
-    outp.write("library(gplots)\nlibrary(RColorBrewer)\nlibrary(ggplot2)\nlibrary(viridis)\nlibrary(DESeq2)\nlibrary(DT)\nlibrary(tidyr)\nlibrary(biomaRt)\nlibrary(pander)\noptions(width = 1000)\n```\n")
+    outp.write("library(gplots)\nlibrary(RColorBrewer)\nlibrary(ggplot2)\nlibrary(viridis)\nlibrary(DESeq2)\nlibrary(DT)\nlibrary(tidyr)\nlibrary(biomaRt)\nlibrary(fgsea)\nlibrary(pander)\noptions(width = 1000)\n```\n")
     outp.write("\n")
     outp.write("\n\n```{r vars, eval=T, echo=F}\n")
     outp.write("project_name=\""+project_name+"\"\n")
@@ -197,6 +216,10 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("if (is_ensg) {row.names(countdata) <- countdata$Gene} else {row.names(countdata) <- row.names(countdata)}\n")
     outp.write("if (is_ensg) {countdata$gene_symbol[which(countdata$gene_symbol=='')] <- NA} # assign NA to genes without gene_symbol\n")
     outp.write("```\n")
+
+    # read in fgsea analysis files
+    outp.write(fgsea_pathway_prepare(template_dir)+"\n")
+
 
     ###
     # DESeq2 analysis
@@ -498,6 +521,7 @@ def main(project_name, sample_info_file, de_package, path_start, comp_file, temp
         print "Cannot find the comparison file: "+comp_file
         sys.exit()
 
+
     if de_package == "cummerbund":
         # check if rnw template file exists
         if not os.path.exists(template_dir+"rnaseq_de_report_Rnw_template.txt"):
@@ -521,13 +545,26 @@ def main(project_name, sample_info_file, de_package, path_start, comp_file, temp
 
         rmd_in = open(template_dir+"rnaseq_deseq2_Rmd_template.txt", "r")
         rmd_template = rmd_in.readlines()
-	make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file)
+	make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, ref_genome, comp_file, template_dir)
 
     if de_package == "sleuth":
 	# check if sleuth template file exists
         if not os.path.exists(template_dir+"rnaseq_sleuth_Rmd_template.txt"):
             print "Cannot find rnaseq_sleuth_Rmd_template.txt"
 	    sys.exit()
+
+
+    # check if pathway files exist
+    KEGG_fn = template_dir+"c2.cp.kegg.v7.4.symbols.gmt"
+    REACTOME_fn = template_dir+"c2.cp.reactome.v7.4.symbols.gmt"
+    if not os.path.exists(KEGG_fn):
+        print "Cannot find the KEGG pathway file c2.cp.kegg.v7.4.symbols.gmt"
+	sys.exit()    
+
+    if not os.path.exists(REACTOME_fn):
+        print "Cannot find the REACTOME pathway file c2.cp.reactome.v7.4.symbols.gmt"
+	sys.exit()    
+
 
         rmd_in = open(template_dir+"rnaseq_sleuth_Rmd_template.txt", "r")
 	rmd_template = rmd_in.readlines()

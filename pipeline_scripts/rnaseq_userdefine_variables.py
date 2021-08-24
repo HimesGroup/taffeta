@@ -79,7 +79,7 @@ samtools_version="1.8"
 bamtools_version="2.3.0"
 picard_version="1.96"
 htseq_version="0.6.1"
-deseq2_version="1.18.1"
+deseq2_version="1.28.1"
 
 ###
 # HPC parameters

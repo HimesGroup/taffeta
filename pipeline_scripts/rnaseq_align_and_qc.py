@@ -634,4 +634,3 @@ if __name__ == "__main__":
         sys.exit()
 
     main(args.samples_in, args.project_name, args.aligner, args.ref_genome, args.library_type, args.index_type, args.strand, args.path_start, args.template_dir, args.bam2bw)
-

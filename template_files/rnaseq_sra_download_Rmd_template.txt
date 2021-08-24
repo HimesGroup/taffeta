@@ -40,6 +40,9 @@ if (exists("geo_id")){
           cat("Use platform", geo_GPL, "\n"); idx=which(grepl(geo_GPL, gpls)); gse <- gse[[idx]]
         }
       }
+      else {
+        gse <- gse[[1]]
+      }
     }
   }
 }

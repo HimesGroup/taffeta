@@ -172,6 +172,11 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
         outp.write("house_list=list() # create an empty list to save results of house-keeping genes\n")
     else:
 	print("Housekeeping genes only available for human, mouse and rat.")
+    outp.write("ref_genome <- '"+ref_genome+"'\n")
+    if ref_genome=="mm38" or ref_genome=="mm10":
+        outp.write("convert_dataset <- 'mmusculus_gene_ensembl'\n")
+    elif ref_genome=="rn6":
+        outp.write("convert_dataset <- 'rnorvegicus_gene_ensembl'\n")
 
     # user-defined favorite genes
     outp.write("fav_genes <- c('"+"', '".join(fav_gene)+"')\n")
@@ -339,7 +344,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("## Favorite gene expressions in all conditions\n")
     outp.write("\n")
     outp.write("```{r, eval=T, echo=F, cache=F, warning=F, message=F}\n")
-    outp.write("if (exists(\"fav_genes\")) {\n")
+    outp.write("if (exists(\"fav_genes\")&any(fav_genes%in%norm.counts$gene_symbol)) {\n")
     outp.write("  sel_ids=as.character() # save selected Ensembl ID for favorite genes\n")
     outp.write("  for (i in fav_genes) {\n")
     outp.write("    gene_symbol <- i\n")
@@ -522,6 +527,18 @@ def main(project_name, sample_info_file, de_package, path_start, comp_file, temp
         sys.exit()
 
 
+    # check if pathway files exist
+    KEGG_fn = template_dir+"c2.cp.kegg.v7.4.symbols.gmt"
+    REACTOME_fn = template_dir+"c2.cp.reactome.v7.4.symbols.gmt"
+    if not os.path.exists(KEGG_fn):
+        print "Cannot find the KEGG pathway file c2.cp.kegg.v7.4.symbols.gmt"
+	sys.exit()    
+
+    if not os.path.exists(REACTOME_fn):
+        print "Cannot find the REACTOME pathway file c2.cp.reactome.v7.4.symbols.gmt"
+	sys.exit()
+
+
     if de_package == "cummerbund":
         # check if rnw template file exists
         if not os.path.exists(template_dir+"rnaseq_de_report_Rnw_template.txt"):
@@ -552,19 +569,6 @@ def main(project_name, sample_info_file, de_package, path_start, comp_file, temp
         if not os.path.exists(template_dir+"rnaseq_sleuth_Rmd_template.txt"):
             print "Cannot find rnaseq_sleuth_Rmd_template.txt"
 	    sys.exit()
-
-
-    # check if pathway files exist
-    KEGG_fn = template_dir+"c2.cp.kegg.v7.4.symbols.gmt"
-    REACTOME_fn = template_dir+"c2.cp.reactome.v7.4.symbols.gmt"
-    if not os.path.exists(KEGG_fn):
-        print "Cannot find the KEGG pathway file c2.cp.kegg.v7.4.symbols.gmt"
-	sys.exit()    
-
-    if not os.path.exists(REACTOME_fn):
-        print "Cannot find the REACTOME pathway file c2.cp.reactome.v7.4.symbols.gmt"
-	sys.exit()    
-
 
         rmd_in = open(template_dir+"rnaseq_sleuth_Rmd_template.txt", "r")
 	rmd_template = rmd_in.readlines()

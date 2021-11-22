@@ -65,7 +65,7 @@ pandoc.table(summ_tb, split.tables=Inf, caption="Comparison Summary")
 ```
 
 ```{r, eval=T, echo=F}
-if (exists("fav_genes")) {
+if (exists("fav_genes")&any(fav_genes%in%res_df$gene_symbol)) {
   comp=paste0(case,"_vs_",ctrl)
   # save padj for house-keeping genes if defined
   fav_list[[comp]]=res_df[which(res_df$gene_symbol%in%fav_genes),]
@@ -387,6 +387,23 @@ if (length(sel_fav_genes)>0) {
 
 ### Gene-set enrichment analysis
 
+
+```{r eval=T, echo=F}
+convertspeciesGeneList <- function(x){
+  human 	<- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl", mirror = "useast")
+  species 	<- useEnsembl("ensembl", dataset = convert_dataset, mirror = "useast")
+  tmp 	<- getLDS(attributes = c("mgi_symbol"), filters = "mgi_symbol", values = x , mart = species, attributesL = c("hgnc_symbol"), martL = human, uniqueRows=TRUE)
+  return(tmp)
+}
+if (ref_genome!="hg38") {
+  nonhuman_symbol <- convertspeciesGeneList(x=as.character(norm.counts$gene_symbol))
+  res_df <- merge(res_df, nonhuman_symbol, by.x="gene_symbol", by.y="MGI.symbol", all.x=T) %>%
+    dplyr::rename(nonhuman_symbol=gene_symbol, gene_symbol=HGNC.symbol) %>%
+    dplyr::arrange(padj)
+}
+```
+
+
 ```{r eval=T, echo=F}
 # generate the list of z-score statistics
 de_modi <- res_df %>%
@@ -434,6 +451,15 @@ View top pathways in fgsea results. Only include the first five leading genes
 
 ```{r eval=T, echo=F}
 res_show <- res[padj<0.05&main_pathway=="main"]
+cat(nrow(res_show), "main pathways are significant.\n")
+```
+
+```{r eval=T, echo=F}
+if (nrow(res_show)==0) {
+  res_show <- res[main_pathway=="main"][1:10] # if no significant pathway, take the top 10 main pathways
+}
+res_show <- res_show %>%
+  dplyr::mutate(pval=round(pval,4), padj=round(padj,4), ES=round(ES,3), NES=round(NES,3))
 leadingEdge <- rep(NA, nrow(res_show))
 leadingEdge <- sapply(res_show$leadingEdge, function(x)paste(x[1:5],collapse=","))
 res_show$leadingEdge <- NULL
@@ -441,12 +467,15 @@ res_show$leadingEdge <- leadingEdge
 DT::datatable(res_show[1:50], rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
 ```
 
-Generate barplot if pathways with absoluate NES>=2
+
+Generate barplot if pathways with absoluate NES>=2 or top 10 pathways if no pathways pass the threshold
 
 ```{r eval=T, echo=F}
 #Generate data barplots for top pathways
 res_barplot <- res[padj<0.05&abs(NES)>2]
-if (nrow(res_barplot)>0) {barplot=T} else {barplot=F}
+if (nrow(res_barplot)==0) {
+  res_barplot <- res[1:10]
+}
 if (nrow(res_barplot)<=10) {height=8} else {height=15/50*nrow(res_barplot)}
 ```
 
@@ -555,15 +584,13 @@ checkvar_func <- function(variable) {
 }
 ```
 
-```{r eval=barplot, echo=F, fig.height=height, fig.width=15}
+```{r eval=T, echo=F, fig.height=height, fig.width=15}
 dat_barplot <- data.frame(pathway=res_barplot$pathway, NES=res_barplot$NES)
 dummies=paste0(rep(LETTERS,each=length(LETTERS)),rep(LETTERS,length(LETTERS)))
 dummy <- data.frame(pathway=c(dat_barplot[order(-dat_barplot$NES),"pathway"]),dummy=dummies[1:nrow(dat_barplot)])
 dat_barplot <- merge(dat_barplot,dummy,by="pathway")
 labels <- as.character(dummy$pathway)
 labels <- unname(sapply(labels,textconv_func))
-
-
 ggplot(dat_barplot,aes(y=NES,x=dummy)) + geom_bar(width=0.8, position=position_dodge(width=0.8), stat="identity", fill="#006d2c") + 
   coord_flip() +
   scale_x_discrete(labels=labels) +
@@ -574,8 +601,6 @@ ggplot(dat_barplot,aes(y=NES,x=dummy)) + geom_bar(width=0.8, position=position_d
     axis.text.y=element_text(size=11),
     axis.title.x=element_text(size=9))
 ```
-
-
 
 View leading edges in top pathways. Select top five pathways with positive and negative NES respectively
 

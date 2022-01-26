@@ -749,6 +749,8 @@ if (aligner=="star") {
 ```{r pca_tb, eval=T, echo=F, message=F, warning=F, results="asis"}
 res_pca <- pcastat_func(m=pca_dat)
 pandoc.table(res_pca$tb,split.tables=Inf, caption="Variance explained")
+res_tb <- data.frame(Sample=rownames(res_pca$pc), res_pca$pc)
+write.table(res_tb, file=paste0(project_name, "_pca.txt"), row.names=F, col.names=T, sep="\t", quote=F)
 ```
 
 2. PCA plots

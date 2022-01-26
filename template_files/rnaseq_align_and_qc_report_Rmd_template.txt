@@ -57,8 +57,14 @@ The number of raw reads correspond to those that passed Casava QC filters, were 
 
 
 ```{r, eval=T, echo=F, message=FALSE, results='asis'}
-cat(project_name, "_read_counts.txt\n\n", project_name, "_duplicates.txt\n\n", project_name, "_unique_counts.txt\n\n", project_name, "_bamstats_counts.txt\n\n")
+cat(paste0(project_name, "_read_counts.txt\n\n"), paste0(project_name, "_duplicates.txt\n\n"), paste0(project_name, "_unique_counts.txt\n\n"), paste0(project_name, "_bamstats_counts.txt\n\n"))
 ```
+
+All the QC metrics were saved in the file:
+```{r, eval=T, echo=F, message=FALSE, results='asis'}
+cat(paste0(project_name, '_qc_metrics_all.txt\n\n'))
+```
+
 
 ### Total Number of Raw Reads Summary
 
@@ -601,6 +607,47 @@ if (exists("ercc.fit.table")) {
   try(HTML(print(xtable(ercc.fit.table, caption="ERCC Spike-in Dose Response Fit Details"), type="html", label="tab:nine", table.placement="tbp", caption.placement="top", floating=FALSE))) #added "try()" when doing pig_lung - else was getting thrown out of loop with 'Error: could not find function "HTML"'
   DT::datatable(ercc.fit.table,rownames = FALSE, options = list(pageLength = 25))
 }
+```
+
+
+```{r save_all_metrics, eval=T, echo=F,  message=F, warning=F}
+# Total, unique, duplicate reads summary: unique.counts.data.2
+
+# Bamtools Reads Summary
+bamstats.summary.2 <- apply(bamstats.summary, 1, function(x){x}) %>% data.frame()
+bamstats.summary.2$Sample <- rownames(bamstats.summary.2)
+rownames(bamstats.summary.2) <- NULL
+
+# Bamtools Reads Summary percent
+bamstats.percent.table.2 <- apply(bamstats.percent.table, 1, function(x){x}) %>% data.frame()
+names(bamstats.percent.table.2) <- paste0(names(bamstats.percent.table.2), ".percent")
+bamstats.percent.table.2$Sample <- rownames(bamstats.percent.table.2)
+rownames(bamstats.percent.table.2) <- NULL
+
+# RnaSeqMetrics Summary
+type_excl <- c("RIBOSOMAL_BASES", "PCT_RIBOSOMAL_BASES", "SAMPLE", "LIBRARY", "READ_GROUP")
+summary.data.2 <- summary.data %>% dplyr::filter(!Type%in%type_excl)
+row.names(summary.data.2) <- summary.data.2$Type
+summary.data.2 <- apply(summary.data.2[,-1], 1, function(x){x}) %>% data.frame()
+summary.data.2$Sample <- rownames(summary.data.2)
+rownames(summary.data.2) <- NULL
+
+if (pair_ended) {
+  # insert size
+  insert.summary.data.2 <- apply(insert.summary.data, 1, function(x){x}) %>% data.frame()
+  insert.summary.data.2$Sample <- rownames(insert.summary.data.2)
+  rownames(insert.summary.data.2) <- NULL
+}
+
+# merge
+if (pair_ended) {
+  merge_list <- list(unique.counts.data.2, bamstats.summary.2, bamstats.percent.table.2, summary.data.2, insert.summary.data.2)
+} else {
+  merge_list <- list(unique.counts.data.2, bamstats.summary.2, bamstats.percent.table.2, summary.data.2)
+}
+
+merge_tb <- Reduce(function(x,y){merge(x,y,by="Sample")}, merge_list)
+write.table(merge_tb, file=paste(project_name,"_qc_metrics_all.txt",sep=""), row.names=F, col.names=T, sep="\t", quote=F)
 ```
 
 

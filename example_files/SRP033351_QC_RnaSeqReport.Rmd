@@ -1,6 +1,6 @@
 ---
 title: 'RNA-Seq Report of Sample QC and Alignment Summary Statistics for SRP033351'
-author: Mengyuan Kan (mengykan@upenn.edu)
+author: Mengyuan Kan (mengykan@pennmedicine.upenn.edu)
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   html_document:
@@ -30,19 +30,20 @@ output:
 
 * library_type = PE
 * strand = nonstrand
+* ref_genome = hg38
 
 ```{r vars, echo=F}
 project_name="SRP033351"
-path.start="/home/mengykan/Projects/SRP033351/SRP033351_Alignment_QC_Report_star/"
+path.start="/project/bhimeslab/RNASeq/SRP033351/SRP033351_Alignment_QC_Report_star/"
 sample.names.orig <- c('SRR1039508', 'SRR1039509', 'SRR1039510', 'SRR1039511', 'SRR1039512', 'SRR1039513', 'SRR1039514', 'SRR1039515', 'SRR1039516', 'SRR1039517', 'SRR1039518', 'SRR1039519', 'SRR1039520', 'SRR1039521', 'SRR1039522', 'SRR1039523')
 sample.names <- sample.names.orig
 ercc.mixes=c('-', '-', '-', '-', '-', '1', '1', '1', '-', '-', '-', '-', '1', '1', '1', '1')
 genome="hg38"
 library_type="PE"
 aligner="star"
-sample_info_file='/home/mengykan/Projects/SRP033351/files/SRP033351_Phenotype_withoutQC.txt'
-count_data_file='/home/mengykan/Projects/SRP033351/SRP033351_Alignment_QC_Report_star/SRP033351_htseq_gene.txt'
-ambion_file <- '/home/mengykan/Projects/shared_files/RNASeq/ERCC_SpikeIn_Controls_Analysis.txt'
+sample_info_file='/project/bhimeslab/RNASeq/SRP033351/files/SRP033351_Phenotype_withoutQC.txt'
+count_data_file='/project/bhimeslab/RNASeq/SRP033351/SRP033351_Alignment_QC_Report_star/SRP033351_htseq_gene.txt'
+ambion_file <- '/project/bhimeslab/pipelines/RNASeq/ERCC_SpikeIn_Controls_Analysis.txt'
 ercc.data <- read.table('SRP033351_htseq_ercc.txt', sep='\t', header=T, as.is=T)
 ```
 
@@ -105,8 +106,14 @@ The number of raw reads correspond to those that passed Casava QC filters, were 
 
 
 ```{r, eval=T, echo=F, message=FALSE, results='asis'}
-cat(project_name, "_read_counts.txt\n\n", project_name, "_duplicates.txt\n\n", project_name, "_unique_counts.txt\n\n", project_name, "_bamstats_counts.txt\n\n")
+cat(paste0(project_name, "_read_counts.txt\n\n"), paste0(project_name, "_duplicates.txt\n\n"), paste0(project_name, "_unique_counts.txt\n\n"), paste0(project_name, "_bamstats_counts.txt\n\n"))
 ```
+
+All the QC metrics were saved in the file:
+```{r, eval=T, echo=F, message=FALSE, results='asis'}
+cat(paste0(project_name, '_qc_metrics_all.txt\n\n'))
+```
+
 
 ### Total Number of Raw Reads Summary
 
@@ -131,12 +138,12 @@ if (library_type %in% c("PE")) {
 } else {
     R1_dups <- unname(unlist(duplicates[which(duplicates$Read_Number=="Total Deduplicated Percentage"),which(grepl("_R1$",names(duplicates)))])) # extract total duplicate reads for R1
     unique.counts.data.2 <- cbind(unique.counts.data, R1_dups)
-    unique.counts.data.2$Fastqc_Total_Deduplicated_Percentage_R1 <- unique.counts.data.2$R1_dups
+    unique.counts.data.2$Fastqc_Total_Deduplicated_Percentage <- unique.counts.data.2$R1_dups
     unique.counts.data.2$R1_dups <- NULL
     # format the table
-    pct_cols <- c("R1_Percent_Unique","Fastqc_Total_Deduplicated_Percentage_R1")
+    pct_cols <- c("Percent_Unique","Fastqc_Total_Deduplicated_Percentage")
     unique.counts.data.2[,pct_cols] <- round(unique.counts.data.2[,pct_cols],2)
-    ct_cols <- c("R1_Raw_Reads","R1_Unique_Reads")
+    ct_cols <- c("Raw_Reads","Unique_Reads")
     unique.counts.data.2[,ct_cols] <- round(unique.counts.data.2[,ct_cols]/1000000,3)
 }
 DT::datatable(unique.counts.data.2, rownames = FALSE, options = list(pageLength = 25))
@@ -184,7 +191,14 @@ dup.data <- duplicates
 dup.data <- dup.data[which(dup.data$Read_Number!="Total Deduplicated Percentage"),]
 dup.data$Read_Number <- 1:(nrow(duplicates)-1)
 dup.data <- dup.data %>% tidyr::gather(Sample,value,-Read_Number)
-dup.data$Sample2 <- sapply(as.character(dup.data$Sample), function(x){strsplit(x, "_R1|_R2")[[1]]})
+# dup.data$Sample2 <- sapply(as.character(dup.data$Sample), function(x){strsplit(x, "_R1|_R2")[[1]]}) # this command does not work for samples with _R1 and _R2 already in the sample name
+# create a temperaray sample data frame
+sampleframe_R1=data.frame(Sample2=sample.names, Sample=paste0(sample.names,"_R1"))
+sampleframe_R2=data.frame(Sample2=sample.names, Sample=paste0(sample.names,"_R2"))
+sampleframe = rbind(sampleframe_R1, sampleframe_R2)
+# create Sample2 column without read "_R1" or "_R2" suffix
+dup.data <- merge(sampleframe, dup.data, by="Sample", all.y=T)
+
 nsamp=ncol(duplicates)-1
 # dup.org <- 1:(nrow(duplicates)-1)
 # shift=unlist(lapply(1:nsamp, function(i){dup.org+delta*(i-1)}))
@@ -321,11 +335,12 @@ row.names(sum.data) <- sum.data$Type
 sum.data$Type <- NULL
 # exclude rows
 row_excl <- !row.names(sum.data)%in%c("RIBOSOMAL_BASES", "PCT_RIBOSOMAL_BASES", "SAMPLE", "LIBRARY", "READ_GROUP")
+sum.data <- sum.data[row_excl,]
 # row numbers that contain percentage
 pct_nrow <- grepl("PCT",row.names(sum.data))
 # replace percentage with round 2
-sum.data[pct_nrow,] <- apply(sum.data[pct_nrow,], 2, function(x){round(x*100,2)})
-DT::datatable(sum.data[row_excl,], options = list(pageLength = 25))
+sum.data[pct_nrow,] <- apply(sum.data[pct_nrow,], 2, function(x){round(as.numeric(x)*100,2)})
+DT::datatable(sum.data, options = list(pageLength = 25))
 ```
 
 ### Plot: Percentages of Total Mapped Bases Mapping to mRNA, Intronic and Intergenic Regions
@@ -335,6 +350,7 @@ sum.data.for.plot <- sum.data[c("PCT_INTERGENIC_BASES", "PCT_INTRONIC_BASES", "P
 rownames(sum.data.for.plot) <- c("Intergenic", "Intronic", "mRNA")
 sum.data.for.plot$which  <- rownames(sum.data.for.plot)
 sum.data.melted <- sum.data.for.plot %>% tidyr::gather(Sample,value,-which)
+sum.data.melted$value <- as.numeric(sum.data.melted$value)
 sum.data.melted$which <- factor(sum.data.melted$which, levels=c("mRNA", "Intronic", "Intergenic")) # desired order
 
 ggplot(data = sum.data.melted, aes(x = Sample, y = value, fill=which)) + 
@@ -643,6 +659,46 @@ if (exists("ercc.fit.table")) {
 ```
 
 
+```{r save_all_metrics, eval=T, echo=F,  message=F, warning=F}
+# Total, unique, duplicate reads summary: unique.counts.data.2
+
+# Bamtools Reads Summary
+bamstats.summary.2 <- apply(bamstats.summary, 1, function(x){x}) %>% data.frame()
+bamstats.summary.2$Sample <- rownames(bamstats.summary.2)
+rownames(bamstats.summary.2) <- NULL
+
+# Bamtools Reads Summary percent
+bamstats.percent.table.2 <- apply(bamstats.percent.table, 1, function(x){x}) %>% data.frame()
+names(bamstats.percent.table.2) <- paste0(names(bamstats.percent.table.2), ".percent")
+bamstats.percent.table.2$Sample <- rownames(bamstats.percent.table.2)
+rownames(bamstats.percent.table.2) <- NULL
+
+# RnaSeqMetrics Summary
+type_excl <- c("RIBOSOMAL_BASES", "PCT_RIBOSOMAL_BASES", "SAMPLE", "LIBRARY", "READ_GROUP")
+summary.data.2 <- summary.data %>% dplyr::filter(!Type%in%type_excl)
+row.names(summary.data.2) <- summary.data.2$Type
+summary.data.2 <- apply(summary.data.2[,-1], 1, function(x){x}) %>% data.frame()
+summary.data.2$Sample <- rownames(summary.data.2)
+rownames(summary.data.2) <- NULL
+
+
+# insert size
+insert.summary.data.2 <- apply(insert.summary.data, 1, function(x){x}) %>% data.frame()
+insert.summary.data.2$Sample <- rownames(insert.summary.data.2)
+rownames(insert.summary.data.2) <- NULL
+
+# merge
+if (pair_ended) {
+  merge_list <- list(unique.counts.data.2, bamstats.summary.2, bamstats.percent.table.2, summary.data.2, insert.summary.data.2)
+} else {
+  merge_list <- list(unique.counts.data.2, bamstats.summary.2, bamstats.percent.table.2, summary.data.2)
+}
+
+merge_tb <- Reduce(function(x,y){merge(x,y,by="Sample")}, merge_list)
+write.table(merge_tb, file=paste(project_name,"_qc_metrics_all.txt",sep=""), row.names=F, col.names=T, sep="\t", quote=F)
+```
+
+
 ## Principal Component Analysis (PCA) Plot
 
 ```{r pca_func, echo=F}
@@ -710,14 +766,14 @@ pcaplot_func <- function(pc, group_var, legend) { # group_var: column name for a
 
 # The pca_func function generates multiple pca plots for scan date, disease, treatment, and Donor
 pca_func <- function(pc) {
-  group_vars=c("Disease", "Treatment", "Tissue", "Donor")
-  legends=c("Disease", "Treatment", "Tissue", "Donor")
+  group_vars=c("Disease", "Treatment", "Tissue", "Donor", "Status")
+  legends=c("Disease", "Treatment", "Tissue", "Donor", "Status")
   idx_exist=c(1:length(group_vars))[group_vars%in%names(coldata)] # obtain index of existing variables
   plot_list=list() # store plots in a list
   for (i in idx_exist) {
     group_var=group_vars[i]
     legend=legends[i]
-    nlevel=nlevels(coldata[,group_var]) # levels of the variable
+    nlevel=length(unique(coldata[,group_var])) # levels of the variable
     if (group_var=="ScanDate_Group"|(nlevel>=2&nlevel<=20)) {
       plot_list[[group_var]]=pcaplot_func(pc, group_var=group_var,legend=legend)
     }
@@ -729,7 +785,7 @@ pca_func <- function(pc) {
 
 ```{r align_pca, eval=T, echo=F, message=F, warning=F}
 if (aligner=="star") {
-  coldata <- read.table(sample_info_file, sep='\t', header=TRUE)
+  coldata <- read.table(sample_info_file, sep='\t', header=TRUE, stringsAsFactors = TRUE)
   countdata <- read.table(count_data_file, sep='\t', header=TRUE, check.names=FALSE)
   rld <- rlog_func(coldata,countdata)
   pca_dat <- assay(rld)

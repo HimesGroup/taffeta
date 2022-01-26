@@ -447,7 +447,7 @@ res_fn <- paste0(project_name,"_",case,"_vs_",ctrl,"_fgsea_results.csv")
 write.csv(res_save, res_fn, row.names = F)
 ```
 
-View top pathways in fgsea results. Only include the first five leading genes
+View top main pathways in fgsea results.
 
 ```{r eval=T, echo=F}
 res_show <- res[padj<0.05&main_pathway=="main"]
@@ -464,7 +464,11 @@ leadingEdge <- rep(NA, nrow(res_show))
 leadingEdge <- sapply(res_show$leadingEdge, function(x)paste(x[1:5],collapse=","))
 res_show$leadingEdge <- NULL
 res_show$leadingEdge <- leadingEdge
-DT::datatable(res_show[1:50], rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+if (nrow(res_show)>50) {
+  DT::datatable(res_show[1:50], rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+} else {
+  DT::datatable(res_show, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
+}
 ```
 
 

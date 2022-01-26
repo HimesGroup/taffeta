@@ -101,7 +101,7 @@ def get_genome_ref_files(genome):
 
     return(fa, gtf, ref, ERCC_gtf, star_index_dir)
 
-def get_adapter_info(fin, index_type):
+def get_adapter_info(fin, index_types):
     """
     Read in information from adapter sequence file
     Obtain adapter sequences of corresponding index type
@@ -128,13 +128,14 @@ def get_adapter_info(fin, index_type):
         d[colname]=map(lambda x: x.split('\t')[i],c)
 
     # check if index_type within provided types
-    if index_type not in d["Type"]:
-        print index_type+" is not in the provided index types: "+', '.join(map(str,list(set(d["Type"]))))
-        print "Please check!"
-        sys.exit()
+    for i in index_types:
+        if i not in d["Type"]:
+            print i+" is not in the provided index types: "+', '.join(map(str,list(set(d["Type"]))))
+            print "Please check!"
+            sys.exit()
 
     # obtain idx of corresponding index type
-    idx=filter(lambda x:index_type in d["Type"][x], range(len(c)))
+    idx=filter(lambda x: d["Type"][x] in index_types, range(len(c)))
 
     # Create dictionary to store index sequences of corresponding index type
     d_seq = {} # key: Index; value: Sequence
@@ -163,19 +164,21 @@ def index_check(indexes, index_type, template_dir):
         print "Index type (--index_type) is not specified. Please check."
         sys.exit()
 
+    index_types = index_type.split(',') # if multiple dual index is specified
+
     # if unique dual (UD) index adapters are used, the two indexes i7 and i5 combined by "+" are needed
-    if index_type in ["illumina_ud_sys1", "illumina_ud_sys1"]:
+    if all(map(lambda x: x in ["illumina_ud_sys1", "illumina_ud_sys1", "illumina_cd"], index_types)):
         if not all(map(lambda x:'+' in x, indexes)):
-            print "Unique dual (UD) index type is specified. Provide i7 and i5 sequences using i7+i5 in Index column. Please check!"
+            print "Unique dual (UD) index type/Combinatorial Dual Index type is specified. Provide i7 and i5 sequences using i7+i5 in Index column. Please check!"
             sys.exit()
 
     index_fn=template_dir+"rnaseq_adapter_primer_sequences.txt"
-    print "index_type = "+index_type
+    print "index_type = "+','.join(index_types)
     print "Use provided adapter and primer sequence file: "+index_fn
     check_exist(index_fn)
 
     # obtain adapter and primer sequences based on index type and index sequence
-    index_dict=get_adapter_info(index_fn, index_type)
+    index_dict=get_adapter_info(index_fn, index_types)
     index_seqs=index_dict.keys()
 
     # check if index sequences within specified index type
@@ -621,7 +624,7 @@ if __name__ == "__main__":
     parser.add_argument("--ref_genome", default="hg38", type=str, help="Specify reference genome (options: hg38, hg19, mm38, mm10, rn6, susScr3)")
     parser.add_argument("--library_type", default="PE", type=str, help="Specify library type (options: PE (paired-end), SE (single-end))")
     parser.add_argument("--index_type", type=str, help="If Index column is in phenotype file, specify index type for adapter trim."
-        "(options: truseq_single_index, illumin_ud_sys1, illumin_ud_sys2 or user specified in the user-defined adapter reference file.)")
+        "(options: truseq_single_index, illumin_ud_sys1, illumin_ud_sys2, illumina_cd, or user specified in the user-defined adapter reference file. Use ',' to separate multiple index types)")
     parser.add_argument("--strand", type=str, default="nonstrand", help="Whether data is from a strand-specific assay."
         "(options: nonstrand, reverse, forward)")
     parser.add_argument("--path_start", default="./", type=str, help="Directory path where project-level directories are located and report directory will be written (default=./)")

@@ -625,8 +625,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create HTML report of differential expression results for RNA-seq samples associated with a project.")
     parser.add_argument("--project_name", type=str, help="Prefix name of project for all output files.")
     parser.add_argument("--samples_in", help="A tab-delimited txt file containing sample information with full path. See example file: sample_info_file.txt, but add an additional QC_Pass column")
-    parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, columns are Condition1, Condition0, Design. "
-            "Design: specify paired or unpaired. For paired design, specify condition to correct for, matching the column name in the 'coldata' file - e.g. paired:Donor.")
+    parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, required columns are Condition1, Condition0, Design. Optional column: Covariates."
+            "Design: specify paired or unpaired. For paired design, specify condition to correct for, matching the column name in the 'coldata' file - e.g. paired:Donor."
+            "Covariates: specify covariates used in design model. Several covariates can be separated by comma (e.g. age, sex).")
     parser.add_argument("--de_package", default="deseq2", type=str, help="Should be DESeq2 or sleuth be used for diferential expression (DE) analysis? If sleuth, a larger memory ~36 Mb is required."
             "(options: deseq2, sleuth)")
     parser.add_argument("--ref_genome", default="hg38", type=str, help="Specify reference genome (options: hg38, mm38, mm10, rn6)")

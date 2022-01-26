@@ -72,33 +72,67 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     ###
     # Create global design variable based on comparison file
     ###
+    # obtain column names in sample_info_file
+    samps_file=open(sample_info_file)
+    samps = (samps_file.readlines()[0].rstrip()).split('\t') # obtain column names
 
     #load text file containing all comparisons of interest
-    comps_file = open(comp_file)
-    comps = comps_file.readlines()[1:] # exclude header line
+    comps = []
+    with open(comp_file, 'r') as f:
+        header = f.readline()
+        header_items = header.rstrip().split('\t')
+        if not all (map(lambda x: x in header_items, ["Condition1", "Condition0", "Design"])):
+            print "Column names in "+comp_file+" should include: Condition1, Condition0, Design"
+            sys.exit()
+        case_index = header_items.index("Condition1")
+        ctrl_index = header_items.index("Condition0")
+        design_index = header_items.index("Design")
+        covar_index = ""
+        if "Covariates" in header_items:
+            covar_index = header_items.index("Covariates")
+        for line in f:
+            line = line.rstrip().split('\t')
+            case = line[case_index]
+            ctrl = line[ctrl_index]
+            design = line[design_index]
+            if covar_index !="":
+                covar = line[covar_index]
+            else:
+                covar = ""
+            out = [case, ctrl, design, covar]
+            comps = comps + [out]
 
-    # obtain paired variable -- control_vars
-    if "paired:" in ''.join(comps): # if paired variable exists in comparison file
-        control_vars=map(lambda x:x.rstrip().split(':')[1],filter(lambda x:"paired:" in x, comps)) # obtain all paired variables
-        control_vars=list(set(control_vars)) # obtain unique variables
+    # obtain paired variable -- paired_vars
+    design_items = map(lambda x: x[2], comps)
+    paired_design_items = filter(lambda x: "paired:" in x, design_items)
+    
+    if len(paired_design_items): # if paired variable exists in comparison file
+        paired_vars=map(lambda x: x.rstrip().split(':')[1], paired_design_items) # obtain all paired variables
+        paired_vars=list(set(paired_vars)) # obtain unique variables
 
         # check if paired variables are within sample_info_file
-        samps_file=open(sample_info_file)
-        samps = (samps_file.readlines()[0].rstrip()).split('\t') # obtain column names
-
-        if len(list(set(control_vars)-set(samps)))>0:
-            print "The paired variable(s) must be columns in the sample_info_file "+sample_info_file+". The following specified variables are not in sample_info_file: "+" ,".join(list(set(control_vars)-set(samps)))
+        if len(list(set(paired_vars)-set(samps)))>0:
+            print "The paired variable(s) must be columns in the sample_info_file "+sample_info_file+". The following specified variables are not in sample_info_file: "+" ,".join(list(set(paired_vars)-set(samps)))
             sys.exit()
 
     # assign global variable
-
-    if "unpaired" in ''.join(comps) and "paired:" not in ''.join(comps):
-        design="unpaired"
-    elif "unpaired" not in ''.join(comps) and "paired:" in ''.join(comps):
-        design="paired"
+    unpaired_design_items = filter(lambda x: "unpaired" in x, design_items)
+    if len(unpaired_design_items)>0 and len(paired_design_items)==0:
+        study_design="unpaired"
+    elif len(unpaired_design_items)==0 and len(paired_design_items)>0:
+        study_design="paired"
     else:
-        design="mixed"
+        study_design="mixed"
 
+    # check if covariate variables are within sample_info_file
+    covar_items = filter(lambda x: x!="", map(lambda x: x[3].rstrip(), comps))
+    if len(covar_items) >0:
+        covar_items = map(lambda x: x.replace(" ", "").split(','), covar_items)
+        covar_items = [item for sublist in covar_items for item in sublist]
+        # check if all covariates are in sample info
+        if len(list(set(covar_items)-set(samps)))>0:
+            print "The following specified covariate(s) are not in the sample_info_file "+sample_info_file+": "+" ,".join(list(set(covar_items)-set(samps)))
+            sys.exit()
     # Create out directory
     out_dir = path_start+project_name+"_deseq2_out/"
     if not os.path.exists(out_dir):
@@ -143,17 +177,25 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("Normalized counts are obtained from DESeq2 function estimateSizeFactors(), which divides counts by the geometric mean across samples; this function does not correct for read length. The normalization method is described in detail here: https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-10-r106<br>\n\n")
     outp.write("Differential gene expression analysis was done for all comparisons provided in the comparisons file.  The following design was used:<br>\n\n")
 
-    if design=="unpaired":
-        outp.write("> design = ~ Status<br>\n\n")
-    elif design=="paired":
-        for control_var in control_vars:
-            outp.write("> design = ~ "+" + "+control_var+" + Status<br>\n\n")
-    elif design=="mixed":
-        outp.write("For unpaired comparisons:\n")
-        outp.write("> design = ~ Status<br>\n\n")
-        outp.write("For paired comparisons:\n")
-        for control_var in control_vars:
-            outp.write("> design = ~ "+" + "+control_var+" + Status<br>\n\n")
+
+    all_formula = set()
+    for comp in comps:
+        [case, ctrl, design, covar] = comp
+        if covar!="":
+            covars = covar.split(',')
+        else:
+            covars = [""]
+
+        if design=="unpaired":
+            paired_item = ""
+        else:
+            paired_item = design.replace("paired:","")
+        all_vars = filter(lambda x: x!="", [paired_item] + covars + ["Status"])
+        formula = "design = ~ "+" + ".join(all_vars)
+        all_formula.add(formula)
+
+    for i in all_formula:
+            outp.write("> "+ i + "<br>\n\n")
 
     outp.write("If desired, the design can be modified to include more independent variables. In addition to the partial results displayed in this report, the full set of DESeq2 results for each comparison was saved down in separate text files, with names of the form:<br>\n\n")
     outp.write("> "+project_name+"_CASE_vs_CONTROL_DESeq2_results.txt<br>\n\n")
@@ -249,17 +291,14 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("```\n\n")
 
     #create and paste the portion of the report that is unique to each comparison
-    for line in comps:
-        line=line.rstrip()
-        case=line.split('\t')[0]
-        ctrl=line.split('\t')[1]
-
-        # define local design variable for each comparison
-        if "unpaired" in line.split('\t')[2]:
-            design="unpaired"
-        elif "paired:" in line.split('\t')[2]:
-            design="paired"
-            control_var=(line.split('\t')[2]).split(':')[1]
+    for comp in comps:
+        [case, ctrl, design, covar] = comp
+        if design=="unpaired":
+            paired_var = ""
+        else:
+            paired_var = design.replace("paired:","")
+        if covar!="":
+            covars = covar.split(',')
 
         outp.write("```{r, eval=T, echo=F}\n")
         outp.write("case <- '"+case+"'\n")
@@ -276,12 +315,12 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
         if design=="paired": # if there is a sample without a pair in this comparison, remove it from the comparison
             outp.write("#for paired design, want each unique value of control variable to correspond to an equal number of case and control samples -- else toss all samples with that value of control variable.\n")
-            outp.write("donors_case=as.character(coldata_curr$"+control_var+")[which(coldata_curr$Status==case)]\n")
-            outp.write("donors_ctrl=as.character(coldata_curr$"+control_var+")[which(coldata_curr$Status==ctrl)]\n")
-	    outp.write("for (i in unique(coldata_curr$"+control_var+")) {\n")
+            outp.write("donors_case=as.character(coldata_curr$"+paired_var+")[which(coldata_curr$Status==case)]\n")
+            outp.write("donors_ctrl=as.character(coldata_curr$"+paired_var+")[which(coldata_curr$Status==ctrl)]\n")
+	    outp.write("for (i in unique(coldata_curr$"+paired_var+")) {\n")
 	    outp.write("	if (!(i%in%donors_case&i%in%donors_ctrl)) {\n")
-	    outp.write("		coldata_curr <- coldata_curr[-which(coldata_curr$"+control_var+"==i),]\n")
-	    outp.write("		cat('Samples with "+control_var+"==', i, 'were removed from the "+case+" vs. "+ctrl+" comparison because there was an unequal number of case and control samples')\n}\n}\n")
+	    outp.write("		coldata_curr <- coldata_curr[-which(coldata_curr$"+paired_var+"==i),]\n")
+	    outp.write("		cat('Samples with "+paired_var+"==', i, 'were removed from the "+case+" vs. "+ctrl+" comparison because there was an unequal number of case and control samples')\n}\n}\n")
 
 
         outp.write("coldata_curr <- coldata_curr[order(as.character(coldata_curr$Sample)), ]\n")
@@ -307,10 +346,14 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
 
         if design=="unpaired":
             outp.write("# unpaired design, testing for effect of Status\n")
-	    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ Status)\n")
-        elif design=="paired":
-	    outp.write("# paired design, testing for effect of Status while controlling for "+control_var+"\n")
-	    outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, design = ~ "+control_var+" + Status)\n")
+            formula = "design = ~ Status"
+        else:
+            outp.write("# paired design, testing for effect of Status while controlling for "+paired_var+"\n")
+            formula = "design = ~ " + paired_var + " + Status"
+        if covar!="":
+            all_vars = filter(lambda x: x!="", [paired_var]+covars)
+            formula = "design = ~ " + " + ".join(all_vars) + " + Status"
+	outp.write("ddsFullCountTable <- DESeqDataSetFromMatrix(countData = countdata_curr, colData = coldata_curr, "+formula+")\n")
 
 	outp.writelines(rmd_template)
 	outp.write("\n")
@@ -369,7 +412,7 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.close()
 
     # create .lsf file for HPC use
-    lsf_cmd="cd "+out_dir+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore\n"
+    lsf_cmd="echo \"library(rmarkdown); rmarkdown::render('"+out_dir+'/'+project_name+"_DESeq2_Report.Rmd')\" | R --no-save --no-restore\n"
     lsf_file(project_name+"_deseq2", lsf_cmd)
 
 	
@@ -525,6 +568,9 @@ def main(project_name, sample_info_file, de_package, path_start, comp_file, temp
     if not os.path.exists(comp_file):
         print "Cannot find the comparison file: "+comp_file
         sys.exit()
+    # convert compare file to Unix format
+    #convert_cmd = "dos2unix "+comp_file
+    #subprocess.Popen(convert_cmd, shell=True).wait()
 
 
     # check if pathway files exist
@@ -579,8 +625,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create HTML report of differential expression results for RNA-seq samples associated with a project.")
     parser.add_argument("--project_name", type=str, help="Prefix name of project for all output files.")
     parser.add_argument("--samples_in", help="A tab-delimited txt file containing sample information with full path. See example file: sample_info_file.txt, but add an additional QC_Pass column")
-    parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, columns are Condition1, Condition0, Design. "
-            "Design: specify paired or unpaired. For paired design, specify condition to correct for, matching the column name in the 'coldata' file - e.g. paired:Donor.")
+    parser.add_argument("--comp", help="A tab-delimited txt file containing sample comparisons to be made. One comparison per line, required columns are Condition1, Condition0, Design. Optional column: Covariates."
+            "Design: specify paired or unpaired. For paired design, specify condition to correct for, matching the column name in the 'coldata' file - e.g. paired:Donor."
+            "Covariates: specify covariates used in design model. Several covariates can be separated by comma (e.g. age, sex).")
     parser.add_argument("--de_package", default="deseq2", type=str, help="Should be DESeq2 or sleuth be used for diferential expression (DE) analysis? If sleuth, a larger memory ~36 Mb is required."
             "(options: deseq2, sleuth)")
     parser.add_argument("--ref_genome", default="hg38", type=str, help="Specify reference genome (options: hg38, mm38, mm10, rn6)")

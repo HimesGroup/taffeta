@@ -940,7 +940,7 @@ def make_rmd_html(sample_info_file, project_name, path_start, sample_names, ercc
     print "Created file "+path_start+project_name+"_QC_RnaSeqReport.Rmd"
 
     # create .lsf file. Run it on HPC becuase rlog for all sample counts in pca step is computationally demanding.
-    cmd="cd "+path_start+"; echo \"library(rmarkdown); rmarkdown::render('"+project_name+"_QC_RnaSeqReport.Rmd')\" | R --no-save --no-restore\n"
+    cmd="echo \"library(rmarkdown); rmarkdown::render('"+path_start+'/'+project_name+"_QC_RnaSeqReport.Rmd')\" | R --no-save --no-restore\n"
     lsf_file(project_name+"_qc", cmd)
     print "Created LSF script "+project_name+"_qc.lsf in current directory"
 

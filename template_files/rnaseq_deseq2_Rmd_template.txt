@@ -77,7 +77,8 @@ if (exists("fav_genes")&any(fav_genes%in%res_df$gene_symbol)) {
 #output table for report
 #select top 50 by pvalue
 #then round to 2 decimal points for output table
-res_df_outp <- head(res_df[order(res_df$pvalue, decreasing=FALSE),], 50)
+res_df_outp <- res_df %>% dplyr::filter(gene_symbol!="") %>% dplyr::filter(!is.na(gene_symbol)) # ignore genes that do not have gene symbols
+res_df_outp <- head(res_df_outp[order(res_df_outp$pvalue, decreasing=FALSE),], 50)
 res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")] <- round(res_df_outp[,c("baseMean", "log2FoldChange", "lfcSE", "stat")], 2)   
 res_df_outp[,c("pvalue")] <- formatC(res_df_outp[,c("pvalue")], format = "e", digits = 2) # do this in 2 steps, else get "Error in is.finite(x) : default method not implemented for type 'list'"
 res_df_outp[,c("padj")] <- formatC(res_df_outp[,c("padj")], format = "e", digits = 2) 
@@ -123,8 +124,8 @@ volplot_func <- function(df,qval_column,title) {
     # log10 transformed q values
     df$logqval <- -log10(qval)
     diffgenes <- df$Gene[qval<0.05] #Create list of all DEG's
-    signum = paste0(length(diffgenes), " differentially expressed genes")
-    #cat(length(diffgenes), "differentially expressed genes have been identified based on", qval_column)
+    signum = paste0(length(diffgenes), " DE genes (", qval_column, "<0.05)")
+    #cat(length(diffgenes), "DE have been identified based on", qval_column)
     if (missing(title)) {title=signum}
     print(
     ggplot(df, aes(x = log2FoldChange, y = logqval, color=sig)) + geom_point(size=0.5) +
@@ -219,7 +220,8 @@ heatmap_topgene_func <- function(tb, topnum=30, main="") {
 ```
 
 ```{r , eval=T, echo=F, fig.height=10, fig.width=12}
-heatmap_topgene_func(tb=res_df, topnum=30, main="")
+res_df_outp <- res_df %>% dplyr::filter(gene_symbol!="") %>% dplyr::filter(!is.na(gene_symbol)) # ignore genes that do not have gene symbols
+heatmap_topgene_func(tb=res_df_outp, topnum=30, main="")
 ```
 
 ### Principal component analysis (PCA) Plot based on regularized log transformed data
@@ -345,13 +347,14 @@ boxplot_func <- function(df) {
 
 ```{r, eval=T, echo=F, message=F, cache=F, warning=F, fig.height=4, fig.width=4}
 topnum=20
+res_df_outp <- res_df %>% dplyr::filter(gene_symbol!="") %>% dplyr::filter(!is.na(gene_symbol)) # ignore genes that do not have gene symbols
+res_df_outp <- head(res_df_outp[order(res_df_outp$pvalue, decreasing=FALSE),], 50)
 for (i in 1:topnum) {
-  gene_id <- res_df[i,"Gene"]
-  gene_symbol <- res_df[i,"gene_symbol"]
+  gene_id <- res_df_outp[i,"Gene"]
+  gene_symbol <- res_df_outp[i,"gene_symbol"]
   curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
   print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
 }
-
 ```
 
 ### Favorite genes

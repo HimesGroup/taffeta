@@ -392,6 +392,7 @@ if (length(sel_fav_genes)>0) {
 
 
 ```{r eval=T, echo=F}
+httr::set_config(httr::config(ssl_verifypeer = FALSE)) # to avoid errors from Ensembl mirror sites
 convertspeciesGeneList <- function(x){
   human 	<- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl", mirror = "useast")
   species 	<- useEnsembl("ensembl", dataset = convert_dataset, mirror = "useast")

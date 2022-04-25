@@ -383,8 +383,8 @@ def make_deseq2_html(rmd_template, project_name, path_start, sample_info_file, r
     outp.write("  DT::datatable(dat, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = \"_all\"))))\n")    
     outp.write("}\n```\n\n")
 
-    #Favorite gene boxplots for all conditions
-    outp.write("## Favorite gene expressions in all conditions\n")
+    #Control gene boxplots for all conditions
+    outp.write("## Control gene expression in all conditions\n")
     outp.write("\n")
     outp.write("```{r, eval=T, echo=F, cache=F, warning=F, message=F}\n")
     outp.write("if (exists(\"fav_genes\")&any(fav_genes%in%norm.counts$gene_symbol)) {\n")

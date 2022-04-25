@@ -43,8 +43,8 @@ write.table(res_ct_df, res_ct_fn, quote=F, row.names=F, col.names=T, sep='\t')
 
 ```{r, eval=T, echo=F}
 # assign colours to comparison status
-colour_status <- c("navy","red")
-names(colour_status) <- c(ctrl,case) # assign red to case and navy to control
+colour_status <- c("lightblue1","red")
+names(colour_status) <- c(ctrl,case) # assign red to case and lightblue1 to control
 colour_status_list <- unlist(lapply(coldata_curr$Status,function(x){colour_status[x]}))
 colours=c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666", "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462", "#B3DE69", "#FCCDE5", "#D9D9D9", "#BC80BD", "#CCEBC5", "#FFED6F") # first 8 colour names derived from Dark2, and last 12 names from Set3
 ```
@@ -357,45 +357,13 @@ for (i in 1:topnum) {
 }
 ```
 
-### Favorite genes
-
-Boxplots for user-defined favorite genes if they exist, and show DE results
-
-```{r, eval=T, echo=F, cache=FALSE, warning=F, message=F, fig.height=4, fig.width=4}
-sel_fav_genes=fav_genes[fav_genes%in%as.character(res_df$gene_symbol)] # select favorite genes within the current results
-if (length(sel_fav_genes)==0) {cat("None of user-defined genes are found in current DE results.\n")} else {
-  for (i in sel_fav_genes) {
-    gene_symbol=i
-    gene_id <- res_df[which(res_df$gene_symbol==gene_symbol),"Gene"][1] # choose Ensembl gene with smallest p-values
-    curr_data <- res_ct_df[which(res_ct_df$Gene==gene_id),]
-    print(boxplot_func(df=curr_data)+scale_fill_manual(values=colour_status,na.value="grey"))
-  }
-}
-```
-
-```{r, eval=T, echo=F, message=F}
-if (length(sel_fav_genes)>0) {
-  fav_tb=data.frame()
-  for (i in sel_fav_genes) {
-    gene_symbol=i
-    curr_data <- res_df[which(res_df$gene_symbol==gene_symbol),][1,] # choose Ensembl gene with smallest p-values
-    fav_tb=rbind(fav_tb, curr_data)
-  }
-  fav_tb[,c("baseMean", "log2FoldChange", "lfcSE", "stat")] <- round(fav_tb[,c("baseMean", "log2FoldChange", "lfcSE", "stat")], 2)   
-  fav_tb[,c("pvalue")] <- formatC(fav_tb[,c("pvalue")], format = "e", digits = 2) # do this in 2 steps, else get "Error in is.finite(x) : default method not implemented for type 'list'"
-  fav_tb[,c("padj")] <- formatC(fav_tb[,c("padj")], format = "e", digits = 2) 
-  DT::datatable(fav_tb, rownames=FALSE, options = list(columnDefs = list(list(className = 'dt-center', targets = "_all"))))
-}
-```
-
 ### Gene-set enrichment analysis
 
 
 ```{r eval=T, echo=F}
-httr::set_config(httr::config(ssl_verifypeer = FALSE)) # to avoid errors from Ensembl mirror sites
 convertspeciesGeneList <- function(x){
-  human 	<- useEnsembl("ensembl", dataset = "hsapiens_gene_ensembl", mirror = "useast")
-  species 	<- useEnsembl("ensembl", dataset = convert_dataset, mirror = "useast")
+  human 	<- useMart("ensembl", dataset = "hsapiens_gene_ensembl", host = "https://dec2021.archive.ensembl.org/")
+  species 	<- useMart("ensembl", dataset = convert_dataset, host = "https://dec2021.archive.ensembl.org/")
   tmp 	<- getLDS(attributes = c("mgi_symbol"), filters = "mgi_symbol", values = x , mart = species, attributesL = c("hgnc_symbol"), martL = human, uniqueRows=TRUE)
   return(tmp)
 }

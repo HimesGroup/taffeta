@@ -561,6 +561,9 @@ erccplot_func=function(conc,count,colname){
 
 ```{r, ercc_fit, eval=ercc.exist, echo=F, message=F, results="asis", fig.height=4, fig.width=4} 
 if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
+	# obtain sample name prefix to modify curr.sample.name by adding "count_"/"tpm_"/"FRKM"
+	if (any(grepl("count_", colnames(ercc.data)))) {prefix="count_"} else if (any(grepl("tpm_", colnames(ercc.data)))) {prefix="tpm_"} else if (any(grepl("fpkm_", colnames(ercc.data)))) {prefix="fpkm_"} 
+
 	sample.names <- sample.names.orig
 	if (!file.exists(ambion_file)) {stop("ERCC concentration file", ambion_file, " does not exist")}
 
@@ -572,7 +575,7 @@ if ("1" %in% ercc.mixes | "2" %in% ercc.mixes) {
 	ercc.fit.table <- data.frame() # ERCC concordance results
 	# select mix type
 	for (i in c(1:length(sample.names))){
-		curr.sample.name <- names(ercc.data)[grepl(sample.names[i],names(ercc.data))]
+		curr.sample.name <- paste0(prefix, sample.names[i])
 		curr.ercc.mix <- ercc.mixes[i]
 		# choose mix type
 		if (curr.ercc.mix=="1") {

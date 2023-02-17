@@ -91,14 +91,9 @@ SRA sample ID is derived from GEO phenotype where the column name with **relatio
 ```{r pheno.raw, eval=T, echo=F, message=F, warning=F}
 if (exists("geo_id")){
   if (!exists("pheno_fn")) {
-    relation_cols <- which(grepl("relation",names(pheno.raw))) # columns which have "relation" in column names
-    relation_col=relation_cols[sapply(relation_cols, function(x){ # the column with "SRX" is where to retain the SRA ID
-      relation=pheno.raw[,x]
-      any(grepl("SRX", relation))
-    })]
-    if (length(relation_col)>1) {stop("More than two columns contain SRX information. Please check and speciy column name to the variable relation_name.")}
-    relation_name=names(pheno.raw)[relation_col]
-    files <- gsub(".*=","",pheno.raw[,relation_name])
+    # identify column with SRX or Biosample ID
+    relation_name <- names(pheno.raw)[apply(pheno.raw,2,function(x)any(grepl("SRX|SAMN", x)))][1]
+    files <- gsub(".*=|.*/","",pheno.raw[,relation_name])
   } else {
     pheno.raw <- read.table(pheno_fn, header=T, sep='\t')
     files <- pheno.raw$SRA_ID
@@ -116,89 +111,7 @@ if (exists("geo_id")){
 
 Get fastq file information from SRA repository using SRA Tools. Raw .fastq files will be downloaded in parallele using Linux bash script
 
-```{r sra_func, echo=F, message=F, warning=F}
-###
-# Stop using SRAdb to retrieve data
-###
-# The sradownload_func downloads fastq file based on SRA id
-sradownload_func <- function(file) {
-  SRAdb::getSRAfile(file, sra_con,
-    destDir = out_dir , fileType = 'fastq',
-    srcType= 'ftp', makeDirectory = FALSE,
-    method = 'libcurl', ascpCMD = NULL )
-  cat("Finished downloading file:", file, "\n")
-}
-
-# The srainfo_func obtains ftp information for SRA fastq files
-srainfo_func <-function(file) {
-  sra_acc <- sraConvert(file, out_type=c('run'), sra_con = sra_con )
-  getFASTQinfo (sra_acc$run, sra_con, srcType="ftp")
-}
-
-# The fastqinfo function can be used in absence of a GEO entry using the SRA ID
-fastq_info_func <- function(SRA_ID) {
-	sra_info <- sraConvert( in_acc=SRA_ID, out_type=c('experiment','run'), sra_con = sra_con )
- 	#fastq_files <- arrange(sra_info,experiment,run)
- 	sraFiles <- getFASTQinfo(in_acc = c(sra_info$experiment), sra_con, srcType = 'ftp' )
- 	return(sraFiles)
-}
-
-# check if sample from GEO exists in SRAdb
-sraconv_func <- function(files) {
-  conversion <- sraConvert(files, sra_con = sra_con )
-}
-```
-
-```{r sraFiles, eval=F, echo=F, message=F, warning=F}
-###
-# Stop using SRAdb to retrieve data
-###
-# download SRAmetadb.sqlite if it does not exist
-if (!file.exists(paste0(out_dir, "/SRAmetadb.sqlite"))) {
-  sqlfile <- getSRAdbFile()
-  sra_con <- dbConnect(SQLite(),sqlfile)
-} else {
-  sra_con <- dbConnect(SQLite(),dbname="SRAmetadb.sqlite")
-}
-# check if files exist in sradb. If not, download fastq file from SRA using SRA toolkits
-conversion <- sraconv_func(files)
-sradb_exist <- nrow(conversion)!=0
-if (!sradb_exist) {
-  if (!exists("sra_id")) {stop(geo_id, " is not available in SRAdb. Please provide sra_id.")}
-}
-
-# check if all samples exist in SRAdb
-if (sradb_exist) {
-  if (!all(sapply(files, function(x){x%in%conversion$experiment}))) {
-    cat("Not all samples in GEO or phenotype file are in SRAdb. Use SRA Tools for download.\n")
-    if (!exists("sra_id")|!exists("pheno_fn")) {
-      stop("Please provide SRA ID or phenotype file.")
-    } else {sradb_exist=FALSE}
-  }
-}
-```
-
-
-```{r sra_download_sradbexist, eval=F, echo=F, message=F, warning=F}
-###
-# Stop using SRAdb to retrieve data
-###
-
-# if study the exists in SRAdb
-# obtain SRA file information
-if(exists("geo_id")){
-  sraFiles <- do.call(rbind, lapply(files, srainfo_func)) %>% dplyr::filter(experiment%in%files) %>% unique() # exclude the same samples that are used in other projects
-  write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
-  
-} else if (exists("sra_id")){
-  sraFiles <- fastq_info_func(sra_id)
-  sraFiles <- sraFiles %>% dplyr::filter(experiment%in%files) %>% dplyr::select(run,submission,study,sample,experiment,ftp) %>% unique() # exclude the same samples that are used in other projects
-  write.table(sraFiles, paste0(out_dir, project_name, "_sraFile.info"), col.names=T,row.names=F,sep="\t",quote=F )
-}
-```
-
 ```{r sra_download_sradbnotexist, eval=T, echo=F, message=F, warning=F}
-# if the study does not exist in SRAdb
 # obtain metadata from SRA website
 metadata_fn <- paste0(out_dir, "/", sra_id, ".metadata.csv") 
 cmd_metadata_download <- paste0("esearch -db sra -query ", sra_id, " | efetch -format runinfo | awk -F ',' 'NR==1; NR>1 {print $0 | \"grep -v Run\" }' | sed '/^$/d' > ", metadata_fn)
@@ -206,7 +119,10 @@ system(cmd_metadata_download)
 # save meta data in sraFile.info
 sraFiles <- read.csv(metadata_fn)
 names(sraFiles) <- unname(sapply(names(sraFiles), tolower))
-sraFiles <- sraFiles %>% dplyr::filter(experiment%in%files) %>% dplyr::select(run,submission,experiment) %>% unique() # exclude the same samples that are used in other projects
+sraFiles <- sraFiles %>% dplyr::filter(experiment%in%files|biosample%in%files) %>% dplyr::select(run,submission,experiment,biosample) %>% unique() # exclude the same samples that are used in other projects
+if (!exists("pheno_fn")) {
+  files <- sraFiles$run # update SRR id
+}
 if (!exists("geo_id")) {
   sra_fn <- paste0(out_dir, project_name, "_sraFile.info")
 } else {
@@ -241,7 +157,6 @@ cols=c("title","geo_accession", "characteristics_ch1.2","characteristics_ch1.3",
 if (all(sapply(cols, function(x){x%in%names(pheno.raw)}))) {
     pheno <- pheno.raw %>%
       dplyr::select(cols) %>%
-      dplyr::mutate(SRA_ID=files) %>%
       dplyr::mutate(GEO_ID=geo_accession) %>%
       dplyr::mutate(Donor=gsub("cell line: ","",characteristics_ch1.3)) %>%
       dplyr::mutate(Tissue="ASM") %>%
@@ -252,15 +167,14 @@ if (all(sapply(cols, function(x){x%in%names(pheno.raw)}))) {
       dplyr::mutate(Disease="nonasthma") %>%
       dplyr::mutate(ERCC_Mix=gsub("ercc_mix: ","",characteristics_ch1.2)) %>%
       dplyr::select(-one_of(cols)) %>% # remove original columns
-      dplyr::mutate(SRA_ID=files) %>%
+      dplyr::mutate(Sample=files) %>%
       dplyr::mutate_if(is.character,as.factor) 
 } else {
   cat("Not all pre-defined column names are in meta data. Use raw meta data.\n")
   pheno <- pheno.raw
   pheno$SRA_ID <- files
 }
-pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="experiment", by.y="SRA_ID", all.y=T) # add sample name (run column from SRA database)
-names(pheno)[names(pheno)%in%c("run")] <- c("Sample")
+pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="run", by.y="Sample", all.y=T) # add sample name (run column from SRA database)
 names(pheno)[names(pheno)%in%c("experiment")] <- c("SRA_ID")
 detach("package:dplyr")
 write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)

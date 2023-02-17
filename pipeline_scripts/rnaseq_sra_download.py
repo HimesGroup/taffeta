@@ -87,7 +87,7 @@ def download_fastq(SRA_info, out_dir, path_start, fastqc):
     sra=open(SRA_info, 'r')
     sra=sra.readlines()
     header=sra[0].rstrip()
-    if header != "run\tsubmission\texperiment":
+    if header != "run\tsubmission\texperiment\tbiosample":
         print "The column names in SRA_info file "+SRA_info+" should be run, submission\n"
         sys.exit()
 
@@ -95,10 +95,7 @@ def download_fastq(SRA_info, out_dir, path_start, fastqc):
     for line in sra[1:]:
         line = line.rstrip().split('\t')
         run = line[0]
-        if run not in SRA:
-            SRA[run]=1
-        else:
-            SRA[run]=1
+        SRA[run]=1
 
     # create .lsf file with download command
     for sample in SRA:

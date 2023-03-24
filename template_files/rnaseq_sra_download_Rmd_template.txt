@@ -176,6 +176,7 @@ if (all(sapply(cols, function(x){x%in%names(pheno.raw)}))) {
 }
 pheno <- merge(unique(sraFiles[,c("run","experiment")]), pheno, by.x="run", by.y="Sample", all.y=T) # add sample name (run column from SRA database)
 names(pheno)[names(pheno)%in%c("experiment")] <- c("SRA_ID")
+names(pheno)[names(pheno)%in%c("run")] <- c("Sample")
 detach("package:dplyr")
 write.table(pheno, paste0(out_dir, geo_id, "_withoutQC.txt"),col.names=T,row.names=F,sep="\t",quote=F)
 ```
